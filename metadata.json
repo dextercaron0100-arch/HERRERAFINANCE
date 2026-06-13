@@ -1,0 +1,6 @@
+{
+  "name": "Finance Dashboard",
+  "description": "Multi-company finance dashboard for Blesscent, Bigstop, Franchise Hub, and Scentimo with approvals, payroll, budget, and Google Workspace integrations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

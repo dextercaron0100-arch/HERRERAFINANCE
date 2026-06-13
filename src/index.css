@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Aeonik';
+  src: local('Aeonik'), local('Aeonik Pro'), local('Aeonik Regular'), local('Aeonik-Regular'),
+       url('https://db.onlinewebfonts.com/t/122df077b2203ca9b19e99557434a9ca.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: local('Aeonik Medium'), local('Aeonik-Medium'),
+       url('https://db.onlinewebfonts.com/t/ebdff825cf5147814b77f98cf4ac6fed0.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: local('Aeonik Bold'), local('Aeonik-Bold'),
+       url('https://db.onlinewebfonts.com/t/88022a10632d43e742b67f1396b79720.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Aeonik", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Aeonik", "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+/* Base Body Styles for Robotic / Elite Modern Dark Theme */
+body {
+  background-color: #0F1113;
+  color: #E2E8F0;
+  font-family: var(--font-sans);
+}
+
+/* Custom modern styling helpers matching the reference image */
+.art-bg-dark {
+  background-color: #0F1113;
+}
+
+.art-bg-card {
+  background-color: #17191C;
+}
+
+.art-border {
+  border-color: #24272C;
+}
+
+.art-text-muted {
+  color: #94A3B8;
+}
+
+.serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+/* custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F1113;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #24272C;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.2); }
+  50% { border-color: rgba(245, 158, 11, 0.6); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-slideRight {
+  animation: slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.col-pulse {
+  animation: pulseBorder 2s infinite ease-in-out;
+}
+
+/* Print Overrides */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  header, aside, button, select, input, form, .no-print {
+    display: none !important;
+  }
+  
+  #print-canvas {
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Force all nested text inside the print canvas to use positive charcoal high-contrast text on white page background */
+  #print-canvas * {
+    background: transparent !important;
+    color: #111111 !important;
+    border-color: #cccccc !important;
+  }
+
+  /* Support clean status colors on paper & high-fidelity pdf outputs */
+  #print-canvas .text-emerald-400,
+  #print-canvas .text-emerald-500 {
+    color: #047857 !important; /* Professional Dark Emerald Green */
+  }
+
+  #print-canvas .text-rose-400,
+  #print-canvas .text-rose-500 {
+    color: #b91c1c !important; /* Professional Crimson Red */
+  }
+}
+
+/* --- Clean Light Theme Overrides --- */
+html.light-theme body,
+html.light-theme .art-bg-dark {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+}
+
+html.light-theme .bg-\[\#0F1113\] { background-color: #F8FAFC !important; }
+html.light-theme .bg-\[\#141618\], html.light-theme .bg-zinc-900 { background-color: #F1F5F9 !important; }
+html.light-theme .bg-\[\#181A1C\] { background-color: #FFFFFF !important; }
+html.light-theme .bg-\[\#1D2024\] { background-color: #E2E8F0 !important; }
+
+html.light-theme .border-\[\#24272C\] { border-color: #CBD5E1 !important; }
+html.light-theme .border-\[\#24272C\]\/40 { border-color: rgba(203, 213, 225, 0.4) !important; }
+html.light-theme .border-\[\#24272C\]\/50 { border-color: rgba(203, 213, 225, 0.5) !important; }
+html.light-theme .border-\[\#24272C\]\/60 { border-color: rgba(203, 213, 225, 0.6) !important; }
+
+html.light-theme .text-\[\#F1F5F9\],
+html.light-theme .text-white { color: #0F172A !important; }
+
+html.light-theme .text-zinc-500 { color: #64748B !important; }
+html.light-theme .text-zinc-450 { color: #475569 !important; }
+html.light-theme .text-zinc-400 { color: #334155 !important; }
+html.light-theme .text-zinc-350 { color: #1E293B !important; }
+html.light-theme .text-zinc-300 { color: #0F172A !important; }
+
+html.light-theme .hover\:text-white:hover { color: #000000 !important; }
+html.light-theme .hover\:bg-white:hover { background-color: #1E293B !important; color: #FFFFFF !important; }
+html.light-theme .hover\:bg-\[\#1E2124\]:hover { background-color: #CBD5E1 !important; color: #000000 !important; }
+html.light-theme .hover\:bg-\[\#181A1C\]:hover { background-color: #F1F5F9 !important; }
+html.light-theme .hover\:bg-\[\#1D2024\]\/40:hover { background-color: rgba(203,213,225,0.4) !important; }
+html.light-theme .hover\:border-white:hover { border-color: #0F172A !important; }
+
+html.light-theme .divide-\[\#24272C\] > :not([hidden]) ~ :not([hidden]) { border-color: #CBD5E1 !important; }
+html.light-theme .divide-\[\#24272C\]\/60 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(203, 213, 225, 0.6) !important; }
+
+/* Scrollbar Light Theme Overrides */
+html.light-theme ::-webkit-scrollbar-track { background: #F8FAFC !important; }
+html.light-theme ::-webkit-scrollbar-thumb { background: #CBD5E1 !important; }
+html.light-theme ::-webkit-scrollbar-thumb:hover { background: #94A3B8 !important; }
+
