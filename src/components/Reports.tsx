@@ -192,10 +192,10 @@ export default function Reports({ userId, companyId }: ReportsProps) {
       ];
       dailyBalancesData.forEach(item => {
         wsData.push([
-          item.date,
+          item.balanceDate,
           item.beginningBalance,
-          item.cashIn,
-          item.cashOut,
+          item.totalCashIn,
+          item.totalCashOut,
           item.endingBalance
         ]);
       });
@@ -495,10 +495,10 @@ export default function Reports({ userId, companyId }: ReportsProps) {
                   {dailyBalancesData.map((item, idx) => {
                     return (
                       <tr key={idx} className="hover:bg-zinc-900/30">
-                        <td className="p-2.5 font-mono text-zinc-400">{item.date}</td>
+                        <td className="p-2.5 font-mono text-zinc-400">{item.balanceDate}</td>
                         <td className="p-2.5 text-right font-mono text-zinc-405">{formatPeso(item.beginningBalance)}</td>
-                        <td className="p-2.5 text-right font-mono text-emerald-400">+{formatPeso(item.cashIn)}</td>
-                        <td className="p-2.5 text-right font-mono text-rose-455">-{formatPeso(item.cashOut)}</td>
+                        <td className="p-2.5 text-right font-mono text-emerald-400">+{formatPeso(item.totalCashIn)}</td>
+                        <td className="p-2.5 text-right font-mono text-rose-455">-{formatPeso(item.totalCashOut)}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-white">{formatPeso(item.endingBalance)}</td>
                       </tr>
                     );

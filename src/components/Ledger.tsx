@@ -21,8 +21,11 @@ import {
   X,
   User,
   UploadCloud,
-  FileCheck2
+  FileCheck2,
+  Paperclip,
+  Sparkles
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   getTransactions,
   getCategories,
@@ -31,8 +34,10 @@ import {
   getDailyBalances,
   insertTransaction,
   createReversalTransaction,
+  updateTransactionMetadata,
   getUserRole,
-  canWriteFinance
+  canWriteFinance,
+  getNextControlNumber
 } from '../data/mockDatabase';
 import { Transaction, CashflowType, TransactionStatus, Category, Company } from '../types';
 import { toast } from 'sonner';
@@ -56,16 +61,26 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [isEncoding, setIsEncoding] = useState(false);
   const [encDate, setEncDate] = useState(new Date().toISOString().split('T')[0]);
   const [encType, setEncType] = useState<CashflowType>('cash_out');
+  const [encTargetCompany, setEncTargetCompany] = useState(companyId === 'all' ? '' : companyId);
   const [encCategory, setEncCategory] = useState('');
   const [encAmount, setEncAmount] = useState('');
   const [encPurpose, setEncPurpose] = useState('');
   const [encResponsible, setEncResponsible] = useState('');
   const [encReceipt, setEncReceipt] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
+  const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
+
   // Receipt modal State
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+
+  // Attachment/Metadata Drawer State
+  const [activeMetadataTxn, setActiveMetadataTxn] = useState<Transaction | null>(null);
+  const [metaScanRef, setMetaScanRef] = useState('');
+  const [metaTimestamp, setMetaTimestamp] = useState('');
+  const [metaReceiptUrl, setMetaReceiptUrl] = useState('');
 
   // LOAD DB
   const companies = getCompanies();
@@ -76,17 +91,57 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
   // Filter Categories on selected type for encode form
   const formCategories = useMemo(() => {
-    return categories.filter(c => c.type === encType);
-  }, [categories, encType]);
+    const activeCats = getCategories(encTargetCompany || companyId);
+    return activeCats.filter(c => c.type === encType);
+  }, [encType, encTargetCompany, companyId]);
 
   // Adjust default form category when type toggles
   React.useEffect(() => {
     if (formCategories.length > 0) {
-      setEncCategory(formCategories[0].id);
+      if (!formCategories.find(c => c.id === encCategory)) {
+        setEncCategory(formCategories[0].id);
+      }
     } else {
       setEncCategory('');
     }
-  }, [formCategories]);
+  }, [formCategories, encCategory]);
+
+  const handleSuggestCategory = async () => {
+    if (!encPurpose.trim()) {
+      toast.error('Enter a purpose first to suggest a category.');
+      return;
+    }
+    
+    try {
+      setIsSuggestingCategory(true);
+      toast.loading('Analyzing purpose...', { id: 'suggest-cat' });
+      
+      const payload = {
+        purpose: encPurpose,
+        categories: formCategories.map(c => ({ id: c.id, name: c.name }))
+      };
+
+      const res = await fetch('/api/suggest-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error('Failed to suggest category');
+      
+      const data = await res.json();
+      if (data.categoryId && formCategories.some(c => c.id === data.categoryId)) {
+        setEncCategory(data.categoryId);
+        toast.success(`Category auto-selected!`, { id: 'suggest-cat' });
+      } else {
+        toast.error('No strong category match found.', { id: 'suggest-cat' });
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Smart categorize failed', { id: 'suggest-cat' });
+    } finally {
+      setIsSuggestingCategory(false);
+    }
+  };
 
   // PESO FORMATTER
   const formatPeso = (num: number) => {
@@ -103,10 +158,10 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     const comBalances = getDailyBalances(companyId);
     if (comBalances.length === 0) {
       return {
-        beginning: 500000.00, // Preseeded Capital injection
+        beginning: 0, 
         cashIn: 0,
         cashOut: 0,
-        ending: 500000.00
+        ending: 0
       };
     }
     const latest = comBalances[comBalances.length - 1];
@@ -148,7 +203,18 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     });
   }, [rawTxns, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate]);
 
-  // 3. FILE UPLOAD SIMULATOR (BASE64)
+  // 3. CALCULATE FILTERED SUMMARY
+  const filteredSummary = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    filteredTransactions.forEach(t => {
+      if (t.type === 'cash_in') inflow += t.amount;
+      if (t.type === 'cash_out') outflow += t.amount;
+    });
+    return { inflow, outflow, net: inflow - outflow };
+  }, [filteredTransactions]);
+
+  // 4. FILE UPLOAD SIMULATOR (BASE64)
   const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -160,7 +226,46 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
   };
 
-  // 4. SUBMIT FORM
+  const handleScanReceipt = async () => {
+    if (!encReceipt) {
+      toast.error('No receipt attached. Please attach an image first.');
+      return;
+    }
+
+    try {
+      setIsScanning(true);
+      toast.loading('Analyzing receipt with Gemini...', { id: 'scan-receipt' });
+      
+      const parts = encReceipt.split(',');
+      const mimeMatch = encReceipt.match(/^data:([^;]+);/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const imageBase64 = parts[1];
+
+      const res = await fetch('/api/scan-receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageBase64, mimeType })
+      });
+
+      if (!res.ok) throw new Error('Failed to scan receipt');
+
+      const data = await res.json();
+      
+      if (data.txnDate) setEncDate(data.txnDate);
+      if (data.amount) setEncAmount(String(data.amount));
+      if (data.purpose) setEncPurpose(data.purpose);
+      
+      toast.success('Receipt analyzed successfully', { id: 'scan-receipt' });
+    } catch (e: any) {
+      toast.error(e.message || 'Error parsing receipt', { id: 'scan-receipt' });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // 5. SUBMIT FORM
   const handleEncodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -179,8 +284,14 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       return;
     }
 
+    const targetCompanyId = encTargetCompany || companyId;
+    if (targetCompanyId === 'all' || !targetCompanyId) {
+       setFormError('Please select a specific company to log the transaction against.');
+       return;
+    }
+
     const { error, transaction } = insertTransaction(userId, {
-      companyId,
+      companyId: targetCompanyId,
       txnDate: encDate,
       type: encType,
       amount: parseFloat(encAmount),
@@ -209,7 +320,38 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
   };
 
-  // 5. TRIGGER ADJUSTMENT REVERSAL
+  // 5. ATTACH METADATA
+  const handleSaveMetadata = () => {
+    if (!activeMetadataTxn) return;
+
+    let controlNumber = activeMetadataTxn.mockMetadata?.controlNumber;
+    if (!controlNumber) {
+        controlNumber = getNextControlNumber();
+    }
+
+    const { error } = updateTransactionMetadata(
+      userId, 
+      activeMetadataTxn.id, 
+      {
+        scanRef: metaScanRef,
+        timestamp: metaTimestamp || new Date().toISOString(),
+        controlNumber
+      },
+      metaReceiptUrl || undefined
+    );
+    if (error) {
+      toast.error('Failed to attach metadata', { description: error });
+    } else {
+      toast.success('Metadata Attached', { description: `Mock file metadata successfully attached. Control No: ${controlNumber}` });
+      setActiveMetadataTxn(null);
+      setMetaScanRef('');
+      setMetaTimestamp('');
+      setMetaReceiptUrl('');
+      onAuditLogged();
+    }
+  };
+
+  // 6. TRIGGER ADJUSTMENT REVERSAL
   const handleReversal = (txnId: string) => {
     const confirmed = window.confirm('Reversal adjustment rule: You are about to instantiate a reversing transaction. Original records are immutable. Initiate adjust?');
     if (!confirmed) return;
@@ -351,7 +493,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#00B67A] hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-lg select-none border border-[#05C482]/20"
             >
               <Plus className="w-4 h-4 text-white" />
-              <span>Encode Capital Transaction</span>
+              <span>Log Transaction</span>
             </button>
           )}
         </div>
@@ -374,6 +516,26 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </div>
 
           <form onSubmit={handleEncodeSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* COMPANY SELECTOR (If "all" is active) */}
+            {companyId === 'all' && (
+              <div className="md:col-span-3 space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Target Company</label>
+                <select
+                  value={encTargetCompany}
+                  onChange={(e) => setEncTargetCompany(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer transition-all"
+                  required
+                >
+                  <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this transaction</option>
+                  {companies.filter(c => c.id !== 'all').map(c => (
+                    <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                      {c.name} ({c.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* DATE */}
             <div className="space-y-1.5">
               <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Transaction Date</label>
@@ -468,12 +630,34 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                     Image attached
                   </span>
                 )}
+                {encReceipt && (
+                  <button
+                    type="button"
+                    onClick={handleScanReceipt}
+                    disabled={isScanning}
+                    className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs transition-all cursor-pointer font-bold disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {isScanning ? 'Scanning...' : 'Scan with Gemini'}
+                  </button>
+                )}
               </div>
             </div>
 
             {/* PURPOSE DECLARATION */}
             <div className="md:col-span-3 space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Explicit Audit Purpose / Remarks</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Explicit Audit Purpose / Remarks</label>
+                <button
+                  type="button"
+                  onClick={handleSuggestCategory}
+                  disabled={isSuggestingCategory || !encPurpose.trim()}
+                  className="inline-flex items-center gap-1 text-[10px] text-sky-400 font-bold hover:text-sky-300 disabled:opacity-50 transition-colors uppercase tracking-widest cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {isSuggestingCategory ? 'Analyzing...' : 'Auto-Categorize'}
+                </button>
+              </div>
               <input 
                 type="text" 
                 value={encPurpose}
@@ -486,7 +670,22 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
             <div className="md:col-span-3 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#24272C]">
               <div className="text-xs text-amber-400 font-mono">
-                {encAmount && parseFloat(encAmount) > 10000 && '⚠️ Amount exceeds ₱10,000 threshold. Escalated to administrator.'}
+                {(() => {
+                  const role = getUserRole(userId, encTargetCompany || companyId);
+                  const currentUser = profiles.find(p => p.id === userId);
+                  const isOwner = role === 'company_admin' || currentUser?.isGroupAdmin;
+                  const isCapital = categories.find(c => c.id === encCategory)?.name.toLowerCase() === 'capital_injection';
+                  const amt = encAmount ? parseFloat(encAmount) : 0;
+                  if (amt > 10000) {
+                    if (isOwner && isCapital) return null;
+                    if (amt > 50000) {
+                      return '⚠️ Tier 3: Amount > ₱50,000. Requires Company Admin.';
+                    } else {
+                      return '⚠️ Tier 2: Amount > ₱10,000. Requires Finance Officer or Admin.';
+                    }
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex gap-2">
                 <button 
@@ -616,6 +815,29 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         </div>
       </div>
 
+      {/* DISPLAYED LIST SUMMARY */}
+      <div className="flex gap-4 p-4 bg-[#141618] border border-sky-500/20 rounded-2xl shadow-inner mb-4 no-print sm:flex-row flex-col justify-between items-center relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl rounded-full"></div>
+        <div className="text-zinc-400 font-mono text-xs max-w-sm">
+          <strong className="text-sky-400 block uppercase tracking-wider mb-1">Displayed Search Results</strong>
+          Calculating aggregated totals strictly across currently filtered table transactions. Adjust filters above to change this summary.
+        </div>
+        <div className="grid grid-cols-3 gap-6 sm:gap-12 relative z-10 w-full sm:w-auto text-center sm:text-right">
+          <div>
+            <div className="text-[10px] font-bold text-[#00B67A] uppercase tracking-widest font-mono">Total Inflow</div>
+            <div className="font-mono text-lg text-[#00B67A] font-bold">{formatPeso(filteredSummary.inflow)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-rose-450 uppercase tracking-widest font-mono">Total Outflow</div>
+            <div className="font-mono text-lg text-rose-450 font-bold">{formatPeso(filteredSummary.outflow)}</div>
+          </div>
+          <div className="border-l border-[#24272C] pl-6 sm:pl-12">
+            <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest font-mono">Net Balance</div>
+            <div className={`font-mono text-xl font-bold ${filteredSummary.net >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatPeso(filteredSummary.net)}</div>
+          </div>
+        </div>
+      </div>
+
       {/* LEDGER DATA TABLE */}
       <div id="print-canvas" className="bg-[#181A1C] border border-[#24272C] shadow-xl overflow-hidden rounded-2xl print:shadow-none print:border-none">
         {/* TABLE ACTION CONTROLS / TOOLBAR SEARCH BAR */}
@@ -657,7 +879,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                 <th className="p-3.5 border-b border-[#24272C]">Purpose & Details</th>
                 <th className="p-3.5 border-b border-[#24272C]">Clerk / Controller</th>
                 <th className="p-3.5 border-b border-[#24272C]">Signatures</th>
-                <th className="p-3.5 border-b border-[#24272C] text-center no-print">Receipt</th>
+                <th className="p-3.5 border-b border-[#24272C] text-center no-print">Docs & Meta</th>
                 <th className="p-3.5 border-b border-[#24272C] text-right text-zinc-500 no-print">Adjustment Tools</th>
               </tr>
             </thead>
@@ -752,19 +974,37 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                         )}
                       </td>
 
-                      {/* RECEIPT PREVIEW */}
+                      {/* RECEIPT PREVIEW & METADATA */}
                       <td className="p-3 text-center whitespace-nowrap no-print">
-                        {t.receiptPath ? (
-                          <button 
-                            onClick={() => setPreviewReceiptUrl(t.receiptPath)}
-                            className="p-1.5 text-zinc-400 hover:text-[#00B67A] bg-[#141618] border border-[#24272C] hover:border-[#00B67A] rounded-lg cursor-pointer transition-all"
-                            title="Preview secure billing vouchers"
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Image receipt toggle */}
+                          {t.receiptPath ? (
+                            <button 
+                              onClick={() => setPreviewReceiptUrl(t.receiptPath)}
+                              className="p-1 text-zinc-400 hover:text-[#00B67A] bg-[#141618] border border-[#24272C] hover:border-[#00B67A] rounded-lg cursor-pointer transition-all"
+                              title="Preview secure billing vouchers"
+                            >
+                              <Eye className="w-3.5 h-3.5 mx-auto" />
+                            </button>
+                          ) : (
+                            <span className="text-zinc-600 font-bold text-[10px] font-mono w-6 text-center">-</span>
+                          )}
+                          {/* Metadata document viewer toggle */}
+                          <button
+                            onClick={() => {
+                              setActiveMetadataTxn(t);
+                              setMetaScanRef(t.mockMetadata?.scanRef || '');
+                              setMetaTimestamp(t.mockMetadata?.timestamp || '');
+                              setMetaReceiptUrl(t.receiptPath || '');
+                            }}
+                            className={`p-1 border rounded-lg cursor-pointer transition-all ${
+                              t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-[#141618] text-zinc-400 border-[#24272C] hover:text-white hover:border-zinc-500'
+                            }`}
+                            title="Attach or View Mock Reference Metadata"
                           >
-                            <Eye className="w-3.5 h-3.5 mx-auto" />
+                            <Paperclip className="w-3.5 h-3.5 mx-auto" />
                           </button>
-                        ) : (
-                          <span className="text-zinc-600 font-bold text-[10px] font-mono">-</span>
-                        )}
+                        </div>
                       </td>
 
                       {/* ACTION CORRECTIONS */}
@@ -827,6 +1067,86 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono"
               >
                 Close Anchor Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* METADATA ATTACHMENT DRAWER/MODAL */}
+      {activeMetadataTxn && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+          <div className="bg-[#181A1C] border border-[#24272C] p-6 max-w-md w-full relative space-y-5 rounded-2xl">
+            <button 
+              onClick={() => setActiveMetadataTxn(null)}
+              className="absolute right-4 top-4 p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+            <div>
+              <h3 className="font-mono text-base font-bold text-white uppercase tracking-wider">Document Metadata</h3>
+              <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to txn #{activeMetadataTxn.id}.</p>
+            </div>
+            
+            <div className="space-y-4">
+              {activeMetadataTxn.mockMetadata?.controlNumber && (
+                <div className="flex gap-4 p-3 bg-zinc-900 border border-zinc-800 rounded-xl items-center">
+                  <div className="flex-1">
+                    <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Control Number</p>
+                    <p className="text-sm font-mono font-bold text-sky-400 mt-1">#{activeMetadataTxn.mockMetadata.controlNumber}</p>
+                  </div>
+                  <div className="bg-white p-1 rounded-md">
+                    <QRCodeSVG 
+                      value={`TXN:${activeMetadataTxn.id}|CTRL:${activeMetadataTxn.mockMetadata.controlNumber}`}
+                      size={64}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Receipt Image Link</label>
+                <input 
+                  type="text" 
+                  value={metaReceiptUrl}
+                  onChange={(e) => setMetaReceiptUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Scan Reference Code</label>
+                <input 
+                  type="text" 
+                  value={metaScanRef}
+                  onChange={(e) => setMetaScanRef(e.target.value)}
+                  placeholder="e.g. DOC-2026-XQ91"
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Document Timestamp</label>
+                <input 
+                  type="text" 
+                  value={metaTimestamp}
+                  onChange={(e) => setMetaTimestamp(e.target.value)}
+                  placeholder="ISO Date"
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#24272C]">
+              <button 
+                onClick={() => setActiveMetadataTxn(null)}
+                className="px-4 py-2 border border-[#24272C] text-zinc-400 bg-transparent hover:bg-[#1E2124] text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveMetadata}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+              >
+                Save Metadata
               </button>
             </div>
           </div>

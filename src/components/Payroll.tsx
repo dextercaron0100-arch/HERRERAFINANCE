@@ -20,7 +20,9 @@ import {
   Cpu,
   BookmarkCheck,
   FileSpreadsheet,
-  Printer
+  Printer,
+  Paperclip,
+  X
 } from 'lucide-react';
 import {
   getEmployees,
@@ -30,10 +32,12 @@ import {
   createPayrollRun,
   updatePayrollDeductions,
   processPayrollPayout,
+  updatePayrollRunMetadata,
   canManagePayroll,
   getCategories,
   isGroupAdmin,
-  getUserRole
+  getUserRole,
+  getCompanies
 } from '../data/mockDatabase';
 import { Employee, PayrollRun, PayrollItem, Deductions } from '../types';
 import { toast } from 'sonner';
@@ -50,6 +54,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
   // Employee CRUD states
   const [showEmpForm, setShowEmpForm] = useState(false);
+  const [empTargetCompany, setEmpTargetCompany] = useState<string>(companyId === "all" ? "" : companyId);
   const [empId, setEmpId] = useState<string | undefined>(undefined);
   const [empName, setEmpName] = useState('');
   const [empPosition, setEmpPosition] = useState('');
@@ -62,6 +67,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
   const [payoutMode, setPayoutMode] = useState<'per_employee' | 'batch'>('batch');
 
   // Selected run state
+  const [draftTargetCompany, setDraftTargetCompany] = useState<string>(companyId === "all" ? "" : companyId);
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const [editingItem, setEditingItem] = useState<PayrollItem | null>(null);
 
@@ -72,12 +78,18 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
   const [dedTax, setDedTax] = useState('');
   const [dedOther, setDedOther] = useState('');
 
+  // Metadata attachment
+  const [activeMetadataRun, setActiveMetadataRun] = useState<PayrollRun | null>(null);
+  const [metaScanRef, setMetaScanRef] = useState('');
+  const [metaTimestamp, setMetaTimestamp] = useState('');
+
   // Is Admin check
-  const isAuthorized = canManagePayroll(userId, companyId);
+  const isAuthorized = companyId === 'all' ? isGroupAdmin(userId) : canManagePayroll(userId, companyId);
 
   // LOAD DB
   const employees = isAuthorized ? getEmployees(userId, companyId) : [];
   const runs = isAuthorized ? getPayrollRuns(userId, companyId) : [];
+  const companies = getCompanies();
   const selectedItems = useMemo(() => {
     if (!selectedRun) return [];
     return getPayrollItems(userId, selectedRun.id);
@@ -126,9 +138,15 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
       return;
     }
 
+    const finalCompanyId = empTargetCompany || companyId;
+    if (finalCompanyId === "all" || !finalCompanyId) {
+       toast.error("Invalid Company", { description: "Please select a specific company to assign this employee to." });
+       return;
+    }
+
     const { error, employee } = saveEmployee(userId, {
       id: empId,
-      companyId,
+      companyId: finalCompanyId,
       fullName: empName,
       position: empPosition,
       baseSalary: sal,
@@ -149,9 +167,33 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
     }
   };
 
+  // Add document metadata to run
+  const handleSaveMetadata = () => {
+    if (!activeMetadataRun) return;
+    const { error } = updatePayrollRunMetadata(userId, activeMetadataRun.id, {
+      scanRef: metaScanRef,
+      timestamp: metaTimestamp || new Date().toISOString()
+    });
+    if (error) {
+      toast.error('Failed to attach metadata', { description: error });
+    } else {
+      toast.success('Metadata Attached', { description: 'Mock file metadata successfully attached.' });
+      setActiveMetadataRun(null);
+      setMetaScanRef('');
+      setMetaTimestamp('');
+      onAuditLogged(); // triggers re-render 
+    }
+  };
+
   // Create run
   const handleCreateRun = () => {
-    const { error, run, items } = createPayrollRun(userId, companyId, runStart, runEnd);
+    const finalCompanyId = draftTargetCompany || companyId;
+    if (finalCompanyId === "all" || !finalCompanyId) {
+      toast.error('Invalid Company', { description: 'Please select a specific company to run payroll for.' });
+      return;
+    }
+
+    const { error, run, items } = createPayrollRun(userId, finalCompanyId, runStart, runEnd);
     if (error) {
       toast.error('Payroll Compilation Failed', { description: error });
     } else {
@@ -351,6 +393,24 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
               </h3>
               
               <form onSubmit={handleSaveEmployee} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {companyId === "all" && (
+                  <div className="md:col-span-4 space-y-1.5">
+                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Select Target Company</span>
+                    <select
+                      value={empTargetCompany}
+                      onChange={(e) => setEmpTargetCompany(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                      required
+                    >
+                      <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this employee</option>
+                      {companies.filter(c => c.id !== "all").map(c => (
+                        <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                          {c.name} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Employee Full Name</span>
                   <input 
@@ -488,6 +548,23 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              {companyId === "all" && (
+                <div className="md:col-span-4 space-y-1.5">
+                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Target Company</span>
+                  <select
+                    value={draftTargetCompany}
+                    onChange={(e) => setDraftTargetCompany(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                  >
+                    <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this payroll run</option>
+                    {companies.filter(c => c.id !== "all").map(c => (
+                      <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                        {c.name} ({c.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Period Start Date</span>
                 <input 
@@ -592,8 +669,22 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                 <div className="space-y-4 animate-fadeIn">
                   {/* METADATA RUN HEADER */}
                   <div className="p-3 bg-[#141618] border border-[#24272C] rounded-2xl flex items-center justify-between text-xs font-medium text-zinc-300">
-                    <div>
-                      Active File: <b className="font-mono text-[10px] text-zinc-400">#{selectedRun.id}</b>
+                    <div className="flex items-center gap-2">
+                      <span>Active File: <b className="font-mono text-[10px] text-zinc-400">#{selectedRun.id}</b></span>
+                      <button
+                        onClick={() => {
+                          setActiveMetadataRun(selectedRun);
+                          setMetaScanRef(selectedRun.mockMetadata?.scanRef || '');
+                          setMetaTimestamp(selectedRun.mockMetadata?.timestamp || '');
+                        }}
+                        className={`px-1.5 py-0.5 border rounded-lg cursor-pointer transition-all flex items-center gap-1 ${
+                          selectedRun.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-[#181A1C] text-zinc-400 border-[#24272C] hover:text-white hover:border-zinc-500'
+                        }`}
+                        title="Attach or View Mock Reference Metadata"
+                      >
+                        <Paperclip className="w-3 h-3" />
+                        <span className="text-[10px] uppercase font-mono font-bold">{selectedRun.mockMetadata ? 'Metadata Attached' : 'Attach Meta'}</span>
+                      </button>
                     </div>
                     <div>
                       Remittance Plan: <span className="px-2 py-0.5 bg-zinc-900 text-zinc-450 rounded-2xl font-mono text-[10px] uppercase font-bold">{payoutMode} mode</span>
@@ -696,6 +787,62 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                   Pick a historical payroll run file from the Left or compile a fresh draft run on top to verify calculations.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* METADATA ATTACHMENT DRAWER/MODAL */}
+      {activeMetadataRun && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+          <div className="bg-[#181A1C] border border-[#24272C] p-6 max-w-md w-full relative space-y-5 rounded-2xl">
+            <button 
+              onClick={() => setActiveMetadataRun(null)}
+              className="absolute right-4 top-4 p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+            <div>
+              <h3 className="font-mono text-base font-bold text-white uppercase tracking-wider">Payroll Documentation Metadata</h3>
+              <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to run #{activeMetadataRun.id}.</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Archive Scan Reference Code</label>
+                <input 
+                  type="text" 
+                  value={metaScanRef}
+                  onChange={(e) => setMetaScanRef(e.target.value)}
+                  placeholder="e.g. DOC-RUN-9X"
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Attachment Processed Timestamp</label>
+                <input 
+                  type="text" 
+                  value={metaTimestamp}
+                  onChange={(e) => setMetaTimestamp(e.target.value)}
+                  placeholder="ISO Date"
+                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#24272C]">
+              <button 
+                onClick={() => setActiveMetadataRun(null)}
+                className="px-4 py-2 border border-[#24272C] text-zinc-400 bg-transparent hover:bg-[#1E2124] text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveMetadata}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+              >
+                Save Metadata
+              </button>
             </div>
           </div>
         </div>

@@ -61,7 +61,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
   }, [budgetActualList]);
 
   // Handle planned update
-  const handleSaveBudgetAmount = (categoryId: string, val: string) => {
+  const handleSaveBudgetAmount = (categoryId: string, targetCompanyId: string, val: string) => {
     setSaveStatus('');
     const amt = parseFloat(val);
     if (isNaN(amt) || amt < 0) {
@@ -69,7 +69,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
       return;
     }
 
-    const { error, budget } = savePlannedBudget(userId, companyId, categoryId, selectedMonth, amt);
+    const { error, budget } = savePlannedBudget(userId, targetCompanyId, categoryId, selectedMonth, amt);
     if (error) {
       toast.error('Update Failed', { description: error });
     } else {
@@ -168,9 +168,42 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
               />
               <Tooltip 
                 cursor={{ fill: '#24272C', opacity: 0.4 }}
-                contentStyle={{ backgroundColor: '#181A1C', borderColor: '#24272C', borderRadius: '12px', fontSize: '11px', color: '#fff' }}
-                itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
-                formatter={(val: number) => [formatPeso(val), undefined]}
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-[#181A1C] border border-[#24272C] p-3 rounded-xl shadow-xl min-w-[200px]">
+                        <div className="text-white text-xs font-bold font-mono tracking-wider uppercase border-b border-[#24272C] pb-2 mb-2 flex items-center justify-between gap-4">
+                          <span>{String(label).replace('_', ' ')}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${data.status === 'over_budget' ? 'bg-rose-500/20 text-rose-400' : data.status === 'near_limit' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                            {data.status?.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {payload.map((entry: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center gap-4 text-[10px] font-mono">
+                              <span style={{ color: entry.color }} className="uppercase">{entry.name}</span>
+                              <span className="font-bold text-white">{formatPeso(entry.value as number)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-[#24272C] space-y-1.5">
+                          <div className="flex justify-between items-center gap-4 text-[10px] font-mono">
+                            <span className="uppercase text-zinc-400">Variance</span>
+                            <span className={`font-bold ${data.variance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {formatPeso(data.variance)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center gap-4 text-[10px] font-mono">
+                            <span className="uppercase text-zinc-400">Burn Rate</span>
+                            <span className="font-bold text-white">{data.usagePercent?.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
               <Legend 
                 wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
@@ -263,7 +296,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                             id={`input-bud-${item.categoryId}`}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
-                                handleSaveBudgetAmount(item.categoryId, (e.target as HTMLInputElement).value);
+                                handleSaveBudgetAmount(item.categoryId, item.companyId, (e.target as HTMLInputElement).value);
                               }
                             }}
                             className="w-24 text-right p-1 bg-[#141618] border border-white text-xs font-mono text-white rounded-2xl"
@@ -272,7 +305,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                           <button 
                             onClick={() => {
                               const input = document.getElementById(`input-bud-${item.categoryId}`) as HTMLInputElement;
-                              if (input) handleSaveBudgetAmount(item.categoryId, input.value);
+                              if (input) handleSaveBudgetAmount(item.categoryId, item.companyId, input.value);
                             }}
                             className="p-1 px-2 bg-[#00B67A] text-white hover:bg-[#009E6B] text-[10px] font-mono font-bold uppercase tracking-wider rounded-2xl cursor-pointer"
                           >

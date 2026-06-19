@@ -396,7 +396,8 @@ export default function WorkspaceSyncCenter({
                 queue.map((t) => {
                   const encoder = profiles.find(p => p.id === t.encodedBy);
                   const isOwn = t.encodedBy === userId;
-                  const isHighVal = t.amount > 10000.0;
+                  const isTier3 = t.amount > 50000;
+                  const isTier2 = t.amount > 10000;
                   const isSelected = selectedTxn?.id === t.id;
 
                   return (
@@ -425,9 +426,14 @@ export default function WorkspaceSyncCenter({
                               <span>Self Drafted Entry</span>
                             </span>
                           )}
-                          {isHighVal && (
+                          {isTier3 && (
+                            <span className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[8px] font-bold rounded-lg font-mono uppercase tracking-wider">
+                              Tier 3 Escalate
+                            </span>
+                          )}
+                          {isTier2 && !isTier3 && (
                             <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[8px] font-bold rounded-lg font-mono uppercase tracking-wider">
-                              ₱10k Limit Escalated
+                              Tier 2 Escalate
                             </span>
                           )}
                         </div>
@@ -514,10 +520,15 @@ export default function WorkspaceSyncCenter({
                     <AlertOctagon className="w-5 h-5 shrink-0 text-rose-500 animate-bounce" />
                     <span>Compliance Conflict of Interest: You are strictly forbidden from signing or authorizing your own encoded transaction entries. Controls locked.</span>
                   </div>
+                ) : selectedTxn.amount > 50000 && currentRole !== 'company_admin' ? (
+                  <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-mono flex items-start gap-2 leading-relaxed">
+                    <ShieldAlert className="w-5 h-5 shrink-0 text-rose-500" />
+                    <span>Treasury Protocol Limit exceeded: Budgets above ₱50,000 threshold strictly require Company Admin authorization. Level 2 Approver authorization restricted.</span>
+                  </div>
                 ) : selectedTxn.amount > 10000 && currentRole === 'approver' ? (
                   <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-amber-300 text-xs font-mono flex items-start gap-2 leading-relaxed">
                     <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400" />
-                    <span>Treasury Protocol Limit exceeded: Budgets & Expenditures above ₱10,000 threshold require high group trustee signatures. Approver authorization restricted.</span>
+                    <span>Treasury Protocol Limit exceeded: Budgets above ₱10,000 threshold require Finance Officer / Company Admin signatures. Level 1 authorization restricted.</span>
                   </div>
                 ) : (
                   <div className="space-y-4 pt-1">

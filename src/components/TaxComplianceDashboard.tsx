@@ -101,7 +101,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
   // DB presets
   const companies = getCompanies();
   const currentCompany = companies.find(c => c.id === companyId) || companies[0];
-  const allTxns = useMemo(() => getTransactions(userId), [userId, companyId]);
+  const allTxns = useMemo(() => getTransactions(userId, companyId), [userId, companyId]);
 
   // Read raw local categories for indexing names
   const localCategories: Category[] = useMemo(() => {
@@ -142,7 +142,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
   // UI status filters
   const [activeFilingTab, setActiveFilingTab] = useState<'2550m' | '1601eq' | '2307'>('2550m');
   const [taxMonth, setTaxMonth] = useState<string>('2026-06');
-  const [isConsolidated, setIsConsolidated] = useState<boolean>(false);
+  const [isConsolidated, setIsConsolidated] = useState<boolean>(companyId === 'all');
   const [searchFilter, setSearchFilter] = useState('');
   const [vatFilter, setVatFilter] = useState<string>('all');
   
@@ -564,13 +564,15 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
           {/* GROUP CONSOLIDATION SWITCH */}
           <button
             onClick={() => {
+              if (companyId === 'all') return;
               setIsConsolidated(!isConsolidated);
               if (onAuditLogged) {
                 writeAuditLog(userId, companyId, 'TAX_VIEW_CONSOLIDATION_TOGGLE', 'tax', null, { isConsolidated: !isConsolidated });
                 onAuditLogged();
               }
             }}
-            className={`px-4 py-2 text-xs font-semibold font-mono tracking-wider transition-all duration-150 rounded-xl border flex items-center gap-2 cursor-pointer ${
+            disabled={companyId === 'all'}
+            className={`px-4 py-2 text-xs font-semibold font-mono tracking-wider transition-all duration-150 rounded-xl border flex items-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed ${
               isConsolidated 
                 ? 'bg-[#00B67A] border-[#00B67A] text-white font-bold' 
                 : 'bg-zinc-900 border-[#24272C] text-zinc-400 hover:text-white hover:border-zinc-700'

@@ -41,6 +41,18 @@ export interface Category {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: string;
+  companyId: string;
+  entityType: 'transaction' | 'payable' | 'receivable' | 'payroll_run' | 'other';
+  entityId: string | null;
+  fileName: string;
+  fileType: string;
+  fileUrl: string; // Base64 data or fake URL
+  uploadedBy: string;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   companyId: string;
@@ -51,6 +63,7 @@ export interface Transaction {
   purpose: string;
   responsiblePerson: string;
   receiptPath: string | null;
+  mockMetadata?: { scanRef: string; timestamp: string; controlNumber?: string } | null;
   status: TransactionStatus;
   encodedBy: string; // profile id
   reversalOf: string | null; // transaction id
@@ -83,6 +96,10 @@ export interface Payable {
   payee: string;
   description: string;
   amount: number;
+  qty?: number;
+  uom?: string;
+  unitPrice?: number;
+  remarks?: string;
   dueDate: string; // YYYY-MM-DD
   status: PayableStatus;
   paidTransactionId: string | null;
@@ -120,6 +137,7 @@ export interface PayrollRun {
   periodStart: string; // YYYY-MM-DD
   periodEnd: string; // YYYY-MM-DD
   status: PayrollStatus;
+  mockMetadata?: { scanRef: string; timestamp: string; controlNumber?: string } | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

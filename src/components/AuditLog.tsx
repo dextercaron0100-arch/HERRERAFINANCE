@@ -8,9 +8,13 @@ import {
   Search,
   ShieldCheck,
   Layers,
-  Monitor
+  Monitor,
+  Activity,
+  Zap,
+  Loader2
 } from 'lucide-react';
-import { getAuditLogs, getProfiles } from '../data/mockDatabase';
+import { getAuditLogs, getProfiles, getTransactions } from '../data/mockDatabase';
+import Markdown from 'react-markdown';
 
 interface AuditLogComponentProps {
   userId: string;
@@ -20,9 +24,13 @@ interface AuditLogComponentProps {
 export default function AuditLog({ userId, companyId }: AuditLogComponentProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('all');
+  
+  const [riskSummary, setRiskSummary] = useState<string | null>(null);
+  const [isAssessing, setIsAssessing] = useState(false);
 
   const logs = getAuditLogs(userId, companyId);
   const profiles = getProfiles();
+  const transactions = getTransactions(userId, companyId);
 
   // FILTER LOGS
   const filteredLogs = useMemo(() => {
@@ -37,6 +45,34 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
       return true;
     });
   }, [logs, searchTerm, selectedLevel]);
+
+  const handleGenerateRiskAssessment = async () => {
+    if (transactions.length === 0) {
+      setRiskSummary("No transactions available for risk assessment.");
+      return;
+    }
+
+    setIsAssessing(true);
+    setRiskSummary(null);
+
+    try {
+      const res = await fetch("/api/risk-assessment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions })
+      });
+      const data = await res.json();
+      if (data.error) {
+        setRiskSummary(`Error: ${data.error}`);
+      } else {
+        setRiskSummary(data.summary);
+      }
+    } catch (e: any) {
+      setRiskSummary(`Error generating risk assessment: ${e.message}`);
+    } finally {
+      setIsAssessing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -74,6 +110,51 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
             <option value="warning">WARNING</option>
           </select>
         </div>
+      </div>
+
+      {/* RISK ASSESSMENT PANEL */}
+      <div className="bg-gradient-to-r from-[#181A1C] to-[#1D2024] border border-[#24272C] p-6 shadow-md rounded-2xl flex flex-col gap-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <Activity className="w-48 h-48" />
+        </div>
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-sm font-display font-bold text-white tracking-tight flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>AI Risk Assessment & Pattern Analysis</span>
+            </h2>
+            <p className="text-[10px] text-zinc-450 font-mono tracking-wider mt-1.5 leading-relaxed max-w-lg">
+              Leverage Gemini AI to analyze all ledger transaction patterns for anomalies, concentration risks, and unusual spending behavior for this entity.
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateRiskAssessment}
+            disabled={isAssessing}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 hover:bg-amber-500/10 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAssessing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                <span className="font-mono text-amber-500">Scanning Ledger...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                <span className="font-mono">Generate Report</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {riskSummary && (
+          <div className="relative z-10 mt-2 p-4 bg-zinc-950/80 border border-amber-900/30 rounded-xl">
+            <div className="prose prose-invert prose-p:text-xs prose-p:text-zinc-300 prose-headings:text-amber-500 prose-strong:text-zinc-200 w-full max-w-none text-xs font-mono leading-relaxed">
+               <div className="markdown-body">
+                <Markdown>{riskSummary}</Markdown>
+               </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* AUDIT LOG TIMELINE */}
