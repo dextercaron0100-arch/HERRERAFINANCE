@@ -54,7 +54,7 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
        // Gather some context data to send to the backend
        // Fetching last 50 transactions to give the assistant context
        // We only pass minimal context to avoid huge payload, but enough for meaningful answers
-       const allTxns = getTransactions('u-gadmin', companyId).slice(0, 100); 
+       const allTxns = getTransactions('u-mark', companyId).slice(0, 100); 
        
        const payload = {
           message: userMessage.content,

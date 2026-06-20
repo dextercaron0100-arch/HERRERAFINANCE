@@ -2,8 +2,9 @@ import React, { useState, useRef } from "react";
 import { Attachment } from "../types";
 import { getAttachments, saveAttachment, getProfiles } from "../data/mockDatabase";
 import { toast } from "sonner";
-import { FileText, UploadCloud, Search, Eye, Download, Image as ImageIcon, File as FileIcon, X } from "lucide-react";
+import { FileText, UploadCloud, Search, Eye, Download, Image as ImageIcon, File as FileIcon, X, QrCode } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 
 interface DocumentVaultProps {
   userId: string;
@@ -15,6 +16,7 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
   const [searchTerm, setSearchTerm] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<Attachment | null>(null);
+  const [qrFile, setQrFile] = useState<Attachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const profiles = getProfiles();
@@ -146,6 +148,13 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
                     >
                       <Eye className="w-4 h-4" />
                     </button>
+                    <button 
+                      onClick={() => setQrFile(doc)}
+                      className="p-2 bg-zinc-800 hover:bg-purple-500 text-white rounded-lg transition"
+                      title="Share QR"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
                     <a 
                       href={doc.fileUrl} 
                       download={doc.fileName}
@@ -203,6 +212,45 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
                       </a>
                     </div>
                   )}
+               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {qrFile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+              onClick={() => setQrFile(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#181A1C] border border-[#24272C] rounded-2xl w-full max-w-sm flex flex-col relative overflow-hidden shadow-2xl z-10"
+            >
+               <div className="flex items-center justify-between p-4 border-b border-[#24272C]">
+                  <h3 className="font-bold text-white flex items-center gap-2">
+                    <QrCode className="w-4 h-4 text-purple-400" /> Share via QR
+                  </h3>
+                  <button onClick={() => setQrFile(null)} className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-[#24272C] transition">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               
+               <div className="p-8 flex flex-col items-center bg-white text-center">
+                  <div className="bg-white p-4 rounded-xl shadow-xs border border-zinc-200">
+                    <QRCodeSVG 
+                      value={`${window.location.origin}/share/${qrFile.id}`} 
+                      size={200}
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="mt-6 text-sm font-semibold text-zinc-900 truncate w-full max-w-xs">{qrFile.fileName}</p>
+                  <p className="mt-1 text-xs text-zinc-500 max-w-xs">Scan this QR code to quickly access this encrypted document link.</p>
                </div>
             </motion.div>
           </div>

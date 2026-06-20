@@ -123,7 +123,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
         </div>
         <div className="border border-amber-100 bg-amber-50 rounded-lg p-3 text-left w-full space-y-1 text-[11px] text-amber-800">
           <p className="font-bold">✨ Preview Sandbox Tip:</p>
-          <p>Please use the role-switcher dropdown in the upper right header, select <b>group.admin@example.com</b> or <b>bls.admin@example.com</b>, and return hereto explore.</p>
+          <p>Please use the role-switcher dropdown in the upper right header, select <b>mark@herrera.com</b> or <b>ryan@herrera.com</b>, and return here to explore.</p>
         </div>
       </div>
     );

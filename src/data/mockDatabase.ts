@@ -106,69 +106,9 @@ export const SEED_PROFILES: Profile[] = [
     isGroupAdmin: true,
     createdAt: "2026-01-01T08:00:00Z",
   },
-  {
-    id: "u-gadmin",
-    fullName: "Dexter Caron (Group Admin)",
-    email: "group.admin@example.com",
-    isGroupAdmin: true,
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    id: "u-blsadmin",
-    fullName: "Blesscent Admin",
-    email: "bls.admin@example.com",
-    isGroupAdmin: false,
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    id: "u-blsfinance",
-    fullName: "Blesscent Finance",
-    email: "bls.finance@example.com",
-    isGroupAdmin: false,
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    id: "u-blsapprover",
-    fullName: "Blesscent Approver",
-    email: "bls.approver@example.com",
-    isGroupAdmin: false,
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    id: "u-blsviewer",
-    fullName: "Blesscent Viewer",
-    email: "bls.viewer@example.com",
-    isGroupAdmin: false,
-    createdAt: "2026-01-01T08:00:00Z",
-  },
 ];
 
-export const SEED_ROLES: UserCompanyRole[] = [
-  {
-    userId: "u-blsadmin",
-    companyId: "c-bls",
-    role: "company_admin",
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    userId: "u-blsfinance",
-    companyId: "c-bls",
-    role: "finance_officer",
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    userId: "u-blsapprover",
-    companyId: "c-bls",
-    role: "approver",
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-  {
-    userId: "u-blsviewer",
-    companyId: "c-bls",
-    role: "viewer",
-    createdAt: "2026-01-01T08:00:00Z",
-  },
-];
+export const SEED_ROLES: UserCompanyRole[] = [];
 
 export const DEFAULT_CASH_OUT_CATEGORIES = [
   "payroll",
@@ -372,7 +312,7 @@ export function initDB() {
         responsiblePerson: "Danica Cruz",
         receiptPath: null,
         status: "approved",
-        encodedBy: "u-gadmin",
+        encodedBy: "u-mark",
         reversalOf: null,
         createdAt: "2026-06-03T10:00:00Z",
         updatedAt: "2026-06-03T10:00:00Z",
@@ -388,7 +328,7 @@ export function initDB() {
         responsiblePerson: "Tech Solutions Inc",
         receiptPath: null,
         status: "approved",
-        encodedBy: "u-gadmin",
+        encodedBy: "u-mark",
         reversalOf: null,
         createdAt: "2026-06-08T15:00:00Z",
         updatedAt: "2026-06-08T15:00:00Z",
@@ -523,7 +463,7 @@ export function initDB() {
       {
         id: "log-1",
         companyId: null,
-        actorId: "u-gadmin",
+        actorId: "u-mark",
         action: "DB_INITIALIZATION",
         entity: "system",
         entityId: null,
@@ -537,7 +477,7 @@ export function initDB() {
     save(KEYS.AUDIT_LOGS, auditLogs);
 
     // Default selectors
-    save(KEYS.CURRENT_USER_ID, "u-gadmin"); // default to Group Admin for full exposure initially
+    save(KEYS.CURRENT_USER_ID, "u-mark"); // default to Mark Herrera
     save(KEYS.SELECTED_COMPANY_ID, "c-bls");
   }
 
@@ -551,29 +491,6 @@ export function initDB() {
       createdAt: new Date().toISOString(),
     };
     save(KEYS.COMPANIES, [...existingCompanies, hrpCompany]);
-
-    const existingProfiles = load<Profile[]>(KEYS.PROFILES, []);
-    if (!existingProfiles.find(p => p.id === "u-hrpadmin")) {
-      const hrpAdmin: Profile = {
-        id: "u-hrpadmin",
-        fullName: "Herrera Admin",
-        email: "hrp.admin@example.com",
-        isGroupAdmin: false,
-        createdAt: new Date().toISOString(),
-      };
-      save(KEYS.PROFILES, [...existingProfiles, hrpAdmin]);
-    }
-
-    const existingRoles = load<UserCompanyRole[]>(KEYS.ROLES, []);
-    if (!existingRoles.find(r => r.userId === "u-hrpadmin" && r.companyId === "c-hrp")) {
-      const hrpRole: UserCompanyRole = {
-        userId: "u-hrpadmin",
-        companyId: "c-hrp",
-        role: "company_admin",
-        createdAt: new Date().toISOString(),
-      };
-      save(KEYS.ROLES, [...existingRoles, hrpRole]);
-    }
 
     const existingCats = load<Category[]>(KEYS.CATEGORIES, []);
     let idCounter = existingCats.length + 1;
@@ -598,9 +515,17 @@ export function initDB() {
     }
   }
 
-  // Ensure Herrera brothers accounts exist
-  const currentProfiles = load<Profile[]>(KEYS.PROFILES, SEED_PROFILES);
+  // Ensure ONLY Herrera brothers accounts exist
+  let currentProfiles = load<Profile[]>(KEYS.PROFILES, SEED_PROFILES);
   let profilesChanged = false;
+
+  const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"];
+  const invalidProfiles = currentProfiles.filter(p => !validEmails.includes(p.email));
+  
+  if (invalidProfiles.length > 0) {
+    currentProfiles = currentProfiles.filter(p => validEmails.includes(p.email));
+    profilesChanged = true;
+  }
 
   const newHerreras = [
     { id: "u-mark", name: "Mark Herrera", email: "mark@herrera.com" },
@@ -623,6 +548,14 @@ export function initDB() {
 
   if (profilesChanged) {
     save(KEYS.PROFILES, currentProfiles);
+  }
+
+  // Clean up roles for invalid profiles
+  let currentRoles = load<UserCompanyRole[]>(KEYS.ROLES, SEED_ROLES);
+  const validUserIds = currentProfiles.map(p => p.id);
+  const invalidRoles = currentRoles.filter(r => !validUserIds.includes(r.userId));
+  if (invalidRoles.length > 0) {
+    save(KEYS.ROLES, currentRoles.filter(r => validUserIds.includes(r.userId)));
   }
 
   // Hook Firebase Realtime Updates
@@ -673,7 +606,7 @@ export function initDB() {
 // Current selector state helpers
 export function getCurrentUser(): Profile {
   initDB();
-  const userId = load(KEYS.CURRENT_USER_ID, "u-gadmin");
+  const userId = load(KEYS.CURRENT_USER_ID, "u-mark");
   const profiles = load<Profile[]>(KEYS.PROFILES, []);
   return profiles.find((p) => p.id === userId) || profiles[0];
 }
@@ -868,6 +801,8 @@ export async function resetAllData() {
   save(KEYS.PAYROLL_ITEMS, []);
   save(KEYS.AUDIT_LOGS, []);
   save(KEYS.CONTROL_NUMBER, 1);
+  save(KEYS.PROFILES, SEED_PROFILES);
+  save(KEYS.ROLES, SEED_ROLES);
 
   if (db) {
     const { doc, setDoc } = await import("firebase/firestore");
@@ -882,7 +817,9 @@ export async function resetAllData() {
       [KEYS.PAYROLL_RUNS]: [],
       [KEYS.PAYROLL_ITEMS]: [],
       [KEYS.AUDIT_LOGS]: [],
-      [KEYS.CONTROL_NUMBER]: 1
+      [KEYS.CONTROL_NUMBER]: 1,
+      [KEYS.PROFILES]: SEED_PROFILES,
+      [KEYS.ROLES]: SEED_ROLES
     }, { merge: true });
   }
 }

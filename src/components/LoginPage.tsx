@@ -28,7 +28,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         } else {
           // If not, just assign to default or alert to contact admin
           // For sandbox purposes, auto-map to first admin
-          onLogin(profiles[0]?.id || "u-gadmin"); 
+          onLogin(profiles[0]?.id || "u-mark"); 
         }
       }
     });
@@ -97,13 +97,51 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex justify-center"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ 
+            duration: 0.8, 
+            type: "spring",
+            stiffness: 100
+          }}
+          className="flex justify-center mb-4"
         >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00B67A] to-indigo-600 flex items-center justify-center shadow-2xl shadow-indigo-500/20">
-            <Briefcase className="w-8 h-8 text-white" />
+          <div className="relative w-24 h-24 group">
+            {/* Ambient glow */}
+            <div className="absolute -inset-4 bg-gradient-to-br from-[#002D56]/40 to-[#B6923C]/40 rounded-full opacity-50 blur-xl group-hover:opacity-70 transition-opacity duration-1000"></div>
+            
+            {/* Core logo structure */}
+            <div className="relative w-full h-full flex items-center justify-center">
+              <svg 
+                className="w-full h-full z-10 transform group-hover:scale-105 transition-transform duration-500 ease-out drop-shadow-2xl" 
+                viewBox="0 0 100 100" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+                  {/* Left Shield Outline */}
+                  <path d="M 50 15 L 20 20 C 18 55, 30 85, 50 95" stroke="#002D56" />
+                  {/* Right Shield Outline */}
+                  <path d="M 50 15 L 80 20 C 82 55, 70 85, 50 95" stroke="#B6923C" />
+                </g>
+                
+                {/* Left Pillar */}
+                <rect x="25" y="28" width="15" height="50" fill="#002D56" />
+                <rect x="25" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
+                
+                {/* Right Pillar */}
+                <rect x="60" y="28" width="15" height="50" fill="#002D56" />
+                <rect x="60" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
+
+                {/* Arrow Cutout (Background color stroke for separation) */}
+                <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#0A0B0C" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                
+                {/* The Arrow (Gold) */}
+                <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#B6923C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                {/* Arrowhead */}
+                <polygon points="72,16 90,10 84,28" fill="#B6923C" stroke="#B6923C" strokeLinejoin="round" strokeWidth="2" />
+              </svg>
+            </div>
           </div>
         </motion.div>
         <motion.h2 
@@ -112,7 +150,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="mt-6 text-center text-3xl font-extrabold text-white font-display tracking-tight"
         >
-          Acumen Financial
+          HERRERA FINANCE
         </motion.h2>
         <motion.p 
           initial={{ opacity: 0 }}
