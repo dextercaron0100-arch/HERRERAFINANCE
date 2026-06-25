@@ -78,7 +78,7 @@ export default function AlertsMenu({ activeUserId }: AlertsMenuProps) {
   }, [dbTick, activeUserId]);
 
   return (
-    <div className="relative font-sans" ref={menuRef}>
+    <div className="relative font-sans shrink-0" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative flex p-1.5 items-center justify-center bg-[#181A1C] border border-[#24272C] text-zinc-400 hover:text-white rounded-lg transition-all cursor-pointer"

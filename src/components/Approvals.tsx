@@ -42,6 +42,9 @@ export default function Approvals({
   const categories = getCategories(companyId);
   const profiles = getProfiles();
 
+  const currentUser = profiles.find((p) => p.id === userId);
+  const isOwner = currentUser && ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(currentUser.email);
+
   const pendingTxns = useMemo(() => {
     return transactions.filter((t) => t.status === "pending");
   }, [transactions]);
@@ -324,7 +327,7 @@ export default function Approvals({
                             >
                               Timeline
                             </button>
-                          ) : txn.encodedBy === userId ? (
+                          ) : (txn.encodedBy === userId && !isOwner) ? (
                             <div className="text-[10px] text-amber-500/80 font-mono tracking-widest uppercase bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 text-center w-full leading-tight">
                               Self-Encoded
                               <br />

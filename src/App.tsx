@@ -38,9 +38,11 @@ import {
   Moon,
   RefreshCw,
   BookOpen,
+  Notebook,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
 import Dashboard from "./components/Dashboard";
 import Ledger from "./components/Ledger";
@@ -51,6 +53,7 @@ import PayablesReceivables from "./components/PayablesReceivables";
 import Payroll from "./components/Payroll";
 import Reports from "./components/Reports";
 import BankReconciliation from "./components/BankReconciliation";
+import CashBankModule from "./components/CashBankModule";
 import AuditLog from "./components/AuditLog";
 import EnterpriseSuite from "./components/EnterpriseSuite";
 import TaxComplianceDashboard from "./components/TaxComplianceDashboard";
@@ -58,12 +61,14 @@ import AlertsMenu from "./components/AlertsMenu";
 import FinancialAssistant from "./components/FinancialAssistant";
 import DocumentVault from "./components/DocumentVault";
 import LoginPage from "./components/LoginPage";
+import AccountingWorkflow from "./components/AccountingWorkflow";
 
 import {
   getCompanies,
   getProfiles,
   getUserRole,
   isGroupAdmin,
+  isAccountingUser,
   canWriteFinance,
   canManagePayroll,
   getTransactions,
@@ -84,12 +89,14 @@ type ActivePage =
   | "payroll"
   | "reports"
   | "bank_rec"
+  | "cash_acc"
   | "audit_log"
   | "workspace"
   | "enterprise"
   | "assistant"
   | "vault"
-  | "tax_compliance";
+  | "tax_compliance"
+  | "workflow";
 
 export default function App() {
   // Active User profile and active company sessions
@@ -101,6 +108,18 @@ export default function App() {
   // Mobile sidebar overlays
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+
+  useEffect(() => {
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+    
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [mobileSidebarOpen]);
 
   // Theme Toggler
   const [isLightMode, setIsLightMode] = useState<boolean>(false);
@@ -185,9 +204,38 @@ export default function App() {
     return sum;
   }, [companies, activeUserId, triggerCount]);
 
+  const groupTreasuryTrend = useMemo(() => {
+    const today = new Date();
+    const data: { date: string, balance: number }[] = [];
+    let currentBalance = groupTotalTreasury;
+
+    // Calculate balances for the last 7 days backwards
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      
+      data.unshift({ date: dateStr, balance: currentBalance });
+
+      // Remove the net of that day to get the previous day's balance
+      companies.forEach((com) => {
+        const txns = getTransactions(activeUserId, com.id).filter(
+          (t) => t.status === "approved" && t.txnDate === dateStr
+        );
+        const inflow = txns.filter(t => t.type === "cash_in").reduce((acc, t) => acc + t.amount, 0);
+        const outflow = txns.filter(t => t.type === "cash_out").reduce((acc, t) => acc + t.amount, 0);
+        currentBalance -= (inflow - outflow);
+      });
+    }
+    return data;
+  }, [groupTotalTreasury, companies, activeUserId, triggerCount]);
+
   // Sync session logs upon profiling swaps
   const handleUserSwap = (userId: string) => {
     setActiveUserId(userId);
+    if (isAccountingUser(userId) && ["audit_log", "workspace", "approvals"].includes(activePage)) {
+      setActivePage("dashboard");
+    }
     // Logging security log
     const changedProf = profiles.find((p) => p.id === userId);
     writeAuditLog(userId, null, "USER_SESSION_SWAP", "profile", userId, {
@@ -202,6 +250,7 @@ export default function App() {
 
   const handleCompanySwap = (companyId: string) => {
     setActiveCompanyId(companyId);
+    setMobileSidebarOpen(false);
     const company = companies.find((c) => c.id === companyId);
     writeAuditLog(
       activeUserId,
@@ -242,9 +291,9 @@ export default function App() {
       />
 
       {/* GLOBAL ENTERPRISE TOP STICKY BAR */}
-      <header className="bg-[#141618] text-white sticky top-0 z-40 px-3 md:px-6 h-16 flex items-center justify-between border-b border-[#24272C] select-none font-sans gap-2 w-full overflow-x-auto no-scrollbar">
+      <header className="bg-[#141618] text-white sticky top-0 z-40 px-3 md:px-6 h-16 flex items-center justify-between border-b border-[#24272C] select-none font-sans gap-4 w-full overflow-x-auto no-scrollbar">
         {/* MOB TRIGGERS AND BRANDING */}
-        <div className="flex items-center gap-2 md:gap-3 min-w-0 shrink">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
             className="md:hidden p-1.5 -ml-1 hover:bg-zinc-800/80 rounded-lg text-zinc-400 cursor-pointer transition-all shrink-0"
@@ -252,21 +301,21 @@ export default function App() {
             <Menu className="w-5 h-5 text-white" />
           </button>
 
-          <div className="flex items-center gap-2 md:gap-3 select-none min-w-0">
+          <div className="flex items-center gap-2 md:gap-3 select-none">
             <div className="font-display font-light text-xl md:text-2xl tracking-tighter text-white shrink-0">
               HF
               <span className="text-[#00B67A] font-serif italic text-lg md:text-xl">
                 .
               </span>
             </div>
-            <div className="border-l border-[#24272C] pl-3 hidden sm:block truncate">
-              <h1 className="text-xs uppercase font-semibold font-display tracking-[3px] text-white leading-none">
+            <div className="border-l border-[#24272C] pl-3 hidden lg:block shrink-0">
+              <h1 className="text-xs uppercase font-semibold font-display tracking-[3px] text-white leading-none whitespace-nowrap">
                 HERRERA{" "}
                 <span className="serif-italic text-sm font-light text-[#00B67A] font-serif">
                   finance
                 </span>
               </h1>
-              <p className="text-[8px] text-zinc-500 font-mono font-medium tracking-widest uppercase">
+              <p className="text-[8px] text-zinc-500 font-mono font-medium tracking-widest uppercase whitespace-nowrap mt-1">
                 Atelier Workspace Suite
               </p>
             </div>
@@ -274,7 +323,7 @@ export default function App() {
         </div>
 
         {/* GLOBAL SEARCH BAR */}
-        <div className="flex-1 max-w-xl hidden md:flex items-center">
+        <div className="flex-1 max-w-xl min-w-[200px] hidden xl:flex items-center">
           <div className="relative w-full group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
             <input
@@ -289,9 +338,9 @@ export default function App() {
         </div>
 
         {/* COMPREHENSIVE CONTROLS DECK */}
-        <div className="flex items-center gap-2 md:gap-5">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           {/* SYNC CONTROLS */}
-          <div className="hidden xl:flex items-center gap-3 bg-[#181A1C] border border-[#24272C] px-3.5 py-1.5 rounded-xl shadow-inner">
+          <div className="hidden xl:flex items-center gap-3 bg-[#181A1C] border border-[#24272C] px-3.5 py-1.5 rounded-xl shadow-inner shrink-0">
             <div className="flex flex-col">
               <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest leading-none">
                 Last Sync
@@ -307,7 +356,7 @@ export default function App() {
             <button
               onClick={handleManualSync}
               disabled={isSyncing}
-              className="group flex items-center gap-1.5 focus:outline-hidden cursor-pointer"
+              className="group flex items-center gap-1.5 focus:outline-hidden cursor-pointer shrink-0"
               title="Force Data Sync"
             >
               <RefreshCw
@@ -331,7 +380,7 @@ export default function App() {
                 description: `Switched to ${!isLightMode ? "Clean Light" : "Midnight Dark"} mode`,
               });
             }}
-            className="hidden sm:flex p-1.5 items-center justify-center bg-[#181A1C] border border-[#24272C] text-zinc-400 hover:text-white rounded-lg transition-all"
+            className="hidden sm:flex shrink-0 p-1.5 items-center justify-center bg-[#181A1C] border border-[#24272C] text-zinc-400 hover:text-white rounded-lg transition-all"
             title={
               isLightMode
                 ? "Switch to Midnight Dark Mode"
@@ -346,25 +395,42 @@ export default function App() {
           </button>
 
           {/* GROUP TOTAL TREASURY STAT PILL */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#181A1C] border border-[#24272C] px-3.5 py-1.5 text-xs rounded-xl shadow-inner">
-            <Coins className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[#94A3B8] font-medium uppercase tracking-wider text-[10px]">
-              Group Treasury:
-            </span>
-            <span className="font-mono text-white font-bold tracking-tight">
-              {formatPeso(groupTotalTreasury)}
-            </span>
+          <div className="hidden xl:flex items-center gap-3 bg-[#181A1C] border border-[#24272C] pl-3.5 pr-2 py-1.5 text-xs rounded-xl shadow-inner shrink-0">
+            <div className="flex items-center gap-2">
+              <Coins className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[#94A3B8] font-medium uppercase tracking-wider text-[10px] whitespace-nowrap">
+                Group Treasury:
+              </span>
+              <span className="font-mono text-white font-bold tracking-tight whitespace-nowrap">
+                {formatPeso(groupTotalTreasury)}
+              </span>
+            </div>
+            <div className="h-6 w-16 border-l border-[#24272C] pl-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={groupTreasuryTrend}>
+                  <YAxis domain={['dataMin', 'dataMax']} hide />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    stroke="#00B67A"
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* ACTIVE COMPANY CONTEXT DROPDOWN */}
-          <div className="hidden md:flex items-center gap-1.5 font-sans">
-            <span className="hidden lg:inline text-[9.5px] uppercase font-bold text-zinc-400 tracking-wider font-sans">
+          <div className="flex items-center gap-1.5 font-sans shrink-0">
+            <span className="hidden xl:inline text-[9.5px] uppercase font-bold text-zinc-400 tracking-wider font-sans whitespace-nowrap">
               Focus Company:
             </span>
             <select
               value={activeCompanyId}
               onChange={(e) => handleCompanySwap(e.target.value)}
-              className="px-3 py-1.5 bg-[#181A1C] text-[#F1F5F9] text-xs focus:ring-1 focus:ring-[#00B67A] focus:outline-hidden font-medium border border-[#24272C] rounded-lg cursor-pointer max-w-[120px] lg:max-w-none text-ellipsis transition-all hover:bg-[#1D2024] font-semibold"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[#181A1C] text-[#F1F5F9] text-[10px] sm:text-xs focus:ring-1 focus:ring-[#00B67A] focus:outline-hidden font-medium border border-[#24272C] rounded-lg cursor-pointer max-w-[100px] sm:max-w-[120px] lg:max-w-none text-ellipsis transition-all hover:bg-[#1D2024] font-semibold"
             >
               <option value="all" className="font-bold text-[#00B67A]">
                 Consolidated (ALL)
@@ -378,7 +444,7 @@ export default function App() {
           </div>
 
           {/* SIMULATOR SECURITY ACTOR SWITCHER */}
-          <div className="flex items-center gap-1.5 border-l border-[#24272C] pl-1.5 md:pl-5">
+          <div className="flex items-center gap-1.5 border-l border-[#24272C] pl-1.5 md:pl-5 shrink-0">
             {isConfirmingReset ? (
               <div className="flex items-center gap-1">
                 <button
@@ -512,6 +578,12 @@ export default function App() {
                   label: "Overview Dashboard",
                   icon: TrendingUp,
                 },
+                {
+                  id: "workflow",
+                  label: "Accounting Workflow SOPs",
+                  icon: CheckCircle2,
+                  pulse: true,
+                },
                 { id: "ledger", label: "Transaction Journal", icon: Coins },
                 {
                   id: "approvals",
@@ -530,6 +602,11 @@ export default function App() {
                   id: "reports",
                   label: "Executive Sheets Reports",
                   icon: FileText,
+                },
+                {
+                  id: "cash_acc",
+                  label: "Cash & Bank Accounts",
+                  icon: Notebook,
                 },
                 {
                   id: "bank_rec",
@@ -569,7 +646,17 @@ export default function App() {
                   icon: Globe,
                   pulse: true,
                 },
-              ].map((item) => {
+              ].filter(item => {
+                if (item.id === "payroll") {
+                  return activeCompanyId === 'all' ? isGroupAdmin(activeUserId) : canManagePayroll(activeUserId, activeCompanyId);
+                }
+                if (isAccountingUser(activeUserId)) {
+                  if (item.id === "audit_log" || item.id === "workspace" || item.id === "approvals") {
+                    return false;
+                  }
+                }
+                return true;
+              }).map((item) => {
                 const Icon = item.icon;
                 const isSelected = activePage === item.id;
                 return (
@@ -631,8 +718,11 @@ export default function App() {
             
             <button
               onClick={() => {
-                import('./lib/firebase').then(({ auth }) => auth.signOut());
-                setActiveUserId("");
+                import('./lib/firebase').then(({ auth }) => {
+                  auth.signOut().then(() => {
+                    setActiveUserId("");
+                  }).catch(() => setActiveUserId(""));
+                });
               }}
               className={`w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 rounded-lg text-[9px] font-mono font-bold cursor-pointer transition flex items-center justify-center gap-1.5 tracking-widest uppercase border border-red-500/20 ${sidebarMinimized && !mobileSidebarOpen ? "px-0" : "px-3"}`}
               title="End Session"
@@ -743,6 +833,10 @@ export default function App() {
               {activePage === "reports" && (
                 <Reports userId={activeUserId} companyId={activeCompanyId} />
               )}
+              
+              {activePage === "cash_acc" && (
+                <CashBankModule userId={activeUserId} companyId={activeCompanyId} />
+              )}
 
               {activePage === "bank_rec" && (
                 <BankReconciliation userId={activeUserId} companyId={activeCompanyId} />
@@ -783,6 +877,9 @@ export default function App() {
                   onAuditLogged={forceTriggerAuditTrail}
                   onRequestOAuth={handleOAuthSetup}
                 />
+              )}
+              {activePage === "workflow" && (
+                <AccountingWorkflow onNavigate={(page) => setActivePage(page as ActivePage)} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -832,6 +929,16 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => {
+                      setActivePage("workflow");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-gray-400" />
+                    <span>Accounting Workflow SOPs</span>
+                  </button>
+                  <button
+                    onClick={() => {
                       setActivePage("ledger");
                       setMobileSidebarOpen(false);
                     }}
@@ -840,16 +947,18 @@ export default function App() {
                     <Coins className="w-4 h-4 text-gray-400" />
                     <span>Transaction Journal</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("approvals");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <FileSignature className="w-4 h-4 text-amber-500 animate-pulse" />
-                    <span>Approvals queue</span>
-                  </button>
+                  {!isAccountingUser(activeUserId) && (
+                    <button
+                      onClick={() => {
+                        setActivePage("approvals");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                    >
+                      <FileSignature className="w-4 h-4 text-amber-500 animate-pulse" />
+                      <span>Approvals queue</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setActivePage("budgets");
@@ -892,6 +1001,26 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => {
+                      setActivePage("cash_acc");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                  >
+                    <Notebook className="w-4 h-4 text-gray-400" />
+                    <span>Cash & Bank Accounts</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActivePage("bank_rec");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4 text-gray-400" />
+                    <span>Bank Reconciliation</span>
+                  </button>
+                  <button
+                    onClick={() => {
                       setActivePage("assistant");
                       setMobileSidebarOpen(false);
                     }}
@@ -930,26 +1059,30 @@ export default function App() {
                     <Percent className="w-4 h-4 text-gray-400" />
                     <span>PH TAX Compliance Hub</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("audit_log");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer font-mono"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-gray-400" />
-                    <span>Compliance logs</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("workspace");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Globe className="w-4 h-4 text-indigo-400 animate-pulse" />
-                    <span>Workspace Sync Center</span>
-                  </button>
+                  {!isAccountingUser(activeUserId) && (
+                    <button
+                      onClick={() => {
+                        setActivePage("audit_log");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer font-mono"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-gray-400" />
+                      <span>Compliance logs</span>
+                    </button>
+                  )}
+                  {!isAccountingUser(activeUserId) && (
+                    <button
+                      onClick={() => {
+                        setActivePage("workspace");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                    >
+                      <Globe className="w-4 h-4 text-indigo-400 animate-pulse" />
+                      <span>Workspace Sync Center</span>
+                    </button>
+                  )}
                 </nav>
               </div>
 

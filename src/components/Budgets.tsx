@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar,
   AlertTriangle,
@@ -59,6 +59,33 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
     const usage = planned > 0 ? (actual / planned) * 100 : 0;
     return { planned, actual, variance, usage };
   }, [budgetActualList]);
+
+  // Notifications logic
+  const [notifiedCategories, setNotifiedCategories] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.requestPermission) {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    budgetActualList.forEach(item => {
+      // Trigger if usage >= 80% and we haven't notified yet for this category in the current session
+      if (item.usagePercent >= 80 && !notifiedCategories.has(item.categoryId)) {
+        const title = `Budget Alert: ${item.categoryName.replace('_', ' ').toUpperCase()}`;
+        const msg = `This cost center is at ${item.usagePercent.toFixed(1)}% of its planned budget.`;
+        
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(title, { body: msg, icon: '/favicon.ico' });
+        }
+        
+        toast.warning(title, { description: msg, duration: 8000 });
+        
+        setNotifiedCategories(prev => new Set(prev).add(item.categoryId));
+      }
+    });
+  }, [budgetActualList, notifiedCategories]);
 
   // Handle planned update
   const handleSaveBudgetAmount = (categoryId: string, targetCompanyId: string, val: string) => {
@@ -264,21 +291,24 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                 let barColor = 'bg-white';
                 let textColor = 'text-emerald-400';
                 let badgeBg = 'bg-emerald-955/20 border-emerald-900/50';
+                let rowBg = 'hover:bg-zinc-800/20 border-l-2 border-transparent';
 
                 if (item.status === 'over_budget') {
-                  barColor = 'bg-rose-500';
-                  textColor = 'text-rose-400';
-                  badgeBg = 'bg-rose-955/20 border-rose-900/50';
+                  barColor = 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]';
+                  textColor = 'text-rose-400 font-bold';
+                  badgeBg = 'bg-rose-955/20 border-rose-500/50 animate-pulse';
+                  rowBg = 'bg-rose-500/5 hover:bg-rose-500/10 border-l-2 border-rose-500';
                 } else if (item.status === 'near_limit') {
-                  barColor = 'bg-amber-500';
-                  textColor = 'text-amber-300';
-                  badgeBg = 'bg-amber-955/20 border-amber-900/50';
+                  barColor = 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]';
+                  textColor = 'text-amber-400 font-bold';
+                  badgeBg = 'bg-amber-955/20 border-amber-500/50 animate-pulse';
+                  rowBg = 'bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-amber-500';
                 }
 
                 const isEditing = editingBudget?.categoryId === item.categoryId;
 
                 return (
-                  <tr key={idx} className="hover:bg-zinc-800/20 transition">
+                  <tr key={idx} className={`${rowBg} transition`}>
                     {/* NAME */}
                     <td className="p-3 whitespace-nowrap">
                       <div className="font-display text-xs uppercase tracking-wider text-white font-medium">

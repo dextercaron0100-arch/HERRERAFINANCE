@@ -53,9 +53,137 @@ export interface Attachment {
   createdAt: string;
 }
 
+export interface CashAccount {
+  id: string;
+  companyId: string;
+  accountType: 'Bank' | 'E-Wallet' | 'Cash on Hand' | 'Main Vault';
+  bankName: string; // Security Bank, RCBC, GCash, Cash
+  accountName: string;
+  accountNumber: string;
+  accountHolder: string;
+  assignedCustodian?: string; // Custodian ID
+  openingBalance: number;
+  currentBalance: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CashCustodian {
+  id: string;
+  name: string;
+  companyId: string;
+  role: string;
+  assignedCashAccountId: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CashLedgerEntry {
+  id: string;
+  date: string;
+  companyId: string;
+  cashAccountId: string;
+  custodianId: string | null;
+  transactionType: 'Cash Sale' | 'Cash Collection' | 'Cash Expense' | 'Cash Transfer' | 'Deposit to Bank' | 'Cash Received from Other Custodian' | 'Cash Released to Other Custodian' | 'Cash Adjustment' | 'Cash Short' | 'Cash Over';
+  referenceNo: string;
+  description: string;
+  cashIn: number;
+  cashOut: number;
+  runningBalance: number;
+  createdBy: string;
+  approvedBy: string | null;
+  createdAt: string;
+}
+
+export interface CashCount {
+  id: string;
+  companyId: string;
+  cashAccountId: string;
+  custodianId: string;
+  countDate: string;
+  openingCash: number;
+  totalCashIn: number;
+  totalCashOut: number;
+  expectedCash: number;
+  actualCountedCash: number;
+  difference: number;
+  status: 'Draft' | 'Submitted' | 'Reviewed' | 'Approved' | 'Reconciled';
+  remarks: string;
+  preparedBy: string;
+  reviewedBy: string | null;
+  approvedBy: string | null;
+  denominations: Denominations;
+  createdAt: string;
+}
+
+export interface Denominations {
+  qty1000: number;
+  qty500: number;
+  qty200: number;
+  qty100: number;
+  qty50: number;
+  qty20: number;
+  coinsTotal: number;
+}
+
+export interface BankDeposit {
+  id: string;
+  companyId: string;
+  fromCashAccountId: string;
+  fromCustodianId: string;
+  toBankAccountId: string;
+  depositDate: string;
+  depositAmount: number;
+  depositSlipNumber: string;
+  proofOfDepositAttachment: string | null;
+  depositedBy: string;
+  status: 'Draft' | 'Submitted' | 'Verified' | 'Posted';
+  remarks: string;
+  createdAt: string;
+}
+
+
+export interface BankStatementLine {
+  id: string;
+  cashAccountId: string;
+  statementDate: string; // YYYY-MM-DD
+  description: string;
+  referenceNo: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  sourceFile: string | null;
+  createdAt: string;
+}
+
+export interface BankReconciliation {
+  id: string;
+  companyId: string;
+  cashAccountId: string;
+  periodMonth: string; // YYYY-MM
+  bookBalance: number;
+  statementBalance: number;
+  difference: number;
+  status: 'draft' | 'for review' | 'reconciled';
+  preparedBy: string;
+  reviewedBy?: string;
+  createdAt: string;
+}
+
+export interface ReconciliationMatch {
+  id: string;
+  reconciliationId: string;
+  cashTransactionId: string; // ID of Transaction
+  bankStatementLineId: string; // ID of BankStatementLine
+  matchStatus: 'matched' | 'unmatched' | 'manual match';
+  remarks: string | null;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   companyId: string;
+  cashAccountId?: string; // Links to CashAccount
   txnDate: string; // YYYY-MM-DD
   type: CashflowType;
   amount: number;
@@ -65,6 +193,7 @@ export interface Transaction {
   receiptPath: string | null;
   mockMetadata?: { scanRef: string; timestamp: string; controlNumber?: string } | null;
   status: TransactionStatus;
+  paymentMethod?: string;
   encodedBy: string; // profile id
   reversalOf: string | null; // transaction id
   createdAt: string;

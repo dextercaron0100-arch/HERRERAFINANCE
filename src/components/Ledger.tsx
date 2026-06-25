@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -23,7 +23,8 @@ import {
   UploadCloud,
   FileCheck2,
   Paperclip,
-  Sparkles
+  Sparkles,
+  Camera
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -37,10 +38,14 @@ import {
   updateTransactionMetadata,
   getUserRole,
   canWriteFinance,
-  getNextControlNumber
+  getNextControlNumber,
+  getAttachments,
+  saveAttachment,
+  getCashAccounts
 } from '../data/mockDatabase';
-import { Transaction, CashflowType, TransactionStatus, Category, Company } from '../types';
+import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '../types';
 import { toast } from 'sonner';
+
 
 interface LedgerProps {
   userId: string;
@@ -54,6 +59,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -66,7 +72,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [encAmount, setEncAmount] = useState('');
   const [encPurpose, setEncPurpose] = useState('');
   const [encResponsible, setEncResponsible] = useState('');
+  const [encAccountId, setEncAccountId] = useState('');
   const [encReceipt, setEncReceipt] = useState<string | null>(null);
+  const [encReceiptFile, setEncReceiptFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -83,17 +91,31 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [metaReceiptUrl, setMetaReceiptUrl] = useState('');
 
   // LOAD DB
+
   const companies = getCompanies();
   const currentCompany = companies.find(c => c.id === companyId);
   const categories = getCategories(companyId);
   const profiles = getProfiles();
   const rawTxns = getTransactions(userId, companyId);
+  const vaultAttachments = getAttachments(companyId);
+
+  const allCashAccounts = useMemo(() => {
+    const accs: CashAccount[] = [];
+    companies.forEach(c => {
+      accs.push(...getCashAccounts(c.id));
+    });
+    return accs;
+  }, [companies]);
 
   // Filter Categories on selected type for encode form
   const formCategories = useMemo(() => {
     const activeCats = getCategories(encTargetCompany || companyId);
     return activeCats.filter(c => c.type === encType);
   }, [encType, encTargetCompany, companyId]);
+
+  const formCashAccounts = useMemo(() => {
+    return getCashAccounts(encTargetCompany || companyId);
+  }, [encTargetCompany, companyId]);
 
   // Adjust default form category when type toggles
   React.useEffect(() => {
@@ -127,7 +149,10 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         body: JSON.stringify(payload)
       });
       
-      if (!res.ok) throw new Error('Failed to suggest category');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Failed to suggest category');
+      }
       
       const data = await res.json();
       if (data.categoryId && formCategories.some(c => c.id === data.categoryId)) {
@@ -195,13 +220,20 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       // Status
       if (selectedStatus !== 'all' && t.status !== selectedStatus) return false;
 
+      // Payment Method / Account
+      if (selectedPaymentMethod !== 'all') {
+        if (!t.paymentMethod && !t.cashAccountId && selectedPaymentMethod !== 'unspecified') return false;
+        if (t.cashAccountId && t.cashAccountId !== selectedPaymentMethod && selectedPaymentMethod !== 'unspecified') return false;
+        if (t.paymentMethod && !t.cashAccountId && t.paymentMethod.toLowerCase() !== selectedPaymentMethod.toLowerCase()) return false;
+      }
+
       // Date Range
       if (startDate && t.txnDate < startDate) return false;
       if (endDate && t.txnDate > endDate) return false;
 
       return true;
     });
-  }, [rawTxns, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate]);
+  }, [rawTxns, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate, selectedPaymentMethod]);
 
   // 3. CALCULATE FILTERED SUMMARY
   const filteredSummary = useMemo(() => {
@@ -214,10 +246,23 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     return { inflow, outflow, net: inflow - outflow };
   }, [filteredTransactions]);
 
+  const uniquePaymentMethods = useMemo(() => {
+    const methods = new Set<string>();
+    rawTxns.forEach(t => {
+      if (t.cashAccountId) {
+        methods.add(t.cashAccountId);
+      } else if (t.paymentMethod) {
+        methods.add(t.paymentMethod.toLowerCase().trim());
+      }
+    });
+    return Array.from(methods).sort();
+  }, [rawTxns]);
+
   // 4. FILE UPLOAD SIMULATOR (BASE64)
   const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setEncReceiptFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setEncReceipt(reader.result as string);
@@ -225,6 +270,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       reader.readAsDataURL(file);
     }
   };
+
 
   const handleScanReceipt = async () => {
     if (!encReceipt) {
@@ -249,7 +295,10 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         body: JSON.stringify({ imageBase64, mimeType })
       });
 
-      if (!res.ok) throw new Error('Failed to scan receipt');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Failed to scan receipt');
+      }
 
       const data = await res.json();
       
@@ -266,7 +315,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   };
 
   // 5. SUBMIT FORM
-  const handleEncodeSubmit = (e: React.FormEvent) => {
+  const handleEncodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
@@ -290,6 +339,8 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
        return;
     }
 
+    let finalReceiptPath = encReceipt;
+
     const { error, transaction } = insertTransaction(userId, {
       companyId: targetCompanyId,
       txnDate: encDate,
@@ -298,19 +349,32 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       categoryId: encCategory,
       purpose: encPurpose,
       responsiblePerson: encResponsible,
-      receiptPath: encReceipt,
+      cashAccountId: encAccountId || undefined,
+      receiptPath: finalReceiptPath,
       reversalOf: null
     });
 
     if (error) {
       setFormError(error);
     } else {
+      // If we uploaded a receipt, link it via DocumentVault logic too!
+      if (encReceiptFile && encReceipt) {
+        saveAttachment(userId, targetCompanyId, {
+          fileName: encReceiptFile.name,
+          fileType: encReceiptFile.type,
+          fileUrl: encReceipt,
+          entityType: "transaction",
+          entityId: transaction?.id || null 
+        });
+      }
+
       setFormSuccess('Financial ledger record registered successfully! Routing to reviewer signatures queue.');
       // Clear
       setEncAmount('');
       setEncPurpose('');
       setEncResponsible('');
       setEncReceipt(null);
+      setEncReceiptFile(null);
       // close delay
       setTimeout(() => {
         setIsEncoding(false);
@@ -613,18 +677,33 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
             {/* RECEIPT ATTACHMENT */}
             <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Receipt File Upload (Optional)</label>
+              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
+                <span>Receipt File Upload (Optional)</span>
+              </label>
               <div className="flex items-center gap-2">
-                <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[#141618] border border-[#24272C] text-xs text-zinc-300 hover:bg-[#1E2124] hover:text-white rounded-xl transition-all select-none">
-                  <UploadCloud className="w-4 h-4 text-zinc-500" />
-                  <span>Choose billing image</span>
-                  <input 
-                    type="file" 
-                    onChange={handleReceiptChange}
-                    accept="image/*"
-                    className="hidden" 
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[#141618] border border-[#24272C] text-xs text-zinc-300 hover:bg-[#1E2124] hover:text-white rounded-xl transition-all select-none">
+                    <UploadCloud className="w-4 h-4 text-emerald-500" />
+                    <span>Choose file</span>
+                    <input 
+                      type="file" 
+                      onChange={handleReceiptChange}
+                      accept="image/*"
+                      className="hidden" 
+                    />
+                  </label>
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[#141618] border border-[#24272C] text-xs text-zinc-300 hover:bg-[#1E2124] hover:text-white rounded-xl transition-all select-none">
+                    <Camera className="w-4 h-4 text-emerald-500" />
+                    <span>Take Photo</span>
+                    <input 
+                      type="file" 
+                      onChange={handleReceiptChange}
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
                 {encReceipt && (
                   <span className="text-[9px] bg-emerald-950/30 text-[#00B67A] font-mono border border-emerald-900/40 py-1 px-2.5 rounded-lg truncate max-w-[150px]">
                     Image attached
@@ -642,6 +721,23 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* CASH ACCOUNT */}
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Cash / Bank Account</label>
+              <select 
+                value={encAccountId}
+                onChange={(e) => setEncAccountId(e.target.value)}
+                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
+              >
+                <option value="">Unspecified</option>
+                {formCashAccounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.bankName} - {acc.accountName}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* PURPOSE DECLARATION */}
@@ -731,6 +827,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               setSelectedType('all');
               setSelectedCategory('all');
               setSelectedStatus('all');
+              setSelectedPaymentMethod('all');
               setStartDate('');
               setEndDate('');
             }}
@@ -740,7 +837,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {/* SEARCH */}
           <div className="sm:col-span-2 space-y-1">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Keyword search</span>
@@ -799,6 +896,28 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               <option value="pending" className="bg-[#181A1C]">Pending review</option>
               <option value="approved" className="bg-[#181A1C]">Approved / Finalized</option>
               <option value="rejected" className="bg-[#181A1C]">Rejected / Returned</option>
+            </select>
+          </div>
+
+          {/* PAYMENT METHOD */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Source / Method</span>
+            <select
+              value={selectedPaymentMethod}
+              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
+            >
+              <option value="all" className="bg-[#181A1C]">All Methods</option>
+              <option value="unspecified" className="bg-[#181A1C]">Unspecified</option>
+              {uniquePaymentMethods.map(method => {
+                const acc = allCashAccounts.find(a => a.id === method);
+                const label = acc ? `${acc.bankName} - ${acc.accountName}` : method.toUpperCase();
+                return (
+                  <option key={method} value={method} className="bg-[#181A1C]">
+                    {label}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -889,6 +1008,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                   // Find category label
                   const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
                   const encoderEmail = profiles.find(p => p.id === t.encodedBy)?.email || 'finance@sys.com';
+                  const txnAttachments = vaultAttachments.filter(a => a.entityId === t.id && a.entityType === 'transaction');
 
                   return (
                     <tr key={t.id} className="hover:bg-zinc-900/40 transition">
@@ -928,13 +1048,32 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                           <div className="text-zinc-100 font-mono text-sm truncate" title={t.purpose}>
                             {t.purpose}
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1">
                             <span className="px-1.5 py-0.5 bg-[#141618] text-zinc-400 font-bold font-mono text-[8px] border border-[#24272C] rounded-lg uppercase">
                               {catName}
                             </span>
+                            {(t.cashAccountId || t.paymentMethod) && (
+                              <span className="px-1.5 py-0.5 bg-sky-950/20 text-sky-400 border border-sky-900/30 rounded-lg font-mono text-[8px] font-semibold uppercase">
+                                {(() => {
+                                  if (t.cashAccountId) {
+                                    const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+                                    return acc ? `${acc.bankName} - ${acc.accountName}` : t.cashAccountId;
+                                  }
+                                  return t.paymentMethod;
+                                })()}
+                              </span>
+                            )}
                             {t.reversalOf && (
                               <span className="px-1.5 py-0.5 bg-rose-950/25 text-rose-450 border border-rose-900/30 rounded-lg font-mono text-[8px] font-semibold uppercase">
                                 ADJUSTMENT ADJ
+                              </span>
+                            )}
+                            {txnAttachments.length > 0 && (
+                              <span 
+                                className="px-1 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg flex items-center justify-center cursor-help"
+                                title={`Vault Docs: ${txnAttachments.map(a => a.fileName).join(', ')}`}
+                              >
+                                <Paperclip className="w-3 h-3" />
                               </span>
                             )}
                           </div>

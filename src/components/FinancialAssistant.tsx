@@ -19,7 +19,7 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Hello. I am your specialized Financial Intelligence Assistant. How can I help you analyze your treasury data, budgets, or AP/AR today?',
+      content: 'Hello. I am your specialized Herrera Financial Intelligence Assistant. How can I help you analyze your treasury data, budgets, or AP/AR today?',
       timestamp: new Date()
     }
   ]);
@@ -71,7 +71,10 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
           body: JSON.stringify(payload)
        });
 
-       if (!res.ok) throw new Error('Failed to communicate with the intelligence API.');
+       if (!res.ok) {
+         const errData = await res.json().catch(() => null);
+         throw new Error(errData?.error || 'Failed to communicate with the intelligence API.');
+       }
 
        const data = await res.json();
        
@@ -102,7 +105,7 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
         <div>
           <h2 className="text-xl font-bold font-display text-white flex items-center gap-2 tracking-tight">
             <Sparkles className="w-5 h-5 text-indigo-400" />
-            Financial Intelligence Assistant
+            Herrera Financial Intelligence Assistant
           </h2>
           <p className="text-sm text-zinc-400 font-mono mt-1">
             Analyze trends, query ledgers, and ask about AP/AR anomalies.

@@ -62,8 +62,9 @@ import {
   writeAuditLog,
   getPayables,
   getReceivables,
+  getCashAccounts
 } from "../data/mockDatabase";
-import { Transaction, Company, Profile } from "../types";
+import { Transaction, Company, Profile, CashAccount } from "../types";
 import { toast } from "sonner";
 
 interface EnterpriseSuiteProps {
@@ -198,6 +199,36 @@ export default function EnterpriseSuite({
     };
   }, [dbTick, companyBalances]);
 
+  // Exact Bank Balances based on Accounts setup and transactions mapping
+  const activeCashAccounts = useMemo(() => {
+    let accounts: (CashAccount & { currentBalance: number })[] = [];
+    let accList: CashAccount[] = [];
+    
+    if (companyId === 'all') {
+      companies.forEach(com => {
+        accList.push(...getCashAccounts(com.id));
+      });
+    } else {
+      accList = getCashAccounts(companyId);
+    }
+
+    const txs = allTxns.filter((t) => t.status === "approved");
+
+    accounts = accList.map(acc => {
+      let runBal = acc.openingBalance || 0;
+      
+      txs.forEach(t => {
+        if (t.cashAccountId === acc.id) {
+          if (t.type === 'cash_in') runBal += t.amount;
+          else if (t.type === 'cash_out') runBal -= t.amount;
+        }
+      });
+      return { ...acc, currentBalance: runBal };
+    });
+
+    return accounts;
+  }, [allTxns, companyId, companies, dbTick]);
+
   // Runway Projection Chart Data
   const runwayForecastData = useMemo(() => {
     const months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -276,9 +307,7 @@ export default function EnterpriseSuite({
   // ---------------------------------------------------------
   // MODULE 9: BANK RECONCILIATION & POSITIONING
   // ---------------------------------------------------------
-  const [selectedBank, setSelectedBank] = useState<
-    "bdo" | "unionbank" | "gcash"
-  >("bdo");
+  const [selectedBank, setSelectedBank] = useState<string>("bdo");
   // Simulated Bank Statement Feed
   const [bankFeeds, setBankFeeds] = useState([
     {
@@ -1346,59 +1375,42 @@ export default function EnterpriseSuite({
                   Live Central Cash Accounts
                 </h3>
                 <div className="space-y-2.5 mt-2">
-                  {[
-                    {
-                      id: "bdo",
-                      bankName: "Banco de Oro (BDO)",
-                      acct: "CA-1029-4503-44",
-                      bal: Math.floor(consolidatedTotals.cash * 0.6),
-                      verified: true,
-                    },
-                    {
-                      id: "unionbank",
-                      bankName: "UnionBank of the Philippines",
-                      acct: "SA-9034-2281-99",
-                      bal: Math.floor(consolidatedTotals.cash * 0.3),
-                      verified: true,
-                    },
-                    {
-                      id: "gcash",
-                      bankName: "GCash Corporate Settlement wallet",
-                      acct: "0917-884-2900",
-                      bal: Math.floor(consolidatedTotals.cash * 0.1),
-                      verified: false,
-                    },
-                  ].map((b) => (
+                  {activeCashAccounts.map((b) => (
                     <button
                       key={b.id}
-                      onClick={() => setSelectedBank(b.id as any)}
+                      onClick={() => setSelectedBank(b.id)}
                       className={`w-full p-4 border rounded-xl text-left transition duration-150 flex flex-col justify-between cursor-pointer ${
                         selectedBank === b.id
                           ? "bg-[#1D2024] border-[#00B67A] shadow-md"
-                          : "bg-[#141618] border-zinc-c450 border-zinc-800/60 hover:bg-[#181A1C]"
+                          : "bg-[#141618] border-[#24272C] hover:bg-[#181A1C]"
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <span className="font-bold text-white text-xs">
-                          {b.bankName}
+                          {b.bankName} - {b.accountName}
                         </span>
-                        {b.verified && (
+                        {b.isActive && (
                           <span className="w-1.5 h-1.5 rounded-full bg-[#00B67A] inline-block animate-pulse" />
                         )}
                       </div>
                       <span className="text-[10px] text-zinc-500 mt-1">
-                        {b.acct}
+                        {b.accountNumber}
                       </span>
                       <div className="flex items-end justify-between mt-3">
                         <span className="text-[9px] text-zinc-455">
                           Live balance
                         </span>
                         <span className="text-sm font-bold text-emerald-400">
-                          {formatPeso(b.bal)}
+                          {formatPeso(b.currentBalance)}
                         </span>
                       </div>
                     </button>
                   ))}
+                  {activeCashAccounts.length === 0 && (
+                    <div className="text-xs text-zinc-500 text-center py-4 border border-dashed border-[#24272C] rounded-xl italic">
+                       No Central Accounts configured.
+                    </div>
+                  )}
                 </div>
               </div>
 

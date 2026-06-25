@@ -26,9 +26,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         if (existingProfile) {
           onLogin(existingProfile.id);
         } else {
-          // If not, just assign to default or alert to contact admin
-          // For sandbox purposes, auto-map to first admin
-          onLogin(profiles[0]?.id || "u-mark"); 
+          // If not, sign out to prevent unauthorized access
+          auth.signOut();
+          setErrorMsg("Unauthorized account.");
+          setIsLoading(false);
         }
       }
     });
@@ -43,31 +44,39 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       return;
     }
 
-    const lowerEmail = email.toLowerCase();
-    const isHerrera = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(lowerEmail);
+    const lowerEmail = email.trim().toLowerCase();
+    const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com"];
+    const isHerrera = validEmails.includes(lowerEmail);
+
+    if (!isHerrera) {
+      setErrorMsg("Unauthorized email address. Only Herrera domain accounts are allowed.");
+      return;
+    }
+
     if (isHerrera && password === "Herrera2027") {
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, email.trim(), password);
       } catch (err: any) {
          try {
-           await createUserWithEmailAndPassword(auth, email, password);
+           await createUserWithEmailAndPassword(auth, email.trim(), password);
          } catch(e) {}
       }
       setIsLoading(true);
       if (lowerEmail === "mark@herrera.com") onLogin("u-mark");
       if (lowerEmail === "ryan@herrera.com") onLogin("u-ryan");
       if (lowerEmail === "marvin@herrera.com") onLogin("u-marvin");
+      if (lowerEmail === "accounting@herrera.com") onLogin("u-accounting");
       return;
     }
     
     setIsLoading(true);
     setErrorMsg('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err: any) {
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
         try {
-          await createUserWithEmailAndPassword(auth, email, password);
+          await createUserWithEmailAndPassword(auth, email.trim(), password);
         } catch (createErr: any) {
           setErrorMsg(createErr.message);
         }
@@ -186,7 +195,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
                 <input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="mark@herrera.com"
@@ -205,7 +219,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
                 <input
                   id="pin"
+                  name="password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"

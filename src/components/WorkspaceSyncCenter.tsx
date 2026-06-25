@@ -315,7 +315,7 @@ export default function WorkspaceSyncCenter({
               {connected ? (
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-[#00B67A] animate-ping"></div>
-                  <span className="text-xs font-bold text-white font-sans">{googleUser ? googleUser : 'Connected Account'}</span>
+                  <span className="text-xs font-bold text-white font-sans">{googleUser ? googleUser.email : 'Connected Account'}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">

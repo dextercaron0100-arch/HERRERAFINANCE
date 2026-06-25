@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Attachment } from "../types";
 import { getAttachments, saveAttachment, getProfiles } from "../data/mockDatabase";
 import { toast } from "sonner";
@@ -21,34 +21,39 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
   
   const profiles = getProfiles();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Simulate upload delay and base64 conversion
     setIsUploading(true);
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      const { error, attachment } = saveAttachment(userId, companyId, {
-        fileName: file.name,
-        fileType: file.type,
-        fileUrl: base64,
-        entityType: "other",
-        entityId: null
-      });
+    try {
+      // 2. Save locally as base64 for preview
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        const { error, attachment } = saveAttachment(userId, companyId, {
+          fileName: file.name,
+          fileType: file.type,
+          fileUrl: base64,
+          entityType: "other",
+          entityId: null
+        });
 
-      if (error) {
-        toast.error("Upload Failed", { description: error });
-      } else if (attachment) {
-        setAttachments(prev => [attachment, ...prev]);
-        toast.success("Document Uploaded", { description: `${file.name} saved securely.` });
-      }
+        if (error) {
+          toast.error("Local Save Failed", { description: error });
+        } else if (attachment) {
+          setAttachments(prev => [attachment, ...prev]);
+        }
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      toast.error("Upload Failed", { id: "drive-upload", description: err.message });
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const filteredAttachments = attachments.filter(a => 
@@ -74,7 +79,7 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
             Receipt & Document Vault
           </h2>
           <p className="text-sm text-zinc-400 font-mono mt-1">
-            Secure centralized storage for bills, receipts, and compliance attachments.
+            Secure centralized storage for bills, receipts, and compliance attachments directly linked to Google Drive.
           </p>
         </div>
         
@@ -97,6 +102,7 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
       </div>
 
       <div className="bg-[#141618] border border-[#24272C] rounded-2xl p-4 sm:p-6 shadow-xl relative min-h-[500px]">
+
         <div className="flex items-center gap-4 mb-6">
            <div className="relative flex-1 max-w-sm">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />

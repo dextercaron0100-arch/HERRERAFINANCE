@@ -65,7 +65,17 @@ async function startServer() {
       res.json(parsed);
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message || "Failed to parse receipt" });
+      let errMsg = e.message || "Failed to parse receipt";
+      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
+        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
+      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+        try {
+          const jsonStr = e.message.substring(e.message.indexOf('{'));
+          const parsedErr = JSON.parse(jsonStr);
+          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+        } catch (_) {}
+      }
+      res.status(500).json({ error: errMsg });
     }
   });
 
@@ -93,7 +103,17 @@ ${JSON.stringify(transactions.slice(0, 50), null, 2)}
       res.json({ summary: response.text });
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message || "Failed to assess risk" });
+      let errMsg = e.message || "Failed to assess risk";
+      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
+        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
+      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+        try {
+          const jsonStr = e.message.substring(e.message.indexOf('{'));
+          const parsedErr = JSON.parse(jsonStr);
+          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+        } catch (_) {}
+      }
+      res.status(500).json({ error: errMsg });
     }
   });
 
@@ -126,7 +146,17 @@ ${JSON.stringify(categories, null, 2)}
 
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message || "Failed to suggest category" });
+      let errMsg = e.message || "Failed to suggest category";
+      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
+        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
+      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+        try {
+          const jsonStr = e.message.substring(e.message.indexOf('{'));
+          const parsedErr = JSON.parse(jsonStr);
+          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+        } catch (_) {}
+      }
+      res.status(500).json({ error: errMsg });
     }
   });
 
@@ -137,7 +167,7 @@ ${JSON.stringify(categories, null, 2)}
         return res.status(400).json({ error: "Message is required" });
       }
 
-      const promptString = `You are a helpful, professional Financial Intelligence Assistant. 
+      const promptString = `You are a helpful, professional Herrera Financial Intelligence Assistant. 
 The user is asking a question about their company's finances.
 Here is the context (JSON):
 ${JSON.stringify(context, null, 2)}
@@ -150,7 +180,7 @@ Provide a concise, insightful answer based ONLY on the provided context. Speak d
         model: "gemini-3.1-flash-lite",
         contents: promptString,
         config: {
-          systemInstruction: "You are a professional Financial Intelligence Assistant. Answer concisely.",
+          systemInstruction: "You are a professional Herrera Financial Intelligence Assistant. Answer concisely.",
           temperature: 0.3,
         }
       });
@@ -158,7 +188,22 @@ Provide a concise, insightful answer based ONLY on the provided context. Speak d
       res.json({ reply: response.text });
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message || "Failed to get chat response" });
+      let errMsg = e.message || "Failed to get chat response";
+      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
+        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
+      } else if (typeof e.message === 'string' && e.message.startsWith('{"error"')) {
+        try {
+          const parsedErr = JSON.parse(e.message);
+          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+        } catch (_) {}
+      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+        try {
+          const jsonStr = e.message.substring(e.message.indexOf('{'));
+          const parsedErr = JSON.parse(jsonStr);
+          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+        } catch (_) {}
+      }
+      res.status(500).json({ error: errMsg });
     }
   });
 

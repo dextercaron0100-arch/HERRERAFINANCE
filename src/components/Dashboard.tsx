@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDBUpdate } from "../data/mockDatabase";
+import { motion } from "motion/react";
 import {
   AreaChart,
   Area,
@@ -52,8 +53,9 @@ import {
   getUserRole,
   isGroupAdmin,
   canWriteFinance,
+  getCashAccounts,
 } from "../data/mockDatabase";
-import { Transaction, Company } from "../types";
+import { Transaction, Company, CashAccount } from "../types";
 import ActivityHeatmap from "./ActivityHeatmap";
 
 const Skeleton = ({ className }: { className?: string }) => (
@@ -77,6 +79,12 @@ export default function Dashboard({
   onNavigate,
   isSyncing,
 }: DashboardProps) {
+  // Hook to force re-render on mobile devices when companyId changes
+  const [, setForceRender] = useState(0);
+  useEffect(() => {
+    setForceRender((prev) => prev + 1);
+  }, [companyId]);
+
   const [days, setDays] = useState<"30" | "90" | "monthly">("30");
   const [headerDateRange, setHeaderDateRange] = useState<
     "7" | "30" | "ytd" | "all"
@@ -136,6 +144,15 @@ export default function Dashboard({
       : getTransactions(userId, companyId);
     return all.filter((t) => t.status === "pending").length;
   }, [dbTick, userId, companyId, isConsolidated]);
+
+  const activeCashAccounts = useMemo(() => {
+    const targetCompanies = isConsolidated ? companies.map((c) => c.id) : [companyId];
+    const accounts: CashAccount[] = [];
+    targetCompanies.forEach(cId => {
+      accounts.push(...getCashAccounts(cId).filter(a => a.isActive));
+    });
+    return accounts;
+  }, [dbTick, isConsolidated, companyId, companies]);
 
   // Stat Card math
   const stats = useMemo(() => {
@@ -211,7 +228,7 @@ export default function Dashboard({
     if (days === "monthly") {
       const dataMap: Record<
         string,
-        { date: string; cashIn: number; cashOut: number }
+        { date: string; cashIn: number; cashOut: number; cashInCount: number; cashOutCount: number }
       > = {};
       const today = new Date();
 
@@ -229,6 +246,8 @@ export default function Dashboard({
           date: label,
           cashIn: 0,
           cashOut: 0,
+          cashInCount: 0,
+          cashOutCount: 0,
         };
       }
 
@@ -238,8 +257,10 @@ export default function Dashboard({
         if (dataMap[tMonthKey]) {
           if (t.type === "cash_in") {
             dataMap[tMonthKey].cashIn += t.amount;
+            dataMap[tMonthKey].cashInCount += 1;
           } else {
             dataMap[tMonthKey].cashOut += t.amount;
+            dataMap[tMonthKey].cashOutCount += 1;
           }
         }
       });
@@ -249,7 +270,7 @@ export default function Dashboard({
       const limitDays = parseInt(days);
       const dataMap: Record<
         string,
-        { date: string; cashIn: number; cashOut: number }
+        { date: string; cashIn: number; cashOut: number; cashInCount: number; cashOutCount: number }
       > = {};
       const today = new Date();
 
@@ -265,6 +286,8 @@ export default function Dashboard({
           }),
           cashIn: 0,
           cashOut: 0,
+          cashInCount: 0,
+          cashOutCount: 0,
         };
       }
 
@@ -273,8 +296,10 @@ export default function Dashboard({
         if (dataMap[t.txnDate]) {
           if (t.type === "cash_in") {
             dataMap[t.txnDate].cashIn += t.amount;
+            dataMap[t.txnDate].cashInCount += 1;
           } else {
             dataMap[t.txnDate].cashOut += t.amount;
+            dataMap[t.txnDate].cashOutCount += 1;
           }
         }
       });
@@ -282,6 +307,67 @@ export default function Dashboard({
       return Object.values(dataMap);
     }
   }, [dbTick, filteredTxns, days]);
+
+  const chartGrowth = useMemo(() => {
+    let currentNet = 0;
+    let previousNet = 0;
+    const today = new Date();
+    
+    if (days === "monthly") {
+      const currentStart = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+      const previousStart = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+      const previousEnd = new Date(today.getFullYear(), today.getMonth() - 5, 0); 
+      
+      const currentStartStr = currentStart.toISOString().split("T")[0];
+      const previousStartStr = previousStart.toISOString().split("T")[0];
+      const previousEndStr = previousEnd.toISOString().split("T")[0];
+      const todayStr = today.toISOString().split("T")[0];
+
+      activeTxns.forEach(t => {
+        const net = t.type === 'cash_in' ? t.amount : -t.amount;
+        if (t.txnDate >= currentStartStr && t.txnDate <= todayStr) {
+          currentNet += net;
+        } else if (t.txnDate >= previousStartStr && t.txnDate <= previousEndStr) {
+          previousNet += net;
+        }
+      });
+    } else {
+      const limitDays = parseInt(days);
+      const currentStart = new Date();
+      currentStart.setDate(today.getDate() - limitDays + 1);
+      
+      const previousStart = new Date();
+      previousStart.setDate(today.getDate() - (limitDays * 2) + 1);
+      
+      const previousEnd = new Date();
+      previousEnd.setDate(today.getDate() - limitDays);
+
+      const currentStartStr = currentStart.toISOString().split("T")[0];
+      const previousStartStr = previousStart.toISOString().split("T")[0];
+      const previousEndStr = previousEnd.toISOString().split("T")[0];
+      const todayStr = today.toISOString().split("T")[0];
+
+      activeTxns.forEach(t => {
+        const net = t.type === 'cash_in' ? t.amount : -t.amount;
+        if (t.txnDate >= currentStartStr && t.txnDate <= todayStr) {
+          currentNet += net;
+        } else if (t.txnDate >= previousStartStr && t.txnDate <= previousEndStr) {
+          previousNet += net;
+        }
+      });
+    }
+
+    let percentage = 0;
+    if (previousNet !== 0) {
+      percentage = ((currentNet - previousNet) / Math.abs(previousNet)) * 100;
+    } else if (currentNet > 0) {
+      percentage = 100;
+    } else if (currentNet < 0) {
+      percentage = -100;
+    }
+
+    return { percentage, currentNet, previousNet };
+  }, [activeTxns, days]);
 
   // Category donut graph
   const categoryData = useMemo(() => {
@@ -700,34 +786,7 @@ export default function Dashboard({
                     data={last7DaysTrend}
                     margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
                   >
-                    <defs>
-                      <linearGradient
-                        id="sparklinePending"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor={
-                            dashboardSummaryMetrics.pendingApprovals > 0
-                              ? "#F59E0B"
-                              : "#00B67A"
-                          }
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={
-                            dashboardSummaryMetrics.pendingApprovals > 0
-                              ? "#F59E0B"
-                              : "#00B67A"
-                          }
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
+                    <XAxis dataKey="date" hide />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "#141618",
@@ -746,7 +805,7 @@ export default function Dashboard({
                       }}
                       cursor={{ stroke: "#24272C", strokeWidth: 1 }}
                       formatter={(value: any) => [`${value} items`, "Pending"]}
-                      labelFormatter={(label: any) => `Date: ${label}`}
+                      labelFormatter={(label: any) => label}
                     />
                     <Area
                       type="monotone"
@@ -757,7 +816,12 @@ export default function Dashboard({
                           : "#00B67A"
                       }
                       strokeWidth={1.5}
-                      fill="url(#sparklinePending)"
+                      fill={
+                        dashboardSummaryMetrics.pendingApprovals > 0
+                          ? "#F59E0B"
+                          : "#00B67A"
+                      }
+                      fillOpacity={0.15}
                       dot={false}
                     />
                   </AreaChart>
@@ -816,26 +880,7 @@ export default function Dashboard({
                     data={last7DaysTrend}
                     margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
                   >
-                    <defs>
-                      <linearGradient
-                        id="sparklineAssets"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="#00B67A"
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#00B67A"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
+                    <XAxis dataKey="date" hide />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "#141618",
@@ -857,14 +902,15 @@ export default function Dashboard({
                         formatPeso(Number(value)),
                         "Assets",
                       ]}
-                      labelFormatter={(label: any) => `Date: ${label}`}
+                      labelFormatter={(label: any) => label}
                     />
                     <Area
                       type="monotone"
                       dataKey="totalAssets"
                       stroke="#00B67A"
                       strokeWidth={1.5}
-                      fill="url(#sparklineAssets)"
+                      fill="#00B67A"
+                      fillOpacity={0.15}
                       dot={false}
                     />
                   </AreaChart>
@@ -964,34 +1010,7 @@ export default function Dashboard({
                     data={last7DaysTrend}
                     margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
                   >
-                    <defs>
-                      <linearGradient
-                        id="sparklineVariance"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor={
-                            dashboardSummaryMetrics.budgetVariance >= 0
-                              ? "#3B82F6"
-                              : "#EF4444"
-                          }
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={
-                            dashboardSummaryMetrics.budgetVariance >= 0
-                              ? "#3B82F6"
-                              : "#EF4444"
-                          }
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
+                    <XAxis dataKey="date" hide />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "#141618",
@@ -1013,7 +1032,7 @@ export default function Dashboard({
                         formatPeso(Number(value)),
                         "Variance",
                       ]}
-                      labelFormatter={(label: any) => `Date: ${label}`}
+                      labelFormatter={(label: any) => label}
                     />
                     <Area
                       type="monotone"
@@ -1024,7 +1043,12 @@ export default function Dashboard({
                           : "#EF4444"
                       }
                       strokeWidth={1.5}
-                      fill="url(#sparklineVariance)"
+                      fill={
+                        dashboardSummaryMetrics.budgetVariance >= 0
+                          ? "#3B82F6"
+                          : "#EF4444"
+                      }
+                      fillOpacity={0.15}
                       dot={false}
                     />
                   </AreaChart>
@@ -1346,10 +1370,16 @@ export default function Dashboard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00B67A] inline-block animate-ping" />
-                <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-widest">
+                <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-widest flex items-center gap-2">
                   {days === "monthly"
                     ? "Monthly Capital Trends"
                     : "Liquid Capital Velocity"}
+                  {!isSyncing && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 normal-case ${chartGrowth.percentage >= 0 ? "bg-[#00B67A]/20 text-[#00B67A]" : "bg-rose-500/20 text-rose-400"}`}>
+                      {chartGrowth.percentage >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {chartGrowth.percentage >= 0 ? "+" : ""}{chartGrowth.percentage.toFixed(1)}% vs prev period
+                    </span>
+                  )}
                 </h2>
               </div>
               <p className="text-xs text-zinc-400 mt-1">
@@ -1429,10 +1459,20 @@ export default function Dashboard({
               <Skeleton className="w-full h-full" />
             ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart
+                <AreaChart
                   data={chartData}
                   margin={{ top: 15, right: 10, left: -10, bottom: 0 }}
                 >
+                  <defs>
+                    <linearGradient id="colorCashIn" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00B67A" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00B67A" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorCashOut" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="date"
                     tick={{
@@ -1459,38 +1499,42 @@ export default function Dashboard({
                             <p className="text-white border-b border-[#24272C] pb-1.5 uppercase font-bold tracking-widest text-[9px]">
                               {label}
                             </p>
-                            {payload.map((p, index) => (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center gap-6"
-                              >
-                                <span
-                                  className={
-                                    p.name === "Cash In"
-                                      ? "text-[#00B67A]"
-                                      : "text-rose-400"
-                                  }
+                            {payload.map((p, index) => {
+                              const count = p.name === "Cash In" ? p.payload.cashInCount : p.payload.cashOutCount;
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex justify-between items-center gap-6"
                                 >
-                                  ● {p.name}:
-                                </span>
-                                <span className="text-white font-bold">
-                                  {formatPeso(p.value as number)}
-                                </span>
-                              </div>
-                            ))}
+                                  <span
+                                    className={
+                                      p.name === "Cash In"
+                                        ? "text-[#00B67A]"
+                                        : "text-rose-400"
+                                    }
+                                  >
+                                    ● {p.name}: <span className="text-zinc-500 ml-1 text-[9px]">{count} txn{count !== 1 ? 's' : ''}</span>
+                                  </span>
+                                  <span className="text-white font-bold">
+                                    {formatPeso(p.value as number)}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       }
                       return null;
                     }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     name="Cash In"
                     dataKey="cashIn"
                     stroke="#00B67A"
                     strokeWidth={2.5}
-                    dot={{ r: 3, fill: "#00B67A", strokeWidth: 0 }}
+                    fillOpacity={1}
+                    fill="url(#colorCashIn)"
                     activeDot={{
                       r: 5,
                       fill: "#00B67A",
@@ -1498,13 +1542,14 @@ export default function Dashboard({
                       strokeWidth: 2,
                     }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     name="Cash Out"
                     dataKey="cashOut"
                     stroke="#EF4444"
                     strokeWidth={2.5}
-                    dot={{ r: 3, fill: "#EF4444", strokeWidth: 0 }}
+                    fillOpacity={1}
+                    fill="url(#colorCashOut)"
                     activeDot={{
                       r: 5,
                       fill: "#EF4444",
@@ -1512,7 +1557,7 @@ export default function Dashboard({
                       strokeWidth: 2,
                     }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-zinc-500 text-sm font-mono uppercase tracking-wider">
@@ -1545,8 +1590,8 @@ export default function Dashboard({
                       data={categoryData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={65}
-                      outerRadius={85}
+                      innerRadius={75}
+                      outerRadius={95}
                       paddingAngle={4}
                       dataKey="value"
                     >
@@ -1578,15 +1623,15 @@ export default function Dashboard({
                   </PieChart>
                 </ResponsiveContainer>
                 {/* HUD HOLE CENTER METRICS PANEL */}
-                <div className="absolute flex flex-col items-center justify-center pointer-events-none select-none text-center">
-                  <span className="text-[8px] text-zinc-500 uppercase tracking-widest font-mono font-bold">
-                    Approved Outflow
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none text-center">
+                  <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono font-bold">
+                    Outflow
                   </span>
-                  <span className="text-[14px] font-bold text-white font-mono mt-0.5 truncate max-w-[130px]">
+                  <span className="text-[13px] font-bold text-white font-mono mt-0.5 truncate max-w-[120px]">
                     {formatPeso(stats.cashOut)}
                   </span>
-                  <span className="text-[8px] text-zinc-400 uppercase tracking-tight font-mono mt-0.5">
-                    {categoryData.length} items logged
+                  <span className="text-[9px] text-zinc-400 uppercase font-mono mt-0.5">
+                    {categoryData.length} items
                   </span>
                 </div>
               </>
@@ -1652,6 +1697,130 @@ export default function Dashboard({
             )}
           </div>
         </div>
+      </div>
+
+      {/* ACTIVE CASH & BANK ACCOUNTS TRACKER */}
+      <div className="bg-[#181A1C] p-6 border border-[#24272C] rounded-2xl shadow-lg">
+        <div className="flex items-center gap-2 mb-6 border-b border-[#24272C] pb-4">
+          <Building2 className="w-4 h-4 text-[#00B67A]" />
+          <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-widest">
+            Capital Allocation & Designated Accounts
+          </h2>
+        </div>
+        
+        {activeCashAccounts.length > 0 ? (
+          <div className="flex flex-col xl:flex-row gap-6">
+            {/* Chart Section */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="xl:w-1/3 min-h-[250px] bg-[#141618] border border-[#24272C] rounded-xl p-4 flex flex-col relative"
+            >
+              <h3 className="text-[10px] uppercase text-zinc-500 tracking-widest mb-2 font-mono">Allocation Distribution</h3>
+              <div className="flex-1 min-h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={activeCashAccounts.filter(a => a.currentBalance > 0).sort((a,b) => b.currentBalance - a.currentBalance)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="currentBalance"
+                      nameKey="accountName"
+                    >
+                      {activeCashAccounts.filter(a => a.currentBalance > 0).sort((a,b) => b.currentBalance - a.currentBalance).map((entry, index) => {
+                        const COLORS = ['#00B67A', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#14B8A6'];
+                        return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0];
+                          const total = activeCashAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
+                          const percent = total > 0 ? ((data.value as number) / total * 100).toFixed(1) : 0;
+                          return (
+                            <div className="bg-[#141618] border border-[#24272C] p-3 text-[11px] font-mono shadow-xl rounded-xl">
+                              <span className="font-bold text-white uppercase block mb-1">
+                                {data.name}
+                              </span>
+                              <div className="flex items-center gap-2 justify-between">
+                                <span className="text-zinc-400">Balance:</span>
+                                <span className="text-[#00B67A] font-bold">{formatPeso(data.value as number)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 justify-between mt-1 pt-1 border-t border-[#24272C]">
+                                <span className="text-zinc-400">Share:</span>
+                                <span className="text-white font-bold">{percent}%</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4">
+                <div className="text-center mt-6">
+                  <span className="block text-[10px] text-zinc-500 font-mono tracking-widest">TOTAL</span>
+                  <span className="block text-sm font-bold text-white font-mono">
+                    {formatPeso(activeCashAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0))}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Grid Section */}
+            <div className="xl:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeCashAccounts.map((acc, index) => {
+                const comp = companies.find(c => c.id === acc.companyId);
+                const COLORS = ['#00B67A', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#14B8A6'];
+                // Only consider accounts with balance > 0 for coloring to match pie chart index
+                const sortedActiveAccounts = activeCashAccounts.filter(a => a.currentBalance > 0).sort((a,b) => b.currentBalance - a.currentBalance);
+                const colorIndex = sortedActiveAccounts.findIndex(a => a.id === acc.id);
+                const accColor = colorIndex !== -1 ? COLORS[colorIndex % COLORS.length] : '#3F3F46'; // fallback color for 0 balance
+
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    key={acc.id} 
+                    className="bg-[#141618] border border-[#24272C] rounded-xl p-4 flex flex-col justify-between h-full hover:border-[#00B67A]/30 transition-colors relative overflow-hidden group"
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-1 opacity-50 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: accColor }} />
+                    <div className="pl-2">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-col">
+                          <span className="text-white font-semibold text-xs tracking-wide">{acc.accountName}</span>
+                          <span className="text-[10px] text-zinc-400 font-mono mt-0.5">{acc.bankName} • {acc.accountType}</span>
+                        </div>
+                        <div className="bg-[#00B67A]/10 text-[#00B67A] px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase whitespace-nowrap">
+                          {comp?.code || 'UNK'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-[#24272C] flex items-end justify-between pl-2">
+                      <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest">Balance</span>
+                      <span className="text-sm font-bold text-white font-mono">
+                        {formatPeso(acc.currentBalance)}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 text-zinc-500">
+            <ShieldCheck className="w-8 h-8 mb-3 opacity-20" />
+            <p className="text-xs uppercase tracking-wider font-mono">No active designated tracking accounts.</p>
+          </div>
+        )}
       </div>
 
       <ActivityHeatmap transactions={activeTxns} days={90} />
