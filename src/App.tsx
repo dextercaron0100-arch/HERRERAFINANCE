@@ -41,10 +41,12 @@ import {
   Notebook,
   PanelLeftClose,
   PanelLeftOpen,
+  Wallet,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
 import Dashboard from "./components/Dashboard";
+import MoneyFlowProfitCenter from "./components/MoneyFlowProfitCenter";
 import Ledger from "./components/Ledger";
 import Approvals from "./components/Approvals";
 import WorkspaceSyncCenter from "./components/WorkspaceSyncCenter";
@@ -82,6 +84,7 @@ import { Toaster, toast } from "sonner";
 
 type ActivePage =
   | "dashboard"
+  | "money_flow"
   | "ledger"
   | "approvals"
   | "budgets"
@@ -579,6 +582,11 @@ export default function App() {
                   icon: TrendingUp,
                 },
                 {
+                  id: "money_flow",
+                  label: "Money Flow & Profit",
+                  icon: Wallet,
+                },
+                {
                   id: "workflow",
                   label: "Accounting Workflow SOPs",
                   icon: CheckCircle2,
@@ -790,6 +798,14 @@ export default function App() {
                 />
               )}
 
+              {activePage === "money_flow" && (
+                <MoneyFlowProfitCenter
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                  isConsolidated={activeCompanyId === "all"}
+                />
+              )}
+
               {activePage === "ledger" && (
                 <Ledger
                   userId={activeUserId}
@@ -926,6 +942,16 @@ export default function App() {
                   >
                     <TrendingUp className="w-4 h-4 text-gray-400" />
                     <span>Overview Dashboard</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActivePage("money_flow");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                  >
+                    <Wallet className="w-4 h-4 text-gray-400" />
+                    <span>Money Flow & Profit</span>
                   </button>
                   <button
                     onClick={() => {

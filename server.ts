@@ -207,6 +207,52 @@ Provide a concise, insightful answer based ONLY on the provided context. Speak d
     }
   });
 
+  app.post("/api/explain-profit", async (req, res) => {
+    try {
+      const { companyId, dateRange, summary, topExpenses, companyComparison, alerts } = req.body;
+      
+      const promptString = `You are a professional Herrera Financial Intelligence Assistant.
+The business owner has asked you to explain their recent money flow and profitability.
+
+Context:
+- Company ID / View: ${companyId === "all" ? "Group Consolidated" : companyId}
+- Date Range: ${dateRange}
+- Summary Data:
+${JSON.stringify(summary, null, 2)}
+- Company Comparisons (if multiple):
+${JSON.stringify(companyComparison, null, 2)}
+- Top active alerts (Risks/Leaks):
+${JSON.stringify(alerts, null, 2)}
+
+Provide a concise, direct, and actionable executive summary.
+Focus on answering:
+1. What happened to profit and cash flow during this period?
+2. Are there any major risks or money leaks that require attention right now?
+3. What is the strongest area of the business?
+4. Give 1-2 recommended next steps for the owner.
+
+Do not use markdown headers (# or ##), but you can use bullet points. Speak in a confident, advisory tone.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: promptString,
+        config: {
+          systemInstruction: "You are a senior financial advisor acting as an AI assistant. Be direct, clear, and action-oriented.",
+          temperature: 0.3,
+        }
+      });
+
+      res.json({ explanation: response.text });
+    } catch (e: any) {
+      console.error(e);
+      let errMsg = e.message || "Failed to generate explanation";
+      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
+        errMsg = "Gemini API Error: Your prepayment credits are depleted.";
+      }
+      res.status(500).json({ error: errMsg });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
