@@ -190,7 +190,23 @@ const save = <T>(key: string, val: T): void => {
   localStorage.setItem(key, JSON.stringify(val));
   if (!memoryDb) memoryDb = {};
   memoryDb[key] = val;
-  window.dispatchEvent(new Event("db-update"));
+  
+  // Defer event dispatch to avoid triggering state updates during render
+  setTimeout(() => {
+    window.dispatchEvent(new Event("db-update"));
+  }, 0);
+
+  if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
+    const docRef = doc(db, "appData", "master");
+    const cleanVal = JSON.parse(JSON.stringify(val));
+    setDoc(docRef, { [key]: cleanVal }, { merge: true }).catch(console.error);
+  }
+};
+
+const saveSilent = <T>(key: string, val: T): void => {
+  localStorage.setItem(key, JSON.stringify(val));
+  if (!memoryDb) memoryDb = {};
+  memoryDb[key] = val;
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
     const docRef = doc(db, "appData", "master");
@@ -665,7 +681,7 @@ export function getCompanies(): Company[] {
   });
 
   if (modified) {
-    save(KEYS.COMPANIES, currentCompanies);
+    saveSilent(KEYS.COMPANIES, currentCompanies);
   }
   
   return currentCompanies;
@@ -753,7 +769,7 @@ export function getCategories(companyId: string): Category[] {
   });
 
   if (changed) {
-    save(KEYS.CATEGORIES, all);
+    saveSilent(KEYS.CATEGORIES, all);
   }
 
   if (companyId === "all") return all;
@@ -2090,7 +2106,7 @@ export function getCashAccounts(companyId: string): CashAccount[] {
       { id: "A008", companyId: "c-frh", accountType: "Bank", bankName: "RCBC", accountName: "HFH - RCBC", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" }
     ];
     all = seedAccounts;
-    save(KEYS.CASH_ACCOUNTS, all);
+    saveSilent(KEYS.CASH_ACCOUNTS, all);
   }
 
   return all.filter((a) => a.companyId === companyId);

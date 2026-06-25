@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import OwnerActionSummary from './OwnerActionSummary';
 import { AreaChart, Area, Line, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from "recharts";
 import { 
   ArrowRight,
@@ -50,6 +51,19 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
   const [dateRange, setDateRange] = useState<"7" | "30" | "90" | "ytd">("30");
   const [isExplaining, setIsExplaining] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => setIsLoading(false), 400);
+    return () => clearTimeout(timer);
+  }, [companyId, isConsolidated]);
+
+  const handleDateRangeChange = (range: "7" | "30" | "90" | "ytd") => {
+    setIsLoading(true);
+    setDateRange(range);
+    setTimeout(() => setIsLoading(false), 400);
+  };
 
   const companies = getCompanies();
   const targetCompanies = isConsolidated ? companies : companies.filter(c => c.id === companyId);
@@ -194,7 +208,7 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
             {(["7", "30", "90", "ytd"] as const).map(d => (
               <button
                 key={d}
-                onClick={() => setDateRange(d)}
+                onClick={() => handleDateRangeChange(d)}
                 className={`px-3 py-1.5 text-xs font-mono uppercase tracking-widest rounded-md transition ${dateRange === d ? "bg-[#24272C] text-white font-bold" : "text-zinc-400 hover:text-white"}`}
               >
                 {d === "ytd" ? "YTD" : `${d}D`}
@@ -216,6 +230,17 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
           </button>
         </div>
       </div>
+
+      <OwnerActionSummary 
+        flowSummary={flowSummary}
+        profitSummary={profitSummary}
+        cashRisk={cashRisk}
+        leakAlerts={leakAlerts}
+        formatPeso={formatPeso}
+        onExplain={handleExplain}
+        dateRange={dateRange}
+        isLoading={isLoading}
+      />
 
       {/* SECTION 1: OWNER SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
