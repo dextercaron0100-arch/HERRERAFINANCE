@@ -54,6 +54,7 @@ import {
   isGroupAdmin,
   canWriteFinance,
   getCashAccounts,
+  getProfiles,
 } from "../data/mockDatabase";
 import { Transaction, Company, CashAccount } from "../types";
 import ActivityHeatmap from "./ActivityHeatmap";
@@ -623,10 +624,20 @@ export default function Dashboard({
     pendingCount,
   ]);
 
+  const profiles = getProfiles();
+  const currentProfile = profiles.find((p) => p.id === userId);
+  const defaultSectionsOrder = ["header", "executive", "stats", "quick_command", "charts", "matrix"];
+  const getSectionOrder = (id: string) => {
+    const orderList = currentProfile?.dashboardSectionsOrder || defaultSectionsOrder;
+    let idx = orderList.indexOf(id);
+    if (idx === -1) idx = defaultSectionsOrder.indexOf(id);
+    return idx;
+  };
+
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="flex flex-col gap-8 animate-fadeIn pb-24">
       {/* ELITE HEAD-UP TREASURY HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 border-b border-[#24272C] pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 border-b border-[#24272C] pb-6" style={{ order: getSectionOrder('header') }}>
         <div>
           <div className="flex flex-wrap items-center gap-3.5 mb-2">
             <span className="text-[9px] font-mono tracking-widest uppercase bg-[#1A2E1A] text-[#10B981] border border-[#235332] px-3 py-1 font-bold select-none flex items-center gap-1.5 rounded-full">
@@ -736,7 +747,7 @@ export default function Dashboard({
       </div>
 
       {/* EXECUTIVE BENTO SUMMARY GRIDS */}
-      <div className="space-y-4">
+      <div className="space-y-4" style={{ order: getSectionOrder('executive') }}>
         <div className="flex items-center justify-between border-b border-[#24272C] pb-2">
           <h2 className="text-[10px] font-bold text-zinc-400 font-mono uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-[#00B67A] inline-block animate-pulse rounded-full" />
@@ -1091,7 +1102,7 @@ export default function Dashboard({
       </div>
 
       {/* CORE TREASURY STATS DECK */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ order: getSectionOrder('stats') }}>
         {/* STATS: APPROVED CASH IN */}
         <div className="bg-[#181A1C] p-5 border border-[#24272C] hover:border-[#00B67A] transition-all duration-200 rounded-2xl flex flex-col justify-between select-none group shadow-md hover:shadow-lg relative overflow-hidden">
           <div className="flex items-start justify-between w-full relative z-10">
@@ -1217,7 +1228,7 @@ export default function Dashboard({
       </div>
 
       {/* QUICK COMMAND DESK OVERVIEW */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#141618] border border-[#24272C] p-4 rounded-2xl select-none no-print shadow-inner">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#141618] border border-[#24272C] p-4 rounded-2xl select-none no-print shadow-inner" style={{ order: getSectionOrder('quick_command') }}>
         <div className="md:col-span-1 border-r border-[#24272C] pr-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -1363,7 +1374,7 @@ export default function Dashboard({
       </div>
 
       {/* CHARTS CONTAINER COHESIVE GRAPHS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ order: getSectionOrder('charts') }}>
         {/* CHART PORTAL: CASH FLOW GRAPH */}
         <div className="bg-[#181A1C] p-6 border border-[#24272C] rounded-2xl lg:col-span-2 space-y-6 flex flex-col justify-between shadow-lg">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1823,11 +1834,12 @@ export default function Dashboard({
         )}
       </div>
 
-      <ActivityHeatmap transactions={activeTxns} days={90} />
+      <div className="flex flex-col gap-6 w-full" style={{ order: getSectionOrder('matrix') }}>
+        <ActivityHeatmap transactions={activeTxns} days={90} />
 
-      {/* CONSOLIDATED GRID OR BUDGET VS ACTUAL VERTICALS */}
-      {isConsolidated ? (
-        <div className="bg-[#181A1C] p-6 border border-[#24272C] rounded-2xl space-y-6 shadow-lg">
+        {/* CONSOLIDATED GRID OR BUDGET VS ACTUAL VERTICALS */}
+        {isConsolidated ? (
+          <div className="bg-[#181A1C] p-6 border border-[#24272C] rounded-2xl space-y-6 shadow-lg">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[#24272C] pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -2138,6 +2150,7 @@ export default function Dashboard({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

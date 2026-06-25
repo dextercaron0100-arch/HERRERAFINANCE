@@ -215,6 +215,30 @@ export default function App() {
   const currentRole = getUserRole(activeUserId, activeCompanyId);
   const currentUserRoleData = rolesState.find(r => r.userId === activeUserId && r.companyId === activeCompanyId);
 
+  useEffect(() => {
+    if (currentProfile?.dashboardLayout && currentProfile.dashboardLayout.length > 0) {
+      const defaultOrder = [
+        "owner_dashboard", "accounting_workbench", "dashboard", "money_flow", "workflow", "ledger",
+        "approvals", "budgets", "pay_rec", "payroll", "reports", "cash_acc", "bank_rec", "assistant",
+        "vault", "enterprise", "tax_compliance", "audit_log", "workspace", "settings"
+      ];
+      const newOrder = [...currentProfile.dashboardLayout];
+      // Append any missing items that might be new
+      defaultOrder.forEach(item => {
+        if (!newOrder.includes(item)) {
+          newOrder.push(item);
+        }
+      });
+      setNavOrder(newOrder);
+    } else {
+      setNavOrder([
+        "owner_dashboard", "accounting_workbench", "dashboard", "money_flow", "workflow", "ledger",
+        "approvals", "budgets", "pay_rec", "payroll", "reports", "cash_acc", "bank_rec", "assistant",
+        "vault", "enterprise", "tax_compliance", "audit_log", "workspace", "settings"
+      ]);
+    }
+  }, [currentProfile?.dashboardLayout ? currentProfile.dashboardLayout.join(',') : '']);
+
   // PESO FORMATTER
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat("en-PH", {

@@ -23,6 +23,8 @@ export interface Profile {
   fullName: string;
   email: string;
   isGroupAdmin: boolean;
+  dashboardLayout?: string[]; // Array of nav item IDs
+  dashboardSectionsOrder?: string[]; // Array of dashboard section IDs
   createdAt: string;
 }
 

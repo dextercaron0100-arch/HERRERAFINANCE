@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2 } from 'lucide-react';
 import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin } from '../data/mockDatabase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '../types';
@@ -33,8 +33,35 @@ const NAV_LABELS: Record<string, string> = {
   "settings": "Settings"
 };
 
+const DASHBOARD_SECTION_LABELS: Record<string, string> = {
+  "header": "Performance Overview & Header",
+  "executive": "Executive Summary Grids",
+  "stats": "Core Treasury Stats",
+  "quick_command": "Quick Action Desk",
+  "charts": "Visual Charts & Infographics",
+  "matrix": "Consolidated Data Matrix"
+};
+
 export default function Settings({ userId, companyId, navOrder, setNavOrder }: SettingsProps) {
   const [draggedItemIndex, setDraggedItemIndex] = React.useState<number | null>(null);
+  
+  const [dashboardSections, setDashboardSections] = useState<string[]>([
+    "header", "executive", "stats", "quick_command", "charts", "matrix"
+  ]);
+  const [draggedSectionIndex, setDraggedSectionIndex] = React.useState<number | null>(null);
+  
+  const latestNavOrder = useRef<string[]>(navOrder);
+  const latestDashboardSections = useRef<string[]>(dashboardSections);
+
+  // Update refs when state/props change
+  useEffect(() => {
+    latestNavOrder.current = navOrder;
+  }, [navOrder]);
+
+  useEffect(() => {
+    latestDashboardSections.current = dashboardSections;
+  }, [dashboardSections]);
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<UserCompanyRole[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -58,6 +85,13 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
     window.addEventListener("db-update", handleUpdate);
     return () => window.removeEventListener("db-update", handleUpdate);
   }, []);
+
+  useEffect(() => {
+    const p = profiles.find(p => p.id === userId);
+    if (p?.dashboardSectionsOrder) {
+      setDashboardSections(p.dashboardSectionsOrder);
+    }
+  }, [profiles, userId]);
 
   const handleUpdateGroupAdmin = (targetUserId: string, isAdmin: boolean) => {
     const profile = profiles.find(p => p.id === targetUserId);
@@ -93,16 +127,73 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
     refreshData();
   };
 
+  const handleOrderChange = (newOrder: string[]) => {
+    setNavOrder(newOrder);
+    const currentProfiles = getProfiles();
+    const profile = currentProfiles.find(p => p.id === userId);
+    if (profile) {
+      saveProfile({ ...profile, dashboardLayout: newOrder });
+      refreshData();
+    }
+  };
+
   const moveItem = (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index > 0) {
       const newOrder = [...navOrder];
       [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-      setNavOrder(newOrder);
+      handleOrderChange(newOrder);
     } else if (direction === 'down' && index < navOrder.length - 1) {
       const newOrder = [...navOrder];
       [newOrder[index + 1], newOrder[index]] = [newOrder[index], newOrder[index + 1]];
-      setNavOrder(newOrder);
+      handleOrderChange(newOrder);
     }
+  };
+
+  const handleSectionOrderChange = (newOrder: string[]) => {
+    setDashboardSections(newOrder);
+    const currentProfiles = getProfiles();
+    const profile = currentProfiles.find(p => p.id === userId);
+    if (profile) {
+      saveProfile({ ...profile, dashboardSectionsOrder: newOrder });
+      refreshData();
+    }
+  };
+
+  const moveSection = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index > 0) {
+      const newOrder = [...dashboardSections];
+      [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+      handleSectionOrderChange(newOrder);
+    } else if (direction === 'down' && index < dashboardSections.length - 1) {
+      const newOrder = [...dashboardSections];
+      [newOrder[index + 1], newOrder[index]] = [newOrder[index], newOrder[index + 1]];
+      handleSectionOrderChange(newOrder);
+    }
+  };
+
+  const handleSectionDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedSectionIndex(index);
+    e.dataTransfer.setData("text/plain", index.toString());
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleSectionDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedSectionIndex === null || draggedSectionIndex === index) return;
+    
+    const newOrder = [...dashboardSections];
+    const draggedItem = newOrder[draggedSectionIndex];
+    newOrder.splice(draggedSectionIndex, 1);
+    newOrder.splice(index, 0, draggedItem);
+    
+    setDashboardSections(newOrder);
+    setDraggedSectionIndex(index);
+  };
+
+  const handleSectionDragEnd = () => {
+    setDraggedSectionIndex(null);
+    handleSectionOrderChange(latestDashboardSections.current);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -127,6 +218,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
 
   const handleDragEnd = () => {
     setDraggedItemIndex(null);
+    handleOrderChange(latestNavOrder.current);
   };
 
   return (
@@ -221,6 +313,52 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                         <button
                           onClick={() => moveItem(index, 'down')}
                           disabled={index === navOrder.length - 1}
+                          className="p-1.5 hover:bg-[#24272C] rounded text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-zinc-300 mb-2 font-mono flex items-center gap-2 mt-8">
+                  <ListOrdered className="w-4 h-4 text-indigo-400" />
+                  Dashboard Sections Arrangement
+                </h3>
+                <p className="text-xs text-zinc-500 mb-4 font-mono">
+                  Customize the vertical order of dashboard widgets in the overview screen.
+                </p>
+
+                <div className="space-y-2 bg-[#141618] border border-[#24272C] rounded-lg p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                  {dashboardSections.map((id, index) => (
+                    <div 
+                      key={id} 
+                      draggable
+                      onDragStart={(e) => handleSectionDragStart(e, index)}
+                      onDragOver={(e) => handleSectionDragOver(e, index)}
+                      onDragEnd={handleSectionDragEnd}
+                      className={`flex items-center justify-between p-3 bg-[#181A1C] border border-[#24272C] rounded-lg group transition-colors ${draggedSectionIndex === index ? 'opacity-50 border-indigo-500/50' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <GripVertical className="w-4 h-4 text-zinc-600 cursor-grab active:cursor-grabbing" />
+                        <span className="text-xs font-mono text-zinc-300">
+                          {DASHBOARD_SECTION_LABELS[id] || id}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => moveSection(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1.5 hover:bg-[#24272C] rounded text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => moveSection(index, 'down')}
+                          disabled={index === dashboardSections.length - 1}
                           className="p-1.5 hover:bg-[#24272C] rounded text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
                         >
                           <ArrowDown className="w-3 h-3" />
