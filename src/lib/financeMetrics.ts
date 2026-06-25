@@ -126,11 +126,11 @@ export function getUpcomingCashRisk(payables: Payable[], receivables: Receivable
     .reduce((sum, p) => sum + p.amount, 0);
     
   const upcomingReceivables = receivables
-    .filter((r) => r.status === "unpaid" && r.dueDate >= todayStr && r.dueDate <= nextWeekStr)
+    .filter((r) => r.status === "uncollected" && r.dueDate >= todayStr && r.dueDate <= nextWeekStr)
     .reduce((sum, r) => sum + r.amount, 0);
     
   const overdueReceivables = receivables
-    .filter((r) => r.status === "unpaid" && r.dueDate < todayStr)
+    .filter((r) => r.status === "uncollected" && r.dueDate < todayStr)
     .reduce((sum, r) => sum + r.amount, 0);
     
   const currentCash = cashAccounts.filter(a => a.isActive).reduce((sum, a) => sum + a.currentBalance, 0);
@@ -156,7 +156,7 @@ export function getMoneyLeakAlerts(
   const alerts: { type: 'high' | 'warning' | 'info'; message: string }[] = [];
   
   // Missing receipts
-  const missingReceipts = transactions.filter(t => t.status === "approved" && !t.receiptUrl && !t.attachmentUrl);
+  const missingReceipts = transactions.filter(t => t.status === "approved" && !t.receiptPath);
   if (missingReceipts.length > 0) {
     alerts.push({ type: 'info', message: `${missingReceipts.length} transactions missing receipts or attachments` });
   }

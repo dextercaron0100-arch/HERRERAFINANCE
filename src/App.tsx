@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   FileText,
   FileSignature,
+  CheckSquare,
   PiggyBank,
   FolderMinus,
   Settings,
@@ -45,7 +46,9 @@ import {
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
+import OwnerDashboard from "./components/OwnerDashboard";
 import Dashboard from "./components/Dashboard";
+import AccountingOfficerWorkbench from "./components/AccountingOfficerWorkbench";
 import MoneyFlowProfitCenter from "./components/MoneyFlowProfitCenter";
 import Ledger from "./components/Ledger";
 import Approvals from "./components/Approvals";
@@ -64,10 +67,12 @@ import FinancialAssistant from "./components/FinancialAssistant";
 import DocumentVault from "./components/DocumentVault";
 import LoginPage from "./components/LoginPage";
 import AccountingWorkflow from "./components/AccountingWorkflow";
+import SettingsPage from "./components/Settings";
 
 import {
   getCompanies,
   getProfiles,
+  getRoles,
   getUserRole,
   isGroupAdmin,
   isAccountingUser,
@@ -83,6 +88,7 @@ import { triggerWorkspaceOAuth } from "./lib/workspace";
 import { Toaster, toast } from "sonner";
 
 type ActivePage =
+  | "accounting_workbench"
   | "dashboard"
   | "money_flow"
   | "ledger"
@@ -99,7 +105,9 @@ type ActivePage =
   | "assistant"
   | "vault"
   | "tax_compliance"
-  | "workflow";
+  | "workflow"
+  | "owner_dashboard"
+  | "settings";
 
 export default function App() {
   // Active User profile and active company sessions
@@ -111,6 +119,29 @@ export default function App() {
   // Mobile sidebar overlays
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [rolesState, setRolesState] = useState(getRoles());
+  const [navOrder, setNavOrder] = useState<string[]>([
+    "owner_dashboard",
+    "accounting_workbench",
+    "dashboard",
+    "money_flow",
+    "workflow",
+    "ledger",
+    "approvals",
+    "budgets",
+    "pay_rec",
+    "payroll",
+    "reports",
+    "cash_acc",
+    "bank_rec",
+    "assistant",
+    "vault",
+    "enterprise",
+    "tax_compliance",
+    "audit_log",
+    "workspace",
+    "settings"
+  ]);
 
   useEffect(() => {
     if (mobileSidebarOpen) {
@@ -172,7 +203,17 @@ export default function App() {
         }
       : companies.find((c) => c.id === activeCompanyId) || companies[0];
   const currentProfile = profiles.find((p) => p.id === activeUserId);
+  // Also fetch data on mount and refresh
+  useEffect(() => {
+    const handleDbUpdate = () => {
+      setRolesState(getRoles());
+    };
+    window.addEventListener("db-update", handleDbUpdate);
+    return () => window.removeEventListener("db-update", handleDbUpdate);
+  }, []);
+
   const currentRole = getUserRole(activeUserId, activeCompanyId);
+  const currentUserRoleData = rolesState.find(r => r.userId === activeUserId && r.companyId === activeCompanyId);
 
   // PESO FORMATTER
   const formatPeso = (num: number) => {
@@ -577,6 +618,16 @@ export default function App() {
             <nav className="space-y-1.5 flex flex-col justify-center">
               {[
                 {
+                  id: "owner_dashboard",
+                  label: "Owner Action Summary",
+                  icon: Activity,
+                },
+                {
+                  id: "accounting_workbench",
+                  label: "Accounting Workbench",
+                  icon: CheckSquare,
+                },
+                {
                   id: "dashboard",
                   label: "Overview Dashboard",
                   icon: TrendingUp,
@@ -654,16 +705,37 @@ export default function App() {
                   icon: Globe,
                   pulse: true,
                 },
+                {
+                  id: "settings",
+                  label: "Settings",
+                  icon: Settings,
+                },
               ].filter(item => {
+                if (isGroupAdmin(activeUserId)) return true;
+                
+                if (currentUserRoleData && currentUserRoleData.allowedSections && currentUserRoleData.allowedSections.length > 0) {
+                  return currentUserRoleData.allowedSections.includes(item.id);
+                }
+
+                if (item.id === "owner_dashboard") {
+                  return currentRole === "company_admin" || currentRole === "owner";
+                }
                 if (item.id === "payroll") {
-                  return activeCompanyId === 'all' ? isGroupAdmin(activeUserId) : canManagePayroll(activeUserId, activeCompanyId);
+                  return activeCompanyId === 'all' ? false : canManagePayroll(activeUserId, activeCompanyId);
                 }
                 if (isAccountingUser(activeUserId)) {
-                  if (item.id === "audit_log" || item.id === "workspace" || item.id === "approvals") {
+                  if (item.id === "audit_log" || item.id === "workspace" || item.id === "approvals" || item.id === "settings") {
                     return false;
                   }
                 }
                 return true;
+              }).sort((a, b) => {
+                 const aIdx = navOrder.indexOf(a.id);
+                 const bIdx = navOrder.indexOf(b.id);
+                 if (aIdx === -1 && bIdx === -1) return 0;
+                 if (aIdx === -1) return 1;
+                 if (bIdx === -1) return -1;
+                 return aIdx - bIdx;
               }).map((item) => {
                 const Icon = item.icon;
                 const isSelected = activePage === item.id;
@@ -782,6 +854,30 @@ export default function App() {
               className="space-y-6"
             >
               {/* PAGE COMPONENT BINDINGS */}
+              
+              {activePage === "accounting_workbench" && (
+                <AccountingOfficerWorkbench
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                  isConsolidated={activeCompanyId === "all"}
+                />
+              )}
+
+              {activePage === "owner_dashboard" && (
+                <OwnerDashboard
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                  isConsolidated={activeCompanyId === "all"}
+                  onNavigate={(tab: string) => {
+                    if (tab === "general_journal") {
+                      setActivePage("ledger");
+                    } else {
+                      setActivePage(tab as any);
+                    }
+                  }}
+                />
+              )}
+
               {activePage === "dashboard" && (
                 <Dashboard
                   userId={activeUserId}
@@ -897,6 +993,14 @@ export default function App() {
               {activePage === "workflow" && (
                 <AccountingWorkflow onNavigate={(page) => setActivePage(page as ActivePage)} />
               )}
+              {activePage === "settings" && (
+                <SettingsPage 
+                  userId={activeUserId} 
+                  companyId={activeCompanyId} 
+                  navOrder={navOrder}
+                  setNavOrder={setNavOrder}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -933,6 +1037,16 @@ export default function App() {
 
                 {/* NAV COMPONENT */}
                 <nav className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setActivePage("accounting_workbench");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                  >
+                    <CheckSquare className="w-4 h-4 text-gray-400" />
+                    <span>Accounting Workbench</span>
+                  </button>
                   <button
                     onClick={() => {
                       setActivePage("dashboard");

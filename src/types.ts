@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type CompanyRole = 'company_admin' | 'finance_officer' | 'approver' | 'viewer';
+export type CompanyRole = 'company_admin' | 'finance_officer' | 'approver' | 'viewer' | 'owner';
 export type CashflowType = 'cash_in' | 'cash_out';
 export type TransactionStatus = 'pending' | 'approved' | 'rejected';
 export type ApprovalAction = 'approved' | 'rejected';
@@ -30,6 +30,7 @@ export interface UserCompanyRole {
   userId: string;
   companyId: string;
   role: CompanyRole;
+  allowedSections?: string[];
   createdAt: string;
 }
 

@@ -681,6 +681,37 @@ export function getRoles(): UserCompanyRole[] {
   return load<UserCompanyRole[]>(KEYS.ROLES, []);
 }
 
+export function saveProfile(profile: Profile): void {
+  initDB();
+  const profiles = load<Profile[]>(KEYS.PROFILES, []);
+  const existingIndex = profiles.findIndex(p => p.id === profile.id);
+  if (existingIndex >= 0) {
+    profiles[existingIndex] = profile;
+  } else {
+    profiles.push(profile);
+  }
+  save(KEYS.PROFILES, profiles);
+}
+
+export function saveRole(role: UserCompanyRole): void {
+  initDB();
+  const roles = load<UserCompanyRole[]>(KEYS.ROLES, []);
+  const existingIndex = roles.findIndex(r => r.userId === role.userId && r.companyId === role.companyId);
+  if (existingIndex >= 0) {
+    roles[existingIndex] = role;
+  } else {
+    roles.push(role);
+  }
+  save(KEYS.ROLES, roles);
+}
+
+export function deleteRole(userId: string, companyId: string): void {
+  initDB();
+  const roles = load<UserCompanyRole[]>(KEYS.ROLES, []);
+  const updatedRoles = roles.filter(r => !(r.userId === userId && r.companyId === companyId));
+  save(KEYS.ROLES, updatedRoles);
+}
+
 export function getCategories(companyId: string): Category[] {
   initDB();
   const all = load<Category[]>(KEYS.CATEGORIES, []);
@@ -741,7 +772,7 @@ export function getUserRole(
 ): CompanyRole | null {
   const user = getProfiles().find((p) => p.id === userId);
   if (!user) return null;
-  if (isGroupAdmin(userId)) return "company_admin"; // Treat group admin as highest admin power
+  if (isGroupAdmin(userId)) return "owner"; // Treat group admin as highest admin power
   const roleRecord = getRoles().find(
     (r) => r.userId === userId && r.companyId === companyId,
   );
@@ -755,6 +786,8 @@ export function isGroupAdmin(userId: string): boolean {
   if (!user) return false;
   if (user.isGroupAdmin) return true;
   if (["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(user.email.toLowerCase())) return true;
+  const hasOwnerRole = getRoles().some((r) => r.userId === userId && r.role === "owner");
+  if (hasOwnerRole) return true;
   return false;
 }
 
