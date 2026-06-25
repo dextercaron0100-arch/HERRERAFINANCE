@@ -1,4 +1,4 @@
-import { Transaction, Payable, Receivable, CashAccount, Budget, Company } from "../types";
+import { Transaction, Payable, Receivable, CashAccount, Budget, Company, Category } from "../types";
 
 export function getMoneyFlowSummary(transactions: Transaction[]) {
   const approved = transactions.filter((t) => t.status === "approved");
@@ -12,27 +12,43 @@ export function getMoneyFlowSummary(transactions: Transaction[]) {
   };
 }
 
-export function getProfitSummary(transactions: Transaction[]) {
+export function getProfitSummary(transactions: Transaction[], categories: Category[]) {
   const approved = transactions.filter((t) => t.status === "approved");
-  const revenue = approved.filter((t) => t.type === "cash_in").reduce((sum, t) => sum + t.amount, 0);
   
-  const cogsCategories = ["inventory", "supplies", "materials", "cogs"];
-  const payrollCategories = ["payroll", "salary", "wages", "benefits"];
+  // Find Capital categories to exclude them from revenue
+  const capitalCategoryIds = categories
+    .filter(c => c.name.toLowerCase().includes("capital"))
+    .map(c => c.id);
+
+  const revenue = approved
+    .filter((t) => t.type === "cash_in" && !capitalCategoryIds.includes(t.categoryId))
+    .reduce((sum, t) => sum + t.amount, 0);
   
+  const cogsCategoryNames = ["inventory", "supplies", "materials", "cogs", "purchases", "cost of goods"];
+  const payrollCategoryNames = ["payroll", "salary", "wages", "benefits"];
+  
+  const cogsCategoryIds = categories
+    .filter(c => cogsCategoryNames.some(name => c.name.toLowerCase().includes(name)))
+    .map(c => c.id);
+    
+  const payrollCategoryIds = categories
+    .filter(c => payrollCategoryNames.some(name => c.name.toLowerCase().includes(name)))
+    .map(c => c.id);
+
   const cogs = approved
-    .filter((t) => t.type === "cash_out" && cogsCategories.includes(t.categoryId.toLowerCase()))
+    .filter((t) => t.type === "cash_out" && cogsCategoryIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
     
   const payroll = approved
-    .filter((t) => t.type === "cash_out" && payrollCategories.includes(t.categoryId.toLowerCase()))
+    .filter((t) => t.type === "cash_out" && payrollCategoryIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
     
   const operatingExpenses = approved
     .filter(
       (t) =>
         t.type === "cash_out" &&
-        !cogsCategories.includes(t.categoryId.toLowerCase()) &&
-        !payrollCategories.includes(t.categoryId.toLowerCase())
+        !cogsCategoryIds.includes(t.categoryId) &&
+        !payrollCategoryIds.includes(t.categoryId)
     )
     .reduce((sum, t) => sum + t.amount, 0);
     
@@ -49,11 +65,11 @@ export function getProfitSummary(transactions: Transaction[]) {
   };
 }
 
-export function getCompanyProfitComparison(companies: Company[], allTransactions: Transaction[]) {
+export function getCompanyProfitComparison(companies: Company[], allTransactions: Transaction[], categories: Category[]) {
   return companies.map(company => {
     const txns = allTransactions.filter(t => t.companyId === company.id);
     const flow = getMoneyFlowSummary(txns);
-    const profit = getProfitSummary(txns);
+    const profit = getProfitSummary(txns, categories);
     
     return {
       companyId: company.id,
