@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { getTransactions, getPayables, getReceivables, getCompanies } from "../data/mockDatabase";
 import { 
-  TrendingUp, TrendingDown, PhilippinePeso, AlertTriangle, 
+  TrendingUp, TrendingDown, PhilippinePeso, AlertTriangle, AlertCircle, Wallet, CheckSquare,
   CheckCircle2, Clock, Bot, ArrowRight, Activity, Percent, ArrowDownRight, ArrowUpRight 
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
@@ -165,35 +165,64 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
         </h2>
         <div className="mb-6 space-y-2">
           <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Cash is <strong className="text-white">{cashStatus.toLowerCase()}</strong> for the next {runwayDays} days.
+            <span className={`w-2 h-2 rounded-full ${cashStatus === 'Healthy' ? 'bg-[#00B67A]' : cashStatus === 'Watch' ? 'bg-amber-500' : 'bg-red-500'}`} /> Cash is <strong className="text-white">{cashStatus.toLowerCase()}</strong> for the next {runwayDays} days.
           </p>
           <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-500" /> Profit margin is <strong className="text-white">{profitStatus.toLowerCase()}</strong> ({profitMargin.toFixed(1)}%).
+            <span className={`w-2 h-2 rounded-full ${profitStatus === 'Profitable' ? 'bg-[#00B67A]' : profitStatus === 'Low Margin' ? 'bg-amber-500' : 'bg-red-500'}`} /> Profit margin is <strong className="text-white">{profitStatus.toLowerCase()}</strong> ({profitMargin.toFixed(1)}%).
           </p>
           <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500" /> Collect <strong className="text-white">{formatPeso(overdueARAmount)}</strong> from {overdueAR.length} overdue receivables.
+            <span className={`w-2 h-2 rounded-full ${overdueARAmount === 0 ? 'bg-zinc-600' : 'bg-amber-500'}`} /> Collect <strong className="text-white">{formatPeso(overdueARAmount)}</strong> from {overdueAR.length} overdue receivables.
           </p>
           <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-purple-500" /> Approve <strong className="text-white">{pendingApprovalsCount}</strong> pending transactions before closing today.
+            <span className={`w-2 h-2 rounded-full ${pendingApprovalsCount === 0 ? 'bg-zinc-600' : 'bg-purple-500'}`} /> Approve <strong className="text-white">{pendingApprovalsCount}</strong> pending transactions before closing today.
           </p>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 border border-[#24272C] rounded-xl bg-[#141618]">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest font-mono mb-1">Cash Status</div>
-            <div className={`text-xl font-bold font-mono ${cashStatus === 'Healthy' ? 'text-emerald-400' : cashStatus === 'Watch' ? 'text-amber-400' : 'text-red-400'}`}>{cashStatus}</div>
+          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Cash Status</div>
+              <div className={`p-1.5 rounded-lg border transition-colors ${cashStatus === 'Healthy' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30' : cashStatus === 'Watch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30' : 'bg-red-500/10 border-red-500/20 text-red-400 group-hover:bg-red-500/20 group-hover:border-red-500/30'}`}>
+                {cashStatus === 'Healthy' ? <CheckCircle2 className="w-4 h-4" /> : cashStatus === 'Watch' ? <AlertTriangle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              </div>
+            </div>
+            <div className={`text-2xl font-bold font-mono tracking-tight ${cashStatus === 'Healthy' ? 'text-[#00B67A]' : cashStatus === 'Watch' ? 'text-amber-400' : 'text-red-400'}`}>{cashStatus}</div>
           </div>
-          <div className="p-4 border border-[#24272C] rounded-xl bg-[#141618]">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest font-mono mb-1">Profit Status</div>
-            <div className={`text-xl font-bold font-mono ${profitStatus === 'Profitable' ? 'text-emerald-400' : profitStatus === 'Low Margin' ? 'text-amber-400' : 'text-red-400'}`}>{profitStatus}</div>
+          
+          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Profit Status</div>
+              <div className={`p-1.5 rounded-lg border transition-colors ${profitStatus === 'Profitable' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30' : profitStatus === 'Low Margin' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30' : 'bg-red-500/10 border-red-500/20 text-red-400 group-hover:bg-red-500/20 group-hover:border-red-500/30'}`}>
+                {profitStatus === 'Profitable' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              </div>
+            </div>
+            <div className={`text-2xl font-bold font-mono tracking-tight ${profitStatus === 'Profitable' ? 'text-[#00B67A]' : profitStatus === 'Low Margin' ? 'text-amber-400' : 'text-red-400'}`}>{profitStatus}</div>
           </div>
-          <div className="p-4 border border-[#24272C] rounded-xl bg-[#141618]">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest font-mono mb-1">Collection Priority</div>
-            <div className="text-xl font-bold font-mono text-amber-400">{formatPeso(overdueARAmount)} <span className="text-xs font-normal text-zinc-500">overdue</span></div>
+
+          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Collection Priority</div>
+              <div className="p-1.5 rounded-lg border bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30 transition-colors">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-bold font-mono tracking-tight text-amber-400">{formatPeso(overdueARAmount)}</div>
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">overdue</div>
+            </div>
           </div>
-          <div className="p-4 border border-[#24272C] rounded-xl bg-[#141618]">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest font-mono mb-1">Approval Priority</div>
-            <div className="text-xl font-bold font-mono text-purple-400">{pendingApprovalsCount} <span className="text-xs font-normal text-zinc-500">pending</span></div>
+
+          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Approval Priority</div>
+              <div className="p-1.5 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 group-hover:bg-purple-500/20 group-hover:border-purple-500/30 transition-colors">
+                <CheckSquare className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-bold font-mono tracking-tight text-purple-400">{pendingApprovalsCount}</div>
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">pending</div>
+            </div>
           </div>
         </div>
       </div>

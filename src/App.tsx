@@ -80,7 +80,6 @@ import {
   canManagePayroll,
   getTransactions,
   writeAuditLog,
-  resetAllData,
 } from "./data/mockDatabase";
 import { Company, Profile } from "./types";
 import { triggerWorkspaceOAuth } from "./lib/workspace";
@@ -114,7 +113,6 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState<string>(""); // Default to no user
   const [activeCompanyId, setActiveCompanyId] = useState<string>("all"); // Default ALL Consolidated
   const [activePage, setActivePage] = useState<ActivePage>("dashboard");
-  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
 
   // Mobile sidebar overlays
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -513,35 +511,7 @@ export default function App() {
 
           {/* SIMULATOR SECURITY ACTOR SWITCHER */}
           <div className="flex items-center gap-1.5 border-l border-[#24272C] pl-1.5 md:pl-5 shrink-0">
-            {isConfirmingReset ? (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={async () => {
-                    await resetAllData();
-                    window.location.href = '/';
-                  }}
-                  className="text-[9px] uppercase font-bold text-white bg-red-600 hover:bg-red-500 px-2 flex items-center justify-center py-1.5 rounded-lg border border-red-500 transition-colors cursor-pointer"
-                >
-                  <span className="hidden sm:inline">Confirm Reset</span>
-                  <span className="sm:hidden">Confirm</span>
-                </button>
-                <button
-                  onClick={() => setIsConfirmingReset(false)}
-                  className="text-[9px] uppercase font-bold text-zinc-400 hover:text-white px-2 py-1.5 rounded-lg border border-[#24272C] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsConfirmingReset(true)}
-                className="text-[9px] uppercase font-bold text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 rounded-lg border border-red-500/20 transition-colors md:mr-2 cursor-pointer flex items-center gap-1"
-                title="Reset All Data"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Reset Data</span>
-              </button>
-            )}
+            {/* Reset button removed from header */}
           </div>
         </div>
       </header>

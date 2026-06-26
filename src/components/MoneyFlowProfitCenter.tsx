@@ -441,32 +441,32 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
             <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-blue-400" /> Profit Comparison Matrix</div>
           </h3>
           
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto flex-1 custom-scrollbar">
+            <table className="w-full min-w-[800px] text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#24272C] text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
-                  <th className="pb-3 font-medium">Company</th>
-                  <th className="pb-3 font-medium text-right">Revenue</th>
-                  <th className="pb-3 font-medium text-right">Expenses</th>
-                  <th className="pb-3 font-medium text-right">Net Profit</th>
-                  <th className="pb-3 font-medium text-right">Margin</th>
-                  <th className="pb-3 font-medium text-right">Status</th>
+                <tr className="border-b border-[#24272C] text-[10px] text-zinc-500 font-mono uppercase tracking-widest whitespace-nowrap">
+                  <th className="pb-3 pr-4 font-medium">Company</th>
+                  <th className="pb-3 px-4 font-medium text-right">Revenue</th>
+                  <th className="pb-3 px-4 font-medium text-right">Expenses</th>
+                  <th className="pb-3 px-4 font-medium text-right">Net Profit</th>
+                  <th className="pb-3 px-4 font-medium text-right">Margin</th>
+                  <th className="pb-3 pl-4 font-medium text-right">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {companyComparisons.length > 0 ? companyComparisons.map((c, i) => (
                   <tr key={c.companyId} className={`border-b border-[#24272C]/50 hover:bg-[#24272C]/30 transition group ${i === companyComparisons.length -1 ? "border-0" : ""}`}>
-                    <td className="py-4">
+                    <td className="py-4 pr-4 whitespace-nowrap">
                       <div className="font-bold text-white text-sm flex items-center gap-2">
                         {c.companyName}
                         <ChevronRight className="w-3 h-3 text-zinc-600 opacity-0 group-hover:opacity-100 transition" />
                       </div>
                       <div className="text-[10px] text-zinc-500 font-mono uppercase mt-0.5">{c.companyCode}</div>
                     </td>
-                    <td className="py-4 text-right font-mono text-xs">{formatPeso(c.revenue)}</td>
-                    <td className="py-4 text-right font-mono text-xs text-rose-400">{formatPeso(c.operatingExpenses + c.cogs + c.payroll)}</td>
-                    <td className="py-4 text-right font-mono text-xs font-bold text-emerald-400">{formatPeso(c.netProfit)}</td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 px-4 text-right font-mono text-xs whitespace-nowrap">{formatPeso(c.revenue)}</td>
+                    <td className="py-4 px-4 text-right font-mono text-xs text-rose-400 whitespace-nowrap">{formatPeso(c.operatingExpenses + c.cogs + c.payroll)}</td>
+                    <td className="py-4 px-4 text-right font-mono text-xs font-bold text-emerald-400 whitespace-nowrap">{formatPeso(c.netProfit)}</td>
+                    <td className="py-4 px-4 text-right whitespace-nowrap">
                       <div className="flex flex-col items-end gap-1.5">
                         <span className="font-mono text-xs">{c.profitMargin.toFixed(1)}%</span>
                         <div className="w-16 h-1 bg-[#24272C] rounded-full overflow-hidden flex justify-end">
@@ -477,8 +477,8 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 text-right">
-                      <span className={`inline-block px-2.5 py-1 rounded text-[9px] font-mono uppercase tracking-widest ${
+                    <td className="py-4 pl-4 text-right whitespace-nowrap">
+                      <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded text-[9px] font-mono uppercase tracking-widest ${
                         c.status === 'Healthy' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-900/50' : 
                         c.status === 'Watch' ? 'bg-amber-900/30 text-amber-400 border border-amber-900/50' : 
                         c.status === 'Low Profit' ? 'bg-orange-900/30 text-orange-400 border border-orange-900/50' :

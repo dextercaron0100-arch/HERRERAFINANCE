@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2 } from 'lucide-react';
-import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin } from '../data/mockDatabase';
+import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData } from '../data/mockDatabase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '../types';
 
 interface SettingsProps {
@@ -72,6 +72,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ fullName: '', email: '' });
   const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'layout'>('layout');
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
 
   const refreshData = () => {
     setProfiles(getProfiles());
@@ -594,12 +595,51 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
         )}
 
         {activeTab === 'general' && (
-          <div className="bg-[#181A1C] border border-[#24272C] rounded-xl p-6 flex flex-col items-center justify-center text-center">
-            <SettingsIcon className="w-12 h-12 text-zinc-600 mb-4 animate-[spin_10s_linear_infinite]" />
-            <h3 className="text-sm font-bold font-mono tracking-tight mb-2">More Settings Coming Soon</h3>
-            <p className="text-xs text-zinc-500">
-              The comprehensive settings module for company preferences, user management, and integrations is under development.
-            </p>
+          <div className="bg-[#181A1C] border border-[#24272C] rounded-xl p-6">
+            <h2 className="text-lg font-bold font-mono tracking-tight mb-6 flex items-center gap-2 text-zinc-200">
+              <SettingsIcon className="w-5 h-5 text-indigo-400" />
+              General Configuration
+            </h2>
+
+            <div className="space-y-6">
+              <div className="p-5 border border-red-500/20 bg-red-500/5 rounded-xl">
+                <h3 className="text-sm font-bold text-red-400 mb-2 font-mono flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Danger Zone
+                </h3>
+                <p className="text-xs text-zinc-400 mb-4 font-mono max-w-xl">
+                  Resetting all data will permanently delete all transactions, payables, receivables, users, and settings. This action cannot be undone. It will return the app to its original seeded state.
+                </p>
+
+                {isConfirmingReset ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={async () => {
+                        await resetAllData();
+                        window.location.href = '/';
+                      }}
+                      className="text-xs font-mono uppercase font-bold text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Confirm Factory Reset
+                    </button>
+                    <button
+                      onClick={() => setIsConfirmingReset(false)}
+                      className="text-xs font-mono uppercase font-bold text-zinc-400 hover:text-white px-4 py-2 rounded-lg border border-[#24272C] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsConfirmingReset(true)}
+                    className="inline-flex items-center gap-2 text-xs font-mono uppercase font-bold text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/80 border border-red-500/20 px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reset All Data
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

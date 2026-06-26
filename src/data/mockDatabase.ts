@@ -885,64 +885,19 @@ export function getAuditLogs(
 
 // TRANSACTION READ/WRITE (WITH RLS CHECKS MOCKED)
 export async function resetAllData() {
-  save(KEYS.TRANSACTIONS, []);
-  save(KEYS.PAYABLES, []);
-  save(KEYS.RECEIVABLES, []);
-  save(KEYS.APPROVALS, []);
-  save(KEYS.BUDGETS, []);
-  save(KEYS.EMPLOYEES, []);
-  save(KEYS.PAYROLL_RUNS, []);
-  save(KEYS.PAYROLL_ITEMS, []);
-  save(KEYS.AUDIT_LOGS, []);
-  save(KEYS.ATTACHMENTS, []);
-  const resetAccounts: import("../types").CashAccount[] = [
-    { id: "A001", companyId: "c-bls", accountType: "Cash on Hand", bankName: "Cash", accountName: "BMC - Cash on Hand", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A002", companyId: "c-bls", accountType: "E-Wallet", bankName: "GCash", accountName: "BMC - GCash", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A003", companyId: "c-bls", accountType: "Bank", bankName: "Security Bank", accountName: "BMC - Security Bank", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A004", companyId: "c-bgs", accountType: "Cash on Hand", bankName: "Cash", accountName: "BS - Cash on Hand", accountNumber: "N/A", accountHolder: "Bigstop", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A005", companyId: "c-bgs", accountType: "E-Wallet", bankName: "GCash", accountName: "BS - GCash", accountNumber: "09687912017", accountHolder: "Anna Jane Herrera", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A006", companyId: "c-bgs", accountType: "Bank", bankName: "Security Bank", accountName: "BS - Security Bank", accountNumber: "0000054663022", accountHolder: "Bigstop", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A007", companyId: "c-frh", accountType: "Cash on Hand", bankName: "Cash", accountName: "HFH - Cash on Hand", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-    { id: "A008", companyId: "c-frh", accountType: "Bank", bankName: "RCBC", accountName: "HFH - RCBC", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" }
-  ];
-  save(KEYS.CASH_ACCOUNTS, resetAccounts);
-  save(KEYS.BANK_RECONCILIATIONS, []);
-  save(KEYS.BANK_STATEMENT_LINES, []);
-  save(KEYS.RECONCILIATION_MATCHES, []);
-  save(KEYS.CASH_CUSTODIANS, []);
-  save(KEYS.CASH_LEDGER_ENTRIES, []);
-  save(KEYS.CASH_COUNTS, []);
-  save(KEYS.BANK_DEPOSITS, []);
-  save(KEYS.CONTROL_NUMBER, 1);
-  save(KEYS.PROFILES, SEED_PROFILES);
-  save(KEYS.ROLES, SEED_ROLES);
-
+  localStorage.clear();
+  memoryDb = null;
+  dbInitialized = false;
+  isSeeding = false;
+  
   if (db) {
-    const { doc, setDoc } = await import("firebase/firestore");
-    const docRef = doc(db, "appData", "master");
-    await setDoc(docRef, {
-      [KEYS.TRANSACTIONS]: [],
-      [KEYS.PAYABLES]: [],
-      [KEYS.RECEIVABLES]: [],
-      [KEYS.APPROVALS]: [],
-      [KEYS.BUDGETS]: [],
-      [KEYS.EMPLOYEES]: [],
-      [KEYS.PAYROLL_RUNS]: [],
-      [KEYS.PAYROLL_ITEMS]: [],
-      [KEYS.AUDIT_LOGS]: [],
-      [KEYS.ATTACHMENTS]: [],
-      [KEYS.CASH_ACCOUNTS]: resetAccounts,
-      [KEYS.BANK_RECONCILIATIONS]: [],
-      [KEYS.BANK_STATEMENT_LINES]: [],
-      [KEYS.RECONCILIATION_MATCHES]: [],
-      [KEYS.CASH_CUSTODIANS]: [],
-      [KEYS.CASH_LEDGER_ENTRIES]: [],
-      [KEYS.CASH_COUNTS]: [],
-      [KEYS.BANK_DEPOSITS]: [],
-      [KEYS.CONTROL_NUMBER]: 1,
-      [KEYS.PROFILES]: SEED_PROFILES,
-      [KEYS.ROLES]: SEED_ROLES
-    }, { merge: true });
+    try {
+      const { doc, deleteDoc } = await import("firebase/firestore");
+      const docRef = doc(db, "appData", "master");
+      await deleteDoc(docRef);
+    } catch (e) {
+      console.error("Failed to delete from Firestore:", e);
+    }
   }
 }
 
@@ -2096,14 +2051,14 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   
   if (!localStorage.getItem(KEYS.CASH_ACCOUNTS)) {
     const seedAccounts: CashAccount[] = [
-      { id: "A001", companyId: "c-bls", accountType: "Cash on Hand", bankName: "Cash", accountName: "BMC - Cash on Hand", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A002", companyId: "c-bls", accountType: "E-Wallet", bankName: "GCash", accountName: "BMC - GCash", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A003", companyId: "c-bls", accountType: "Bank", bankName: "Security Bank", accountName: "BMC - Security Bank", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A004", companyId: "c-bgs", accountType: "Cash on Hand", bankName: "Cash", accountName: "BS - Cash on Hand", accountNumber: "N/A", accountHolder: "Bigstop", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A005", companyId: "c-bgs", accountType: "E-Wallet", bankName: "GCash", accountName: "BS - GCash", accountNumber: "09687912017", accountHolder: "Anna Jane Herrera", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A006", companyId: "c-bgs", accountType: "Bank", bankName: "Security Bank", accountName: "BS - Security Bank", accountNumber: "0000054663022", accountHolder: "Bigstop", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A007", companyId: "c-frh", accountType: "Cash on Hand", bankName: "Cash", accountName: "HFH - Cash on Hand", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A008", companyId: "c-frh", accountType: "Bank", bankName: "RCBC", accountName: "HFH - RCBC", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 0, currentBalance: 0, isActive: true, createdAt: "2026-01-01T08:00:00Z" }
+      { id: "A001", companyId: "c-bls", accountType: "Cash on Hand", bankName: "Cash", accountName: "BMC - Cash on Hand", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 50000, currentBalance: 50000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A002", companyId: "c-bls", accountType: "E-Wallet", bankName: "GCash", accountName: "BMC - GCash", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 125000, currentBalance: 125000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A003", companyId: "c-bls", accountType: "Bank", bankName: "Security Bank", accountName: "BMC - Security Bank", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 450000, currentBalance: 450000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A004", companyId: "c-bgs", accountType: "Cash on Hand", bankName: "Cash", accountName: "BS - Cash on Hand", accountNumber: "N/A", accountHolder: "Bigstop", openingBalance: 25000, currentBalance: 25000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A005", companyId: "c-bgs", accountType: "E-Wallet", bankName: "GCash", accountName: "BS - GCash", accountNumber: "09687912017", accountHolder: "Anna Jane Herrera", openingBalance: 85000, currentBalance: 85000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A006", companyId: "c-bgs", accountType: "Bank", bankName: "Security Bank", accountName: "BS - Security Bank", accountNumber: "0000054663022", accountHolder: "Bigstop", openingBalance: 210000, currentBalance: 210000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A007", companyId: "c-frh", accountType: "Cash on Hand", bankName: "Cash", accountName: "HFH - Cash on Hand", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 15000, currentBalance: 15000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
+      { id: "A008", companyId: "c-frh", accountType: "Bank", bankName: "RCBC", accountName: "HFH - RCBC", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 320000, currentBalance: 320000, isActive: true, createdAt: "2026-01-01T08:00:00Z" }
     ];
     all = seedAccounts;
     saveSilent(KEYS.CASH_ACCOUNTS, all);
