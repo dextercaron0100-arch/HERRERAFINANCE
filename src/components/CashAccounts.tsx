@@ -117,11 +117,11 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-white font-display text-2xl tracking-tight flex items-center gap-2">
+          <h1 className="text-slate-900 font-display text-2xl tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-emerald-500" />
             Cash & Bank Accounts
           </h1>
-          <p className="text-sm text-zinc-400 font-mono mt-1">Manage corporate bank accounts, e-wallets, and vaults.</p>
+          <p className="text-sm text-slate-600 font-mono mt-1">Manage corporate bank accounts, e-wallets, and vaults.</p>
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -129,7 +129,7 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
             <select
               value={filterCompany}
               onChange={(e) => setFilterCompany(e.target.value)}
-              className="bg-[#141618] text-white text-xs px-3 py-2 rounded-xl border border-[#24272C] focus:outline-none focus:border-emerald-500"
+              className="bg-white text-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
             >
               <option value="">All Companies</option>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -150,10 +150,10 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
         </div>
       </div>
 
-      <div className="bg-[#141618] border border-[#24272C] rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-zinc-400 font-mono">
-            <thead className="bg-[#181A1C] border-b border-[#24272C] text-xs uppercase tracking-widest text-zinc-500">
+          <table className="w-full text-left text-sm text-slate-600 font-mono">
+            <thead className="bg-white border-b border-slate-200 text-xs uppercase tracking-widest text-slate-500">
               <tr>
                 <th className="p-4">Account Details</th>
                 <th className="p-4">Entity</th>
@@ -165,27 +165,27 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
             <tbody>
               {accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-zinc-500 italic text-xs">
+                  <td colSpan={4} className="p-8 text-center text-slate-500 italic text-xs">
                     No cash or bank accounts configured.
                   </td>
                 </tr>
               ) : accounts.map((acc) => {
                 const comp = companies.find(c => c.id === acc.companyId);
                 return (
-                  <tr key={acc.id} className="border-b border-[#24272C] bg-[#141618] hover:bg-[#181A1C] transition-colors">
+                  <tr key={acc.id} className="border-b border-slate-200 bg-white hover:bg-slate-50 transition-colors">
                     <td className="p-4">
                       <div className="flex flex-col">
-                        <span className="text-white font-bold text-sm truncate max-w-[250px]">{acc.accountName}</span>
+                        <span className="text-slate-900 font-bold text-sm truncate max-w-[250px]">{acc.accountName}</span>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="bg-emerald-950/40 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded border border-emerald-900/50">
                             {acc.bankName}
                           </span>
-                          <span className="text-xs text-zinc-500">{acc.accountNumber || "N/A"}</span>
+                          <span className="text-xs text-slate-500">{acc.accountNumber || "N/A"}</span>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="text-zinc-300 font-bold bg-[#24272C] px-2 py-1 rounded text-xs">
+                      <span className="text-slate-700 font-bold bg-slate-50 px-2 py-1 rounded text-xs">
                         {comp?.name || "Unknown"}
                       </span>
                     </td>
@@ -215,7 +215,7 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{ duration: 0.2 }}
-                              className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider inline-block cursor-help"
+                              className="bg-slate-500/10 text-slate-600 border border-slate-300/20 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider inline-block cursor-help"
                             >
                               Inactive
                             </motion.span>
@@ -225,7 +225,7 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                           <motion.div 
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#181A1C] border border-[#24272C] text-zinc-300 text-[10px] p-2 rounded-lg shadow-xl text-center leading-relaxed"
+                            className="bg-white border border-slate-200 text-slate-700 text-[10px] p-2 rounded-lg shadow-xl text-center leading-relaxed"
                           >
                             {acc.isActive 
                               ? "Account is currently monitored in the reconciliation process." 
@@ -239,14 +239,14 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleEdit(acc)}
-                          className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition"
+                          className="p-1.5 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition"
                           title="Edit Account"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(acc)}
-                          className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded transition"
+                          className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded transition"
                           title="Delete Account"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -262,11 +262,11 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
-            <div className="p-4 border-b border-[#24272C] flex items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+            <div className="p-4 border-b border-slate-200 flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-500" />
-              <h3 className="text-white font-bold font-display tracking-tight text-lg">
+              <h3 className="text-slate-900 font-bold font-display tracking-tight text-lg">
                 {editingId ? "Edit Account" : "Add Account"}
               </h3>
             </div>
@@ -274,8 +274,8 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
             <form onSubmit={handleSave} className="p-5 space-y-4">
               {companyId === 'all' && (
                  <div>
-                   <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Entity</label>
-                   <select required value={formData.companyId} onChange={e => setFormData({...formData, companyId: e.target.value})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none">
+                   <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Entity</label>
+                   <select required value={formData.companyId} onChange={e => setFormData({...formData, companyId: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none">
                      <option value="" disabled>Select Company</option>
                      {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                    </select>
@@ -284,32 +284,32 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Account Type</label>
-                  <select required value={formData.accountType} onChange={e => setFormData({...formData, accountType: e.target.value as any})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none">
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Account Type</label>
+                  <select required value={formData.accountType} onChange={e => setFormData({...formData, accountType: e.target.value as any})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none">
                     <option value="Bank">Bank</option>
                     <option value="E-Wallet">E-Wallet</option>
                     <option value="Cash on Hand">Cash on Hand</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Bank / Wallet</label>
-                  <input required type="text" placeholder="Security Bank" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Bank / Wallet</label>
+                  <input required type="text" placeholder="Security Bank" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Account Name</label>
-                <input required type="text" placeholder="e.g. Bigstop GCash 1" value={formData.accountName} onChange={e => setFormData({...formData, accountName: e.target.value})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
+                <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Account Name</label>
+                <input required type="text" placeholder="e.g. Bigstop GCash 1" value={formData.accountName} onChange={e => setFormData({...formData, accountName: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Account Number</label>
-                  <input type="text" placeholder="N/A" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Account Number</label>
+                  <input type="text" placeholder="N/A" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1 ml-1">Holder Name</label>
-                  <input required type="text" placeholder="Anna Jane Herrera" value={formData.accountHolder} onChange={e => setFormData({...formData, accountHolder: e.target.value})} className="w-full px-3 py-2.5 bg-[#141618] border border-[#24272C] text-white text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Holder Name</label>
+                  <input required type="text" placeholder="Anna Jane Herrera" value={formData.accountHolder} onChange={e => setFormData({...formData, accountHolder: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
                 </div>
               </div>
 
@@ -319,14 +319,14 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                     type="checkbox" 
                     checked={formData.isActive} 
                     onChange={e => setFormData({...formData, isActive: e.target.checked})}
-                    className="w-4 h-4 rounded border-[#24272C] bg-[#141618] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#181A1C]"
+                    className="w-4 h-4 rounded border-slate-200 bg-white text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#181A1C]"
                   />
-                  <span className="text-xs text-white font-mono">Account is Active</span>
+                  <span className="text-xs text-slate-900 font-mono">Account is Active</span>
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-[#24272C] flex items-center justify-end gap-3 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition">Cancel</button>
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3 mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition">Cancel</button>
                 <button type="submit" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition">Save Account</button>
               </div>
             </form>

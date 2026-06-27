@@ -247,14 +247,14 @@ export default function PayablesReceivables({
   return (
     <div className="space-y-6">
       {/* SEGMENT HEADERS NAVIGATION */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
-        <div className="flex gap-1.5 p-0.5 bg-[#141618] border border-[#24272C] rounded-2xl select-none">
+      <div className="bg-white border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
+        <div className="flex gap-1.5 p-0.5 bg-white border border-slate-200 rounded-2xl select-none">
           <button
             onClick={() => {
               setActiveSegment("ap");
               setShowAddForm(false);
             }}
-            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ap" ? "bg-white text-black" : "text-zinc-500 hover:text-white"}`}
+            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ap" ? "bg-white text-black" : "text-slate-500 hover:text-slate-900"}`}
           >
             <FolderMinus className="w-4 h-4 text-zinc-550" />
             <span>Accounts Payable (AP)</span>
@@ -264,7 +264,7 @@ export default function PayablesReceivables({
               setActiveSegment("ar");
               setShowAddForm(false);
             }}
-            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ar" ? "bg-white text-black" : "text-zinc-500 hover:text-white"}`}
+            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ar" ? "bg-white text-black" : "text-slate-500 hover:text-slate-900"}`}
           >
             <FolderPlus className="w-4 h-4 text-zinc-550" />
             <span>Accounts Receivable (AR)</span>
@@ -274,7 +274,7 @@ export default function PayablesReceivables({
         {canWriteFinance(userId, companyId) && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#24272C] hover:border-zinc-500 text-zinc-350 hover:text-white bg-[#141618] hover:bg-zinc-900 text-[10px] font-mono font-bold uppercase tracking-wider rounded-2xl cursor-pointer shadow-xs transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-slate-300 text-zinc-350 hover:text-slate-900 bg-white hover:bg-slate-50 text-[10px] font-mono font-bold uppercase tracking-wider rounded-2xl cursor-pointer shadow-xs transition"
           >
             <Plus className="w-3.5 h-3.5 text-zinc-450" />
             <span>
@@ -287,22 +287,22 @@ export default function PayablesReceivables({
 
       {/* RENDER ADD POPUP ACCORDION */}
       {showAddForm && (
-        <div className="bg-[#181A1C] border border-[#24272C] p-6 shadow-md animate-fadeIn space-y-4 rounded-2xl">
-          <div className="flex items-center justify-between border-b border-[#24272C] pb-2.5">
+        <div className="bg-white border border-slate-200 p-6 shadow-md animate-fadeIn space-y-4 rounded-2xl">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <div>
-              <h3 className="font-display text-base text-white tracking-tight">
+              <h3 className="font-display text-base text-slate-900 tracking-tight">
                 Log New Outstanding{" "}
                 {activeSegment === "ap"
                   ? "Accounts Payable liability"
                   : "Accounts Receivable asset"}
               </h3>
-              <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider mt-0.5 font-semibold">
+              <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mt-0.5 font-semibold">
                 Values are tracked into monthly cash forecasts.
               </p>
             </div>
             <button
               onClick={() => setShowAddForm(false)}
-              className="p-1 text-zinc-400 hover:bg-zinc-805 rounded-2xl cursor-pointer hover:text-white"
+              className="p-1 text-slate-600 hover:bg-slate-50 rounded-2xl cursor-pointer hover:text-slate-900"
             >
               <XCircle className="w-4.5 h-4.5" />
             </button>
@@ -315,18 +315,18 @@ export default function PayablesReceivables({
             >
               {companyId === "all" && (
                 <div className="md:col-span-4 space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                     Target Company
                   </span>
                   <select
                     value={targetCompany}
                     onChange={(e) => setTargetCompany(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                     required
                   >
-                    <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company</option>
+                    <option value="" disabled className="bg-white text-slate-500">Select a company</option>
                     {companies.filter(c => c.id !== "all").map(c => (
-                      <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                      <option key={c.id} value={c.id} className="bg-white">
                         {c.name} ({c.code})
                       </option>
                     ))}
@@ -334,7 +334,7 @@ export default function PayablesReceivables({
                 </div>
               )}
               <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Creditor / Payee Company
                 </span>
                 <input
@@ -343,11 +343,11 @@ export default function PayablesReceivables({
                   onChange={(e) => setApPayee(e.target.value)}
                   placeholder="e.g., Prime Logistics Group"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Invoice Description
                 </span>
                 <input
@@ -356,11 +356,11 @@ export default function PayablesReceivables({
                   onChange={(e) => setApDesc(e.target.value)}
                   placeholder="e.g., Branch bulk raw materials warehousing invoice"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   QTY
                 </span>
                 <input
@@ -374,11 +374,11 @@ export default function PayablesReceivables({
                   }}
                   placeholder="0"
                   step="0.01"
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   UOM
                 </span>
                 <input
@@ -386,11 +386,11 @@ export default function PayablesReceivables({
                   value={apUom}
                   onChange={(e) => setApUom(e.target.value)}
                   placeholder="e.g., pcs, kg"
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   UNIT PRICE
                 </span>
                 <input
@@ -404,11 +404,11 @@ export default function PayablesReceivables({
                   }}
                   placeholder="0.00"
                   step="0.01"
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Settlement PHP Amount
                 </span>
                 <input
@@ -418,11 +418,11 @@ export default function PayablesReceivables({
                   placeholder="0.00"
                   step="0.01"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Due Date Limits
                 </span>
                 <input
@@ -430,11 +430,11 @@ export default function PayablesReceivables({
                   value={apDueDate}
                   onChange={(e) => setApDueDate(e.target.value)}
                   required
-                  className="w-full text-xs p-2 px-3 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2 px-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Remarks
                 </span>
                 <input
@@ -442,20 +442,20 @@ export default function PayablesReceivables({
                   value={apRemarks}
                   onChange={(e) => setApRemarks(e.target.value)}
                   placeholder="Optional remarks"
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
-              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-[#24272C]/50">
+              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-[#24272C] rounded-2xl text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-900 cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-mono uppercase tracking-wider text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
                 >
                   Write Liability entry
                 </button>
@@ -468,18 +468,18 @@ export default function PayablesReceivables({
             >
               {companyId === "all" && (
                 <div className="md:col-span-4 space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                     Target Company
                   </span>
                   <select
                     value={targetCompany}
                     onChange={(e) => setTargetCompany(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                     required
                   >
-                    <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company</option>
+                    <option value="" disabled className="bg-white text-slate-500">Select a company</option>
                     {companies.filter(c => c.id !== "all").map(c => (
-                      <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                      <option key={c.id} value={c.id} className="bg-white">
                         {c.name} ({c.code})
                       </option>
                     ))}
@@ -487,7 +487,7 @@ export default function PayablesReceivables({
                 </div>
               )}
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Client / Debtor Company
                 </span>
                 <input
@@ -496,11 +496,11 @@ export default function PayablesReceivables({
                   onChange={(e) => setArPayer(e.target.value)}
                   placeholder="e.g., Robinson Mall Franchise branch"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Invoice Description
                 </span>
                 <input
@@ -509,11 +509,11 @@ export default function PayablesReceivables({
                   onChange={(e) => setArDesc(e.target.value)}
                   placeholder="e.g., Materials distribution rent consignment percentage"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Collection PHP Amount
                 </span>
                 <input
@@ -523,11 +523,11 @@ export default function PayablesReceivables({
                   placeholder="0.00"
                   step="0.01"
                   required
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Limits claims due Date
                 </span>
                 <input
@@ -535,20 +535,20 @@ export default function PayablesReceivables({
                   value={arDueDate}
                   onChange={(e) => setArDueDate(e.target.value)}
                   required
-                  className="w-full text-xs p-2 px-3 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                  className="w-full text-xs p-2 px-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                 />
               </div>
-              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-[#24272C]/50">
+              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-[#24272C] rounded-2xl text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-900 cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-mono uppercase tracking-wider text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
                 >
                   Write Claims Asset
                 </button>
@@ -570,11 +570,11 @@ export default function PayablesReceivables({
       )}
 
       {/* CORE TABLES SQUEEZED */}
-      <div className="bg-[#181A1C] border border-[#24272C] shadow-md rounded-2xl overflow-hidden animate-fadeIn">
+      <div className="bg-white border border-slate-200 shadow-md rounded-2xl overflow-hidden animate-fadeIn">
         {activeSegment === "ap" ? (
           <div>
-            <div className="p-4 border-b border-[#24272C] flex items-center justify-between bg-[#141618]">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
                 <FolderMinus className="w-4 h-4 text-zinc-450" />
                 <span>Liability invoices (AP Queue)</span>
               </span>
@@ -585,32 +585,32 @@ export default function PayablesReceivables({
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+                <thead className="bg-slate-500 text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
                   <tr>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Creditor Payee
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Particular Details
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-right">
+                    <th className="p-3 border-b border-slate-200 text-right">
                       Outstanding value
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Limit Due Date
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Payment status
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-center">
+                    <th className="p-3 border-b border-slate-200 text-center">
                       Reference txn
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-right">
+                    <th className="p-3 border-b border-slate-200 text-right">
                       Action process
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
                   {payables.length > 0 ? (
                     payables.map((p) => {
                       const isOverdue =
@@ -618,9 +618,9 @@ export default function PayablesReceivables({
                       return (
                         <tr
                           key={p.id}
-                          className="hover:bg-zinc-800/20 transition"
+                          className="hover:bg-slate-50/20 transition"
                         >
-                          <td className="p-3 whitespace-nowrap text-white font-display text-sm font-semibold">
+                          <td className="p-3 whitespace-nowrap text-slate-900 font-display text-sm font-semibold">
                             {p.payee}
                           </td>
                           <td
@@ -629,7 +629,7 @@ export default function PayablesReceivables({
                           >
                             {p.description}
                           </td>
-                          <td className="p-3 text-right font-mono font-bold text-white text-sm whitespace-nowrap">
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 text-sm whitespace-nowrap">
                             {formatPeso(p.amount)}
                           </td>
                           <td className="p-3 font-mono whitespace-nowrap">
@@ -669,7 +669,7 @@ export default function PayablesReceivables({
                             canWriteFinance(userId, companyId) ? (
                               <button
                                 onClick={() => handleMarkPaid(p.id)}
-                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
+                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
                               >
                                 Trigger Payment
                               </button>
@@ -704,8 +704,8 @@ export default function PayablesReceivables({
           </div>
         ) : (
           <div>
-            <div className="p-4 border-b border-[#24272C] flex items-center justify-between bg-[#141618]">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
                 <FolderPlus className="w-4 h-4 text-zinc-450" />
                 <span>Claims and Receivables (AR Queue)</span>
               </span>
@@ -716,32 +716,32 @@ export default function PayablesReceivables({
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+                <thead className="bg-slate-500 text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
                   <tr>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Debtor Payer
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Billing details
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-right">
+                    <th className="p-3 border-b border-slate-200 text-right">
                       Invoice value
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Limit Due Date
                     </th>
-                    <th className="p-3 border-b border-[#24272C]">
+                    <th className="p-3 border-b border-slate-200">
                       Collection status
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-center">
+                    <th className="p-3 border-b border-slate-200 text-center">
                       Reference txn
                     </th>
-                    <th className="p-3 border-b border-[#24272C] text-right">
+                    <th className="p-3 border-b border-slate-200 text-right">
                       Action process
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
                   {receivables.length > 0 ? (
                     receivables.map((r) => {
                       const isOverdue =
@@ -749,9 +749,9 @@ export default function PayablesReceivables({
                       return (
                         <tr
                           key={r.id}
-                          className="hover:bg-zinc-800/20 transition"
+                          className="hover:bg-slate-50/20 transition"
                         >
-                          <td className="p-3 whitespace-nowrap text-white font-display text-sm font-semibold">
+                          <td className="p-3 whitespace-nowrap text-slate-900 font-display text-sm font-semibold">
                             {r.payer}
                           </td>
                           <td
@@ -760,7 +760,7 @@ export default function PayablesReceivables({
                           >
                             {r.description}
                           </td>
-                          <td className="p-3 text-right font-mono font-bold text-white text-sm whitespace-nowrap">
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 text-sm whitespace-nowrap">
                             {formatPeso(r.amount)}
                           </td>
                           <td className="p-3 font-mono whitespace-nowrap text-zinc-350">
@@ -802,7 +802,7 @@ export default function PayablesReceivables({
                             canWriteFinance(userId, companyId) ? (
                               <button
                                 onClick={() => handleMarkCollected(r.id)}
-                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
+                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
                               >
                                 Collect Funds
                               </button>

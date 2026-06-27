@@ -102,8 +102,8 @@ export default function QuickEncodePanel({
 
 
   const handleSave = (encodeAnother: boolean) => {
-    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson) {
-      toast.error("Please fill in all required fields.");
+    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || !cashAccountId || !receiptPath) {
+      toast.error("Please fill in all required fields, including Cash/Bank and Receipt.");
       return;
     }
 
@@ -132,15 +132,18 @@ export default function QuickEncodePanel({
       toast.error(res.error);
     } else {
       toast.success("Transaction encoded successfully.");
-      if (encodeAnother) {
-        // Reset specific fields
-        setAmount("");
-        setPurpose("");
-        setReceiptPath(null);
-        setCategoryId("");
-        setDuplicateWarning(null);
-      } else {
-        if (onClose) onClose();
+      
+      // Reset fields to avoid duplication
+      setAmount("");
+      setPurpose("");
+      setReceiptPath(null);
+      setCategoryId("");
+      setCashAccountId("");
+      setResponsiblePerson("");
+      setDuplicateWarning(null);
+
+      if (!encodeAnother && onClose) {
+        onClose();
       }
     }
   };
@@ -160,20 +163,20 @@ export default function QuickEncodePanel({
   };
 
   return (
-    <div className="bg-[#181A1C] border border-[#24272C] rounded-xl flex flex-col h-full shadow-2xl overflow-hidden relative">
-      <div className="flex justify-between items-center p-4 border-b border-[#24272C] bg-[#141618]">
+    <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full shadow-2xl overflow-hidden relative">
+      <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-white">
         <h3 className="font-mono text-sm font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2">
           <PlusCircle className="w-4 h-4" /> Quick Encode
         </h3>
         <div className="flex items-center gap-2">
           <button 
             onClick={handleDuplicateLast}
-            className="text-[10px] uppercase font-mono tracking-widest bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded flex items-center gap-1 transition"
+            className="text-[10px] uppercase font-mono tracking-widest bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded flex items-center gap-1 transition"
           >
             <Copy className="w-3 h-3" /> Dup Last
           </button>
           {onClose && (
-            <button onClick={onClose} className="text-zinc-500 hover:text-white transition p-1">
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-900 transition p-1">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -198,17 +201,17 @@ export default function QuickEncodePanel({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 block">Type</label>
-            <div className="flex bg-[#0D0D0D] p-1 rounded-lg border border-[#24272C]">
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 block">Type</label>
+            <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
               <button 
                 onClick={() => setType('cash_out')}
-                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_out' ? 'bg-rose-500 text-white font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
+                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_out' ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Cash Out
               </button>
               <button 
                 onClick={() => setType('cash_in')}
-                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_in' ? 'bg-emerald-500 text-white font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
+                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_in' ? 'bg-emerald-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Cash In
               </button>
@@ -216,33 +219,33 @@ export default function QuickEncodePanel({
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Date</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Date</label>
             <input 
               type="date"
               value={txnDate}
               onChange={(e) => setTxnDate(e.target.value)}
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
             />
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Amount</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Amount</label>
             <input 
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
               placeholder="0.00"
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
             />
           </div>
 
           {isConsolidated && (
             <div className="col-span-2">
-              <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Building2 className="w-3 h-3" /> Company</label>
+              <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Building2 className="w-3 h-3" /> Company</label>
               <select 
                 value={formCompanyId}
                 onChange={(e) => setFormCompanyId(e.target.value)}
-                className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
               >
                 {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -250,22 +253,22 @@ export default function QuickEncodePanel({
           )}
 
           <div className="col-span-2">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><FileText className="w-3 h-3" /> Purpose / Payee</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><FileText className="w-3 h-3" /> Purpose / Payee</label>
             <input 
               type="text"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
               placeholder="e.g. Office Supplies"
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
             />
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ListTodo className="w-3 h-3" /> Category</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ListTodo className="w-3 h-3" /> Category</label>
             <select 
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
             >
               <option value="">Select...</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -273,37 +276,37 @@ export default function QuickEncodePanel({
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Building2 className="w-3 h-3" /> Cash/Bank</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Building2 className="w-3 h-3" /> Cash/Bank</label>
             <select 
               value={cashAccountId}
               onChange={(e) => setCashAccountId(e.target.value)}
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
             >
-              <option value="">Optional...</option>
+              <option value="">Select...</option>
               {cashAccounts.map(c => <option key={c.id} value={c.id}>{c.bankName} - {c.accountNumber.slice(-4)}</option>)}
             </select>
           </div>
 
           <div className="col-span-2">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><User className="w-3 h-3" /> Responsible Person</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><User className="w-3 h-3" /> Responsible Person</label>
             <input 
               type="text"
               value={responsiblePerson}
               onChange={(e) => setResponsiblePerson(e.target.value)}
               placeholder="e.g. John Doe"
-              className="w-full bg-[#0D0D0D] border border-[#24272C] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
             />
           </div>
 
           <div className="col-span-2">
-            <label className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Receipt Upload</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Receipt Upload</label>
             <div className="flex gap-2">
               <button 
                 onClick={() => {
                   setReceiptPath(receiptPath ? null : "/mock-receipt.jpg");
                   if (!receiptPath) toast.success("Mock receipt attached");
                 }}
-                className={`flex-1 border border-dashed rounded-lg py-3 flex items-center justify-center gap-2 transition ${receiptPath ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-[#24272C] hover:border-zinc-500 text-zinc-500 hover:text-zinc-300'}`}
+                className={`flex-1 border border-dashed rounded-lg py-3 flex items-center justify-center gap-2 transition ${receiptPath ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'}`}
               >
                 {receiptPath ? <CheckCircle2 className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
                 <span className="text-xs font-mono uppercase tracking-widest">
@@ -315,11 +318,12 @@ export default function QuickEncodePanel({
         </div>
         
         {/* Pre-Approval Checklist Badges */}
-        <div className="pt-4 border-t border-[#24272C]">
-          <h4 className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-2 block">Checklist</h4>
+        <div className="pt-4 border-t border-slate-200">
+          <h4 className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2 block">Checklist</h4>
           <div className="flex flex-wrap gap-2">
             <Badge done={Number(amount) > 0} label="Amount" />
             <Badge done={!!categoryId} label="Category" />
+            <Badge done={!!cashAccountId} label="Cash/Bank" />
             <Badge done={!!purpose} label="Purpose" />
             <Badge done={!!responsiblePerson} label="Person" />
             <Badge done={!!receiptPath} label="Receipt" />
@@ -327,10 +331,10 @@ export default function QuickEncodePanel({
         </div>
       </div>
 
-      <div className="p-4 border-t border-[#24272C] bg-[#141618] flex flex-col gap-2">
+      <div className="p-4 border-t border-slate-200 bg-white flex flex-col gap-2">
         <button 
           onClick={() => handleSave(true)}
-          className="w-full bg-[#24272C] hover:bg-zinc-700 text-white py-2.5 rounded-lg text-xs font-bold font-mono uppercase tracking-widest transition flex justify-center items-center gap-2"
+          className="w-full bg-slate-50 hover:bg-slate-100 text-slate-900 py-2.5 rounded-lg text-xs font-bold font-mono uppercase tracking-widest transition flex justify-center items-center gap-2"
         >
           Save & Encode Another
         </button>
@@ -347,7 +351,7 @@ export default function QuickEncodePanel({
 
 function Badge({ done, label }: { done: boolean, label: string }) {
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono uppercase tracking-widest border transition ${done ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#0D0D0D] border-[#24272C] text-zinc-500'}`}>
+    <div className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono uppercase tracking-widest border transition ${done ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
       {done ? <CheckCircle2 className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-current opacity-50" />}
       {label}
     </div>

@@ -729,23 +729,23 @@ export default function EnterpriseSuite({
     <div className="space-y-8 animate-fadeIn" id="enterprise-control-board">
       {/* HEADER SECTION */}
       <div
-        className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-[#24272C] pb-6 gap-4"
+        className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-6 gap-4"
         id="ent-header"
       >
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Sliders className="w-5 h-5 text-[#00B67A] shrink-0 animate-pulse" />
-            <span className="text-[10px] font-mono tracking-widest text-[#00B67A] uppercase font-bold bg-[#141618] border border-[#235332] px-3.5 py-1 rounded-full">
+            <span className="text-[10px] font-mono tracking-widest text-[#00B67A] uppercase font-bold bg-white border border-emerald-200 px-3.5 py-1 rounded-full">
               Suite Module 8-16
             </span>
           </div>
-          <h1 className="text-2xl font-light text-white tracking-tight font-sans">
+          <h1 className="text-2xl font-light text-slate-900 tracking-tight font-sans">
             Enterprise Compliance &{" "}
             <span className="text-[#00B67A] font-serif italic">
               Finance Suite
             </span>
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-600 mt-1">
             Centralized command center for group consolidation, bank
             reconciliation, BIR tax-readiness, risk audit, month-end locks, and
             data governance.
@@ -754,11 +754,11 @@ export default function EnterpriseSuite({
 
         {/* LEDGER LOCK BADGE STATUS */}
         <div
-          className="flex items-center gap-3 bg-[#141618] border border-[#24272C] p-3 rounded-2xl select-none"
+          className="flex items-center gap-3 bg-white border border-slate-200 p-3 rounded-2xl select-none"
           id="ent-ledger-lock"
         >
           <div
-            className={`p-2 rounded-xl ${periodLocked ? "bg-red-950/40 text-red-400 border border-red-800" : "bg-[#1A2E1A] text-[#10B981] border border-[#235332]"}`}
+            className={`p-2 rounded-xl ${periodLocked ? "bg-red-50 text-red-400 border border-red-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}
           >
             {periodLocked ? (
               <Lock className="w-4 h-4" />
@@ -767,10 +767,10 @@ export default function EnterpriseSuite({
             )}
           </div>
           <div className="text-left font-mono">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-widest block">
+            <span className="text-[8px] text-slate-500 uppercase tracking-widest block">
               Ledger Status
             </span>
-            <span className="text-xs font-bold text-white uppercase block leading-none mt-1">
+            <span className="text-xs font-bold text-slate-900 uppercase block leading-none mt-1">
               {periodLocked ? "LOCKED (JUNE 2026)" : "OPEN & SECURE"}
             </span>
           </div>
@@ -782,17 +782,17 @@ export default function EnterpriseSuite({
         className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn"
         id="ent-hub-cards"
       >
-        <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute top-0 left-0 w-[4px] h-full bg-[#00B67A]" />
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold block">
+            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-bold block">
               MoM Revenue Trend
             </span>
             <span className="text-[#00B67A] bg-emerald-950/30 px-2 py-0.5 rounded-lg text-[9px] font-mono border border-emerald-900">
               +24.5%
             </span>
           </div>
-          <div className="text-3xl font-sans font-light tracking-tight text-white mb-2">
+          <div className="text-3xl font-sans font-light tracking-tight text-slate-900 mb-2">
             {formatPeso(companyBalances[companyId]?.cash || 0)}
           </div>
           <div className="h-12 w-full mt-2">
@@ -828,18 +828,18 @@ export default function EnterpriseSuite({
           </div>
         </div>
 
-        <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute top-0 left-0 w-[4px] h-full bg-blue-500" />
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold block">
+            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-bold block">
               MoM Operating Runway
             </span>
             <span className="text-blue-400 bg-blue-950/30 px-2 py-0.5 rounded-lg text-[9px] font-mono border border-blue-900">
               Stable
             </span>
           </div>
-          <div className="text-3xl font-sans font-light tracking-tight text-white mb-2">
-            8.4 <span className="text-sm text-zinc-500">mos</span>
+          <div className="text-3xl font-sans font-light tracking-tight text-slate-900 mb-2">
+            8.4 <span className="text-sm text-slate-500">mos</span>
           </div>
           <div className="h-12 w-full mt-2">
             <ResponsiveContainer width="100%" height="100%">
@@ -874,17 +874,17 @@ export default function EnterpriseSuite({
           </div>
         </div>
 
-        <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute top-0 left-0 w-[4px] h-full bg-amber-500" />
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold block">
+            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-bold block">
               MoM Liabilities Trend
             </span>
             <span className="text-amber-400 bg-amber-950/30 px-2 py-0.5 rounded-lg text-[9px] font-mono border border-amber-900">
               -4.2%
             </span>
           </div>
-          <div className="text-3xl font-sans font-light tracking-tight text-white mb-2">
+          <div className="text-3xl font-sans font-light tracking-tight text-slate-900 mb-2">
             {formatPeso(companyBalances[companyId]?.payables || 0)}
           </div>
           <div className="h-12 w-full mt-2">
@@ -923,7 +923,7 @@ export default function EnterpriseSuite({
 
       {/* CORE MODULAR SYSTEM TAB NAVIGATION */}
       <div
-        className="flex flex-wrap gap-2 border-b border-[#24272C] pb-1"
+        className="flex flex-wrap gap-2 border-b border-slate-200 pb-1"
         id="submodule-nav"
       >
         {[
@@ -964,8 +964,8 @@ export default function EnterpriseSuite({
               onClick={() => setActiveSubTab(subTab.id as any)}
               className={`px-3.5 py-2.5 text-[10px] font-mono uppercase tracking-widest transition-all duration-200 border-b-2 flex items-center gap-2 cursor-pointer ${
                 isSel
-                  ? "border-[#00B67A] text-[#00B67A] font-bold bg-[#181A1C]/30"
-                  : "border-transparent text-zinc-450 hover:text-white hover:border-zinc-700"
+                  ? "border-[#00B67A] text-[#00B67A] font-bold bg-white/30"
+                  : "border-transparent text-zinc-450 hover:text-slate-900 hover:border-slate-200"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -988,25 +988,25 @@ export default function EnterpriseSuite({
             {/* CONSOLIDATION SPREADSHEET BENTO */}
             <div className="lg:col-span-2 space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
                 id="bento-consolidated-sheet"
               >
-                <div className="flex items-center justify-between border-b border-[#24272C] pb-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                   <div className="flex items-center gap-2.5">
                     <FileSpreadsheet className="w-5 h-5 text-[#00B67A]" />
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-white font-mono">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-900 font-mono">
                       Multi-Company Consolidation Sheet
                     </h2>
                   </div>
-                  <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-zinc-900 border border-[#24272C] px-3 py-1 rounded-lg">
+                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg">
                     Consolidated Live
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left font-mono text-xs text-zinc-300">
+                  <table className="w-full text-left font-mono text-xs text-slate-700">
                     <thead>
-                      <tr className="border-b border-[#24272C] text-zinc-500 text-[10px] uppercase tracking-wider">
+                      <tr className="border-b border-slate-200 text-slate-500 text-[10px] uppercase tracking-wider">
                         <th className="py-2.5">Entity / Code</th>
                         <th className="py-2.5 text-right">Cash Assets</th>
                         <th className="py-2.5 text-right">
@@ -1018,7 +1018,7 @@ export default function EnterpriseSuite({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#24272C]/40">
+                    <tbody className="divide-y divide-slate-200/40">
                       {companies.map((com) => {
                         const dat = companyBalances[com.id] || {
                           cash: 0,
@@ -1029,11 +1029,11 @@ export default function EnterpriseSuite({
                         return (
                           <tr
                             key={com.id}
-                            className="hover:bg-zinc-805/40 transition"
+                            className="hover:bg-slate-50/40 transition"
                           >
-                            <td className="py-3 font-semibold text-white">
+                            <td className="py-3 font-semibold text-slate-900">
                               {com.name}{" "}
-                              <span className="text-zinc-500 text-[9px]">
+                              <span className="text-slate-500 text-[9px]">
                                 ({com.code})
                               </span>
                             </td>
@@ -1053,8 +1053,8 @@ export default function EnterpriseSuite({
                         );
                       })}
                       {/* INTERCOMPANY ELIMINATION BIAS ADJUSTMENTS */}
-                      <tr className="bg-zinc-900/60 font-semibold border-t border-[#24272C]">
-                        <td className="py-3.5 pr-2 pl-4 text-zinc-400">
+                      <tr className="bg-slate-100 font-semibold border-t border-slate-200">
+                        <td className="py-3.5 pr-2 pl-4 text-slate-600">
                           Intercompany Eliminations
                         </td>
                         <td className="py-3.5 text-right text-amber-500">
@@ -1071,8 +1071,8 @@ export default function EnterpriseSuite({
                         </td>
                       </tr>
                       {/* CONSOLIDATED TOTALS */}
-                      <tr className="bg-[#141618] border-t-2 border-[#24272C] text-sm text-[#00B67A] font-bold">
-                        <td className="py-4 pl-4 uppercase font-sans tracking-tight text-white">
+                      <tr className="bg-white border-t-2 border-slate-200 text-sm text-[#00B67A] font-bold">
+                        <td className="py-4 pl-4 uppercase font-sans tracking-tight text-slate-900">
                           Group Consolidated Total
                         </td>
                         <td className="py-4 text-right">
@@ -1081,7 +1081,7 @@ export default function EnterpriseSuite({
                         <td className="py-4 text-right">
                           {formatPeso(consolidatedTotals.receivables)}
                         </td>
-                        <td className="py-4 text-right text-zinc-400 font-semibold">
+                        <td className="py-4 text-right text-slate-600 font-semibold">
                           {formatPeso(consolidatedTotals.payables)}
                         </td>
                         <td className="py-4 text-right text-emerald-400 underline decoration-double">
@@ -1095,22 +1095,22 @@ export default function EnterpriseSuite({
 
               {/* TREASURY FORECAST RUNWAY & SIMULATOR */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="bento-scenario-forecaster"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#24272C] pb-4 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4 gap-2">
                   <div>
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-white font-mono flex items-center gap-2">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-900 font-mono flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-emerald-400" />{" "}
                       Scenario Forecasting & Runway Planning
                     </h2>
-                    <p className="text-[11px] text-zinc-500 mt-1">
+                    <p className="text-[11px] text-slate-500 mt-1">
                       Simulate corporate cash availability across worst-case,
                       expected, or best-case business projections.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-[#141618] p-1 border border-[#24272C] rounded-xl">
+                  <div className="flex items-center gap-1.5 bg-white p-1 border border-slate-200 rounded-xl">
                     {(
                       [
                         "worst_case_runway",
@@ -1124,7 +1124,7 @@ export default function EnterpriseSuite({
                         className={`px-2 py-1 text-[8px] font-mono tracking-widest uppercase transition-all rounded-lg cursor-pointer ${
                           forecastScenario === scenario
                             ? "bg-[#00B67A] text-white font-bold"
-                            : "text-zinc-500 hover:text-white"
+                            : "text-slate-500 hover:text-slate-900"
                         }`}
                       >
                         {scenario.split("_")[0]}
@@ -1180,7 +1180,7 @@ export default function EnterpriseSuite({
                           backgroundColor: "#141618",
                           borderColor: "#24272C",
                         }}
-                        labelClassName="text-white font-mono text-xs"
+                        labelClassName="text-slate-900 font-mono text-xs"
                         formatter={(val: number) => [
                           formatPeso(val),
                           "Projected Cash Locked",
@@ -1204,7 +1204,7 @@ export default function EnterpriseSuite({
             {/* INTERCOMPANY ENTRY & TRANSFER MANAGEMENT */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="intercompany-entry-box"
               >
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#00B67A] font-mono">
@@ -1216,7 +1216,7 @@ export default function EnterpriseSuite({
                   className="space-y-4 text-left"
                 >
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Debited Entity (Paying Source)
                     </label>
                     <select
@@ -1227,7 +1227,7 @@ export default function EnterpriseSuite({
                           sourceCompanyId: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
                     >
                       {companies.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -1238,7 +1238,7 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Credited Entity (Beneficiary Target)
                     </label>
                     <select
@@ -1249,7 +1249,7 @@ export default function EnterpriseSuite({
                           targetCompanyId: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
                     >
                       {companies.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -1260,7 +1260,7 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Transaction Share Amount (PHP)
                     </label>
                     <input
@@ -1273,12 +1273,12 @@ export default function EnterpriseSuite({
                           amount: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A]"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Purpose & Cost-Sharing Agreement Reference
                     </label>
                     <textarea
@@ -1290,7 +1290,7 @@ export default function EnterpriseSuite({
                           purpose: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A] h-16"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:border-[#00B67A] h-16"
                     />
                   </div>
 
@@ -1305,21 +1305,21 @@ export default function EnterpriseSuite({
 
               {/* RECORDED INTERCOMPANY SPREADS CONTROLLER */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="intercompany-log"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white font-mono">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono">
                     Consolidated Elimination Log
                   </h3>
-                  <span className="text-[10px] text-zinc-500">
+                  <span className="text-[10px] text-slate-500">
                     Live Cleared
                   </span>
                 </div>
 
                 <div className="space-y-2.5 max-h-[220px] overflow-y-auto">
                   {intercompanyLogged.length === 0 ? (
-                    <div className="text-center py-6 text-zinc-500 font-mono text-xs">
+                    <div className="text-center py-6 text-slate-500 font-mono text-xs">
                       No intercompany shared expense posted in this sandbox
                       session.
                     </div>
@@ -1327,24 +1327,24 @@ export default function EnterpriseSuite({
                     intercompanyLogged.map((log) => (
                       <div
                         key={log.id}
-                        className="p-3 bg-[#141618] border border-zinc-800 rounded-xl space-y-1.5 font-mono text-xs"
+                        className="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 font-mono text-xs"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[#00B67A]">
                             {log.source} ➔ {log.target}
                           </span>
-                          <span className="text-zinc-500 text-[9px]">
+                          <span className="text-slate-500 text-[9px]">
                             {log.timestamp}
                           </span>
                         </div>
-                        <p className="text-zinc-400 text-[11px] leading-tight">
+                        <p className="text-slate-600 text-[11px] leading-tight">
                           {log.purpose}
                         </p>
-                        <div className="flex items-center justify-between border-t border-zinc-800/80 pt-1.5">
-                          <span className="font-bold text-white">
+                        <div className="flex items-center justify-between border-t border-slate-200/80 pt-1.5">
+                          <span className="font-bold text-slate-900">
                             {formatPeso(log.amount)}
                           </span>
-                          <span className="text-[9px] bg-[#1A2E1A] text-[#10B981] px-1.5 py-0.5 rounded border border-[#235332]">
+                          <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200">
                             CONSOLIDATED ELIMINATION
                           </span>
                         </div>
@@ -1368,10 +1368,10 @@ export default function EnterpriseSuite({
             {/* BANK SELECTION & LIVE LIQUIDITY COCKPIT */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="bento-bank-picker"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   Live Central Cash Accounts
                 </h3>
                 <div className="space-y-2.5 mt-2">
@@ -1381,19 +1381,19 @@ export default function EnterpriseSuite({
                       onClick={() => setSelectedBank(b.id)}
                       className={`w-full p-4 border rounded-xl text-left transition duration-150 flex flex-col justify-between cursor-pointer ${
                         selectedBank === b.id
-                          ? "bg-[#1D2024] border-[#00B67A] shadow-md"
-                          : "bg-[#141618] border-[#24272C] hover:bg-[#181A1C]"
+                          ? "bg-slate-50 hover:bg-slate-50 border-[#00B67A] shadow-md"
+                          : "bg-white border-slate-200 hover:bg-slate-50"
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <span className="font-bold text-white text-xs">
+                        <span className="font-bold text-slate-900 text-xs">
                           {b.bankName} - {b.accountName}
                         </span>
                         {b.isActive && (
                           <span className="w-1.5 h-1.5 rounded-full bg-[#00B67A] inline-block animate-pulse" />
                         )}
                       </div>
-                      <span className="text-[10px] text-zinc-500 mt-1">
+                      <span className="text-[10px] text-slate-500 mt-1">
                         {b.accountNumber}
                       </span>
                       <div className="flex items-end justify-between mt-3">
@@ -1407,7 +1407,7 @@ export default function EnterpriseSuite({
                     </button>
                   ))}
                   {activeCashAccounts.length === 0 && (
-                    <div className="text-xs text-zinc-500 text-center py-4 border border-dashed border-[#24272C] rounded-xl italic">
+                    <div className="text-xs text-slate-500 text-center py-4 border border-dashed border-slate-200 rounded-xl italic">
                        No Central Accounts configured.
                     </div>
                   )}
@@ -1416,25 +1416,25 @@ export default function EnterpriseSuite({
 
               {/* LEDGER FEED PREVIEW BOX */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="bento-ledger-feed"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   Focus Entity General Ledger
                 </h3>
                 <div className="space-y-2">
                   {unMatchedLedgTxns.map((lTx) => (
                     <div
                       key={lTx.id}
-                      className="p-3 bg-[#141618] border border-zinc-800 rounded-xl space-y-1.5"
+                      className="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5"
                     >
                       <div className="flex justify-between items-center text-[10px]">
                         <span className="font-bold text-[#00B67A]">
                           {lTx.id}
                         </span>
-                        <span className="text-zinc-500">{lTx.txnDate}</span>
+                        <span className="text-slate-500">{lTx.txnDate}</span>
                       </div>
-                      <p className="text-[11px] text-zinc-400 truncate font-semibold">
+                      <p className="text-[11px] text-slate-600 truncate font-semibold">
                         {lTx.purpose}
                       </p>
                       <div className="flex items-center justify-between pt-1 border-t border-zinc-850/60">
@@ -1444,7 +1444,7 @@ export default function EnterpriseSuite({
                           {lTx.type === "cash_in" ? "+" : "-"}
                           {formatPeso(lTx.amount)}
                         </span>
-                        <span className="text-[9px] text-zinc-500 italic block">
+                        <span className="text-[9px] text-slate-500 italic block">
                           General Journal Entry
                         </span>
                       </div>
@@ -1456,15 +1456,15 @@ export default function EnterpriseSuite({
 
             {/* LIVE BANK STATEMENT CORRELATION MATCHING BOARD */}
             <div
-              className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+              className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
               id="bento-match-board"
             >
-              <div className="flex items-center justify-between border-b border-[#24272C] pb-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">
                     Bank Feed Auto-Matching Engine
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1">
                     Select and match bank statement lines directly to general
                     ledger records below.
                   </p>
@@ -1476,7 +1476,7 @@ export default function EnterpriseSuite({
                         "Reset bank feed feeds to active matching entries",
                     })
                   }
-                  className="px-3.5 py-1.5 border border-zinc-850 bg-[#141618] text-[9px] text-zinc-400 rounded-xl flex items-center gap-1.5 hover:text-white transition"
+                  className="px-3.5 py-1.5 border border-zinc-850 bg-white text-[9px] text-slate-600 rounded-xl flex items-center gap-1.5 hover:text-slate-900 transition"
                 >
                   <RefreshCw className="w-3 h-3" /> Sync Bank Feed
                 </button>
@@ -1488,25 +1488,25 @@ export default function EnterpriseSuite({
                     key={feed.id}
                     className={`p-4 border rounded-2xl transition duration-150 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 ${
                       feed.isReconciled
-                        ? "bg-zinc-900/60 border-emerald-900/30 text-zinc-500"
-                        : "bg-[#141618] border-[#24272C]/80 text-zinc-300"
+                        ? "bg-slate-100 border-emerald-900/30 text-slate-500"
+                        : "bg-white border-slate-200/80 text-slate-700"
                     }`}
                   >
                     <div className="space-y-1.5 flex-1 select-none">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-bold uppercase">
+                        <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">
                           {feed.date}
                         </span>
                         <span
-                          className={`text-[9.5px] px-2 py-0.5 rounded font-bold ${feed.type === "credit" ? "bg-[#1A2E1A] text-[#10B981]" : "bg-rose-950/40 text-[#EF4444]"}`}
+                          className={`text-[9.5px] px-2 py-0.5 rounded font-bold ${feed.type === "credit" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-[#EF4444]"}`}
                         >
                           {feed.type.toUpperCase()}
                         </span>
                       </div>
-                      <h4 className="text-xs font-semibold text-white tracking-tight">
+                      <h4 className="text-xs font-semibold text-slate-900 tracking-tight">
                         {feed.description}
                       </h4>
-                      <span className="text-sm font-bold text-white block mt-1">
+                      <span className="text-sm font-bold text-slate-900 block mt-1">
                         {formatPeso(feed.amount)}
                       </span>
                     </div>
@@ -1519,7 +1519,7 @@ export default function EnterpriseSuite({
                         </div>
                       ) : (
                         <div className="flex flex-col items-stretch gap-1.5">
-                          <span className="text-[9px] text-zinc-500 uppercase tracking-widest text-center">
+                          <span className="text-[9px] text-slate-500 uppercase tracking-widest text-center">
                             Suggested Match:
                           </span>
                           <select
@@ -1527,7 +1527,7 @@ export default function EnterpriseSuite({
                               if (e.target.value)
                                 handleMatchReconcile(feed.id, e.target.value);
                             }}
-                            className="px-3.5 py-2.5 bg-[#181A1C] border border-zinc-800 text-[10px] text-[#00B67A] rounded-xl font-bold cursor-pointer hover:border-white focus:outline-hidden"
+                            className="px-3.5 py-2.5 bg-white border border-slate-200 text-[10px] text-[#00B67A] rounded-xl font-bold cursor-pointer hover:border-white focus:outline-hidden"
                           >
                             <option value="">Choose Ledger Match...</option>
                             {unMatchedLedgTxns.map((l) => (
@@ -1558,19 +1558,19 @@ export default function EnterpriseSuite({
             {/* COMPLIANCE INDICES COCKPIT */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="tax-cockpit-stats"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   VAT & Withholding Audit Matrix
                 </h3>
 
-                <div className="space-y-3.5 divide-y divide-[#24272C]/60 mt-1">
+                <div className="space-y-3.5 divide-y divide-slate-200/60 mt-1">
                   <div className="pt-2">
-                    <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                       Output VAT (12% of Sales)
                     </span>
-                    <span className="text-sm font-bold text-white block mt-1">
+                    <span className="text-sm font-bold text-slate-900 block mt-1">
                       {formatPeso(taxBreakdown.outputVat)}
                     </span>
                     <p className="text-[9px] text-zinc-550 italic mt-1">
@@ -1579,10 +1579,10 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div className="pt-3">
-                    <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                       Input VAT (Credits Claimable)
                     </span>
-                    <span className="text-sm font-bold text-zinc-300 block mt-1">
+                    <span className="text-sm font-bold text-slate-700 block mt-1">
                       {formatPeso(taxBreakdown.inputVat)}
                     </span>
                     <p className="text-[9px] text-zinc-550 italic mt-1">
@@ -1591,7 +1591,7 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div className="pt-3">
-                    <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                       Estimated NET VAT Payable
                     </span>
                     <span className="text-sm font-bold text-rose-450 text-amber-400 block mt-1">
@@ -1600,10 +1600,10 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div className="pt-3">
-                    <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                       Expanded Withholding Tax (EWT Liability)
                     </span>
-                    <span className="text-sm font-bold text-white block mt-1">
+                    <span className="text-sm font-bold text-slate-900 block mt-1">
                       {formatPeso(taxBreakdown.ewtDeductions)}
                     </span>
                     <p className="text-[9px] text-zinc-550 italic mt-1">
@@ -1615,16 +1615,16 @@ export default function EnterpriseSuite({
 
               {/* FILING INSTRUCTIONS INFORMATION */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-[#000000]/60 space-y-3"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-[#000000]/60 space-y-3"
                 id="tax-ph-guideline"
               >
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-[#00B67A]" />
-                  <span className="font-bold text-white text-xs uppercase tracking-tight">
+                  <span className="font-bold text-slate-900 text-xs uppercase tracking-tight">
                     BIR Statutory Regulation Guidance
                   </span>
                 </div>
-                <div className="space-y-2 text-zinc-400 text-[11px] leading-relaxed">
+                <div className="space-y-2 text-slate-600 text-[11px] leading-relaxed">
                   <p>
                     <b>VAT Tagging:</b> Tagging purchases is mandatory to claim
                     Input Taxes under <b>Section 110</b> of the Tax Code.
@@ -1641,14 +1641,14 @@ export default function EnterpriseSuite({
             {/* TAX TRANSACTION CONFIG AND FORM SUBMISSION PANEL */}
             <div className="lg:col-span-2 space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
                 id="tax-tagger-form"
               >
-                <div className="border-b border-[#24272C] pb-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+                <div className="border-b border-slate-200 pb-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">
                     BIR-Ready Electronic Invoicing Preparation
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1">
                     Encode & tag certified BIR Invoice classification schemas
                     before uploading to statutory platforms.
                   </p>
@@ -1656,7 +1656,7 @@ export default function EnterpriseSuite({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       VAT Tagging Schema (12% standard)
                     </label>
                     <select
@@ -1667,7 +1667,7 @@ export default function EnterpriseSuite({
                           classification: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                     >
                       <option value="vat_12">VAT standard (12%)</option>
                       <option value="vat_0">VAT Zero-rated (0%)</option>
@@ -1676,7 +1676,7 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Withholding Tax (EWT/EWT Sector)
                     </label>
                     <select
@@ -1687,7 +1687,7 @@ export default function EnterpriseSuite({
                           withholding: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                     >
                       <option value="ewt_2">
                         EWT - Purchases of Services (2%)
@@ -1703,12 +1703,12 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Invoice/Signature Reference ID
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                       value={birInvoiceForm.referenceNum}
                       onChange={(e) =>
                         setBirInvoiceForm((old) => ({
@@ -1720,12 +1720,12 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Official Receipt Number Partner (OR)
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                       value={birInvoiceForm.orNumber}
                       onChange={(e) =>
                         setBirInvoiceForm((old) => ({
@@ -1737,12 +1737,12 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Registered Enterprise VAT TIN No.
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                       value={birInvoiceForm.tin}
                       onChange={(e) =>
                         setBirInvoiceForm((old) => ({
@@ -1754,12 +1754,12 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-mono text-zinc-500 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-slate-500 block mb-1">
                       Corporate Registration Legal Name
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 bg-[#141618] text-[#00B67A] font-bold border border-[#24272C] rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
+                      className="w-full px-3 py-2 bg-white text-[#00B67A] font-bold border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:border-[#00B67A]"
                       value={birInvoiceForm.vatRegisteredName}
                       onChange={(e) =>
                         setBirInvoiceForm((old) => ({
@@ -1771,7 +1771,7 @@ export default function EnterpriseSuite({
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-3 border-t border-[#24272C]/40">
+                <div className="flex justify-end pt-3 border-t border-slate-200/40">
                   <button
                     onClick={handleTriggerBIRSubmission}
                     disabled={isSubmittingEInvoice}
@@ -1794,16 +1794,16 @@ export default function EnterpriseSuite({
 
               {/* HISTORICAL STATUTORY FILINGS */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="tax-shards-log"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   Submitted Government Filings
                 </h3>
 
                 <div className="space-y-3">
                   {birSubmissionLog.length === 0 ? (
-                    <div className="text-center py-6 text-zinc-500">
+                    <div className="text-center py-6 text-slate-500">
                       No e-filings submitted during this terminal runtime
                       context.
                     </div>
@@ -1811,11 +1811,11 @@ export default function EnterpriseSuite({
                     birSubmissionLog.map((item, index) => (
                       <div
                         key={index}
-                        className="p-4 bg-[#141618] border border-zinc-800 rounded-2xl flex items-center justify-between gap-4"
+                        className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-4"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-white font-bold">
+                            <span className="text-[10px] text-slate-900 font-bold">
                               {item.formType}
                             </span>
                             <span className="text-[9px] bg-emerald-950/40 text-[#00B67A] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-emerald-900/40">
@@ -1824,16 +1824,16 @@ export default function EnterpriseSuite({
                           </div>
                           <p className="text-[11px] text-zinc-450">
                             Filing Receipt ID:{" "}
-                            <b className="text-zinc-300 font-sans">
+                            <b className="text-slate-700 font-sans">
                               {item.referenceReceipt}
                             </b>
                           </p>
-                          <span className="text-[9px] text-zinc-500 block">
+                          <span className="text-[9px] text-slate-500 block">
                             {item.timestamp}
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                          <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                             VAT Account Liability Lock
                           </span>
                           <span className="text-xs font-semibold text-[#00B67A] block mt-1">
@@ -1860,14 +1860,14 @@ export default function EnterpriseSuite({
             {/* WORKFLOW MATRIX CONTROLLER CONFIG */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="approval-matrix-settings"
               >
-                <div className="border-b border-[#24272C] pb-4">
+                <div className="border-b border-slate-200 pb-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#00B67A]">
                     Corporate Approvals Segregation
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1">
                     Configurable role authorization matrices and spending limits
                     safeguards.
                   </p>
@@ -1875,7 +1875,7 @@ export default function EnterpriseSuite({
 
                 <div className="space-y-4 text-left">
                   <div>
-                    <label className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">
                       Tier 1 Automatic Limit (Staff): ₱
                       {matrixSettings.lvl1Max.toLocaleString()}
                     </label>
@@ -1891,12 +1891,12 @@ export default function EnterpriseSuite({
                           lvl1Max: parseInt(e.target.value) || 0,
                         }))
                       }
-                      className="w-full accent-[#00B67A] bg-zinc-900 h-1.5 rounded-lg appearance-none cursor-pointer"
+                      className="w-full accent-[#00B67A] bg-slate-50 h-1.5 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">
                       Tier 2 Manager Required: ₱
                       {matrixSettings.lvl2Max.toLocaleString()}
                     </label>
@@ -1912,12 +1912,12 @@ export default function EnterpriseSuite({
                           lvl2Max: parseInt(e.target.value) || 0,
                         }))
                       }
-                      className="w-full accent-[#00B67A] bg-zinc-900 h-1.5 rounded-lg appearance-none cursor-pointer"
+                      className="w-full accent-[#00B67A] bg-slate-50 h-1.5 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
 
-                  <div className="space-y-2.5 pt-2 border-t border-zinc-800/80">
-                    <label className="flex items-center gap-2.5 cursor-pointer text-zinc-300">
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200/80">
+                    <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
                       <input
                         type="checkbox"
                         checked={matrixSettings.twoLevelApprovalEnabled}
@@ -1927,12 +1927,12 @@ export default function EnterpriseSuite({
                             twoLevelApprovalEnabled: e.target.checked,
                           }))
                         }
-                        className="rounded border-[#24272C] text-[#00B67A] focus:ring-[#00B67A] bg-zinc-905 w-4 h-4 cursor-pointer"
+                        className="rounded border-slate-200 text-[#00B67A] focus:ring-[#00B67A] bg-white w-4 h-4 cursor-pointer"
                       />
                       <span>Enforce Double Signature (&gt; ₱100k)</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 cursor-pointer text-zinc-300">
+                    <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
                       <input
                         type="checkbox"
                         checked={matrixSettings.strictSodEnabled}
@@ -1942,7 +1942,7 @@ export default function EnterpriseSuite({
                             strictSodEnabled: e.target.checked,
                           }))
                         }
-                        className="rounded border-[#24272C] text-[#00B67A] focus:ring-[#00B67A] bg-zinc-905 w-4 h-4 cursor-pointer"
+                        className="rounded border-slate-200 text-[#00B67A] focus:ring-[#00B67A] bg-white w-4 h-4 cursor-pointer"
                       />
                       <span>Strict Segregation of Duties (SoD)</span>
                     </label>
@@ -1952,10 +1952,10 @@ export default function EnterpriseSuite({
 
               {/* SEGREGATION VERIFICATION METRICS */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="sod-matrix-box"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   Active SoD Hierarchy Verification
                 </h3>
 
@@ -1976,21 +1976,21 @@ export default function EnterpriseSuite({
                   ].map((s_itm, idx) => (
                     <div
                       key={idx}
-                      className="p-3 bg-[#141618] border border-zinc-850 rounded-xl space-y-2 text-[11px]"
+                      className="p-3 bg-white border border-zinc-850 rounded-xl space-y-2 text-[11px]"
                     >
-                      <span className="font-bold text-white block">
+                      <span className="font-bold text-slate-900 block">
                         {s_itm.entity}
                       </span>
-                      <div className="space-y-1 text-zinc-400">
+                      <div className="space-y-1 text-slate-600">
                         <div className="flex justify-between">
                           <span>Creator:</span>{" "}
-                          <span className="text-zinc-500 font-bold">
+                          <span className="text-slate-500 font-bold">
                             {s_itm.creator}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Reviewer:</span>{" "}
-                          <span className="text-zinc-500 font-bold">
+                          <span className="text-slate-500 font-bold">
                             {s_itm.reviewer}
                           </span>
                         </div>
@@ -2009,16 +2009,16 @@ export default function EnterpriseSuite({
 
             {/* FRAUD DETECTION & ANOMALY MONITOR RADAR */}
             <div
-              className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+              className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
               id="fraud-bento-box"
             >
-              <div className="flex items-center justify-between border-b border-[#24272C] pb-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 flex items-center gap-2">
                     <ShieldAlert className="text-red-400 w-5 h-5 animate-bounce" />{" "}
                     Fraud Detection & Transaction Heuristics Radar
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1">
                     Real-time artificial anomaly monitors scanning general
                     disbursements for irregularities.
                   </p>
@@ -2036,9 +2036,9 @@ export default function EnterpriseSuite({
                     className={`cursor-pointer hover:shadow-lg p-4 border-l-4 rounded-2xl transition duration-150 flex flex-col sm:flex-row items-start justify-between gap-4 ${
                       alertItem.active
                         ? alertItem.severity === "HIGH"
-                          ? "bg-[#2D161A]/50 border-red-500 hover:bg-[#2D161A]/80"
-                          : "bg-[#2A1E14]/50 border-amber-500 hover:bg-[#2A1E14]/80"
-                        : "bg-zinc-900/40 border-zinc-700 text-zinc-500 hover:bg-zinc-900/60"
+                          ? "bg-red-50 border-red-500 hover:bg-red-100"
+                          : "bg-amber-50 border-amber-500 hover:bg-amber-100"
+                        : "bg-slate-50/40 border-slate-200 text-slate-500 hover:bg-slate-100"
                     }`}
                   >
                     <div className="space-y-1.5 flex-1 text-left">
@@ -2049,20 +2049,20 @@ export default function EnterpriseSuite({
                               ? alertItem.severity === "HIGH"
                                 ? "bg-red-950/80 text-red-400 border border-red-900/40"
                                 : "bg-amber-950/80 text-amber-400 border border-amber-900/40"
-                              : "bg-zinc-800 text-zinc-500"
+                              : "bg-slate-50 text-slate-500"
                           }`}
                         >
                           {alertItem.type}
                         </span>
-                        <span className="text-[10px] text-zinc-400 font-bold font-sans">
+                        <span className="text-[10px] text-slate-600 font-bold font-sans">
                           [{alertItem.severity} RISK]
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-sans">
+                        <span className="text-[10px] text-slate-500 font-sans">
                           {alertItem.dt}
                         </span>
                       </div>
                       <p
-                        className={`text-xs ${alertItem.active ? "text-zinc-200" : "text-zinc-550"} leading-tight`}
+                        className={`text-xs ${alertItem.active ? "text-slate-800" : "text-zinc-550"} leading-tight`}
                       >
                         {alertItem.message}
                       </p>
@@ -2076,7 +2076,7 @@ export default function EnterpriseSuite({
                               e.stopPropagation();
                               handleDismissFraudAlert(alertItem.id);
                             }}
-                            className="bg-zinc-850 border border-zinc-800 text-zinc-400 hover:text-white px-3 py-1.5 rounded-xl cursor-pointer hover:border-zinc-500 text-[10px] transition"
+                            className="bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-xl cursor-pointer hover:border-slate-300 text-[10px] transition"
                           >
                             Dismiss
                           </button>
@@ -2085,13 +2085,13 @@ export default function EnterpriseSuite({
                               e.stopPropagation();
                               handleEscalateFraudAlert(alertItem.id);
                             }}
-                            className="bg-red-950/60 hover:bg-red-900/80 text-red-400 border border-red-800/80 px-3.5 py-1.5 rounded-xl cursor-pointer text-[10px] font-bold tracking-wide transition"
+                            className="bg-red-950/60 hover:bg-red-900/80 text-red-400 border border-red-200/80 px-3.5 py-1.5 rounded-xl cursor-pointer text-[10px] font-bold tracking-wide transition"
                           >
                             Escalate Audit
                           </button>
                         </>
                       ) : (
-                        <span className="text-[10px] text-zinc-500 italic uppercase">
+                        <span className="text-[10px] text-slate-500 italic uppercase">
                           Log Cleared
                         </span>
                       )}
@@ -2114,14 +2114,14 @@ export default function EnterpriseSuite({
             {/* DOCUMENT QUEUE AND OCR PRE-DEFINED LIST */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
                 id="vault-predefined-list"
               >
-                <div className="border-b border-[#24272C] pb-3">
+                <div className="border-b border-slate-200 pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#00B67A]">
                     Supplier Invoices & Receipts
                   </h3>
-                  <p className="text-[10.5px] text-zinc-500">
+                  <p className="text-[10.5px] text-slate-500">
                     Choose a physical document variant below to simulate
                     immediate machine OCR recognition
                   </p>
@@ -2136,14 +2136,14 @@ export default function EnterpriseSuite({
                       }
                       className={`w-full p-4 border rounded-xl text-left transition duration-150 flex flex-col justify-between cursor-pointer ${
                         currentAttachmentFile === item.filename
-                          ? "bg-[#1D2024] border-[#00B67A]"
-                          : "bg-[#141618] border-zinc-850 hover:bg-[#181A1C]"
+                          ? "bg-slate-50 hover:bg-slate-50 border-[#00B67A]"
+                          : "bg-white border-zinc-850 hover:bg-slate-50"
                       }`}
                     >
-                      <span className="font-bold text-white text-[11px] leading-tight block">
+                      <span className="font-bold text-slate-900 text-[11px] leading-tight block">
                         {item.label}
                       </span>
-                      <span className="text-[10px] text-zinc-500 block mt-1.5 font-sans italic">
+                      <span className="text-[10px] text-slate-500 block mt-1.5 font-sans italic">
                         {item.filename}
                       </span>
                     </button>
@@ -2153,10 +2153,10 @@ export default function EnterpriseSuite({
 
               {/* LIVE VAULT METRICS INTEGRITY */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-3"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-3"
                 id="vault-integrity-stats"
               >
-                <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                   SECURE VAULT INTEGRITY
                 </span>
                 <div className="grid grid-cols-2 gap-4 pt-1">
@@ -2164,7 +2164,7 @@ export default function EnterpriseSuite({
                     <span className="text-[10px] text-zinc-450 block">
                       Encrypted Assets
                     </span>
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-slate-900">
                       42 Files
                     </span>
                   </div>
@@ -2182,14 +2182,14 @@ export default function EnterpriseSuite({
 
             {/* OCR EXTRACTOR AREA CONTAINER */}
             <div
-              className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+              className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
               id="bento-ocr-workspace"
             >
-              <div className="border-b border-[#24272C] pb-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+              <div className="border-b border-slate-200 pb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">
                   Voucher OCR Extraction Desk
                 </h3>
-                <p className="text-[11px] text-zinc-500 mt-1">
+                <p className="text-[11px] text-slate-500 mt-1">
                   Simulate instant optical character recognition alignment with
                   active Filipino transactions.
                 </p>
@@ -2197,12 +2197,12 @@ export default function EnterpriseSuite({
 
               {/* DROP OR ACTIVE FILE VIEWPORT */}
               <div
-                className="border border-dashed border-zinc-800 rounded-2xl p-6 text-center bg-zinc-900/30"
+                className="border border-dashed border-slate-200 rounded-2xl p-6 text-center bg-slate-50/30"
                 id="ocr-simulation-pane"
               >
                 {ocrStatus === "idle" ? (
                   <div className="py-12 space-y-3 flex flex-col items-center">
-                    <Upload className="w-10 h-10 text-zinc-500 animate-pulse" />
+                    <Upload className="w-10 h-10 text-slate-500 animate-pulse" />
                     <p className="text-zinc-450 text-xs">
                       Drag and drop supplier invoice/receipt PDFs here, or
                       choose a pre-loaded document from the sidebar list.
@@ -2211,7 +2211,7 @@ export default function EnterpriseSuite({
                 ) : ocrStatus === "scanning" ? (
                   <div className="py-12 space-y-4 flex flex-col items-center">
                     <RefreshCw className="w-8 h-8 text-[#00B67A] animate-spin" />
-                    <span className="text-white text-xs font-bold uppercase tracking-widest animate-pulse">
+                    <span className="text-slate-900 text-xs font-bold uppercase tracking-widest animate-pulse">
                       Running OCR Neural Text Scan...
                     </span>
                   </div>
@@ -2220,36 +2220,36 @@ export default function EnterpriseSuite({
                     className="text-left space-y-4 animate-fadeIn"
                     id="ocr-success-display"
                   >
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                       <div>
-                        <span className="text-[10px] text-white font-bold bg-[#141618] border border-zinc-805 px-3 py-1 rounded-lg uppercase tracking-wider">
+                        <span className="text-[10px] text-slate-900 font-bold bg-white border border-zinc-805 px-3 py-1 rounded-lg uppercase tracking-wider">
                           File: {currentAttachmentFile}
                         </span>
                       </div>
-                      <span className="text-[10px] bg-[#1A2E1A] text-[#10B981] border border-[#235332] px-2.5 py-1 rounded-xl uppercase font-bold tracking-widest">
+                      <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-1 rounded-xl uppercase font-bold tracking-widest">
                         OCR Cleared 99.2% Conf
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest block">
                           Extracted Vendor Name
                         </span>
-                        <span className="text-xs font-bold text-white uppercase block mt-1">
+                        <span className="text-xs font-bold text-slate-900 uppercase block mt-1">
                           {ocrExtractedData?.supplier || "N/A"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest block">
                           Filing Invoice Date
                         </span>
-                        <span className="text-xs font-bold text-white block mt-1">
+                        <span className="text-xs font-bold text-slate-900 block mt-1">
                           {ocrExtractedData?.date || "N/A"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest block">
                           Taxpayer Registry TIN
                         </span>
                         <span className="text-xs font-bold text-[#00B67A] block mt-1">
@@ -2257,10 +2257,10 @@ export default function EnterpriseSuite({
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest block">
                           Identified Value Match (Gross)
                         </span>
-                        <span className="text-sm font-bold text-white block mt-1 underline decoration-emerald-500 font-mono">
+                        <span className="text-sm font-bold text-slate-900 block mt-1 underline decoration-emerald-500 font-mono">
                           {ocrExtractedData?.total ||
                             ocrExtractedData?.transfer ||
                             "N/A"}
@@ -2268,7 +2268,7 @@ export default function EnterpriseSuite({
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-zinc-800 flex justify-end">
+                    <div className="pt-4 border-t border-slate-200 flex justify-end">
                       <button
                         onClick={() => {
                           toast.success("Metadata Applied", {
@@ -2300,25 +2300,25 @@ export default function EnterpriseSuite({
             {/* COMPLIANCE RATING INDEX & CLOSING PROCESS */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md text-center space-y-4"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md text-center space-y-4"
                 id="closing-audit-cockpit"
               >
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
                   Month-End Audit Readiness Rating
                 </h3>
 
                 <div className="relative py-4 flex flex-col items-center justify-center">
-                  <div className="w-24 h-24 rounded-full border-4 border-zinc-800 flex items-center justify-center relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-slate-200 flex items-center justify-center relative">
                     <span className="text-3xl font-extrabold text-[#00B67A] font-sans">
                       {closingAuditScore}%
                     </span>
                   </div>
-                  <span className="text-[9px] text-[#00B67A] bg-[#1A2E1A] border border-[#235332] px-3.5 py-1 rounded-full uppercase font-bold tracking-widest mt-4">
+                  <span className="text-[9px] text-[#00B67A] bg-emerald-50 border border-emerald-200 px-3.5 py-1 rounded-full uppercase font-bold tracking-widest mt-4">
                     Audit Ready
                   </span>
                 </div>
 
-                <p className="text-[10.5px] text-zinc-400 leading-relaxed text-left">
+                <p className="text-[10.5px] text-slate-600 leading-relaxed text-left">
                   An automatic compliance check grading completeness of ledger
                   entries, associated compliance codes, bank matches, and
                   security levels. Reaching <b>&gt;85%</b> permits permanent
@@ -2328,16 +2328,16 @@ export default function EnterpriseSuite({
 
               {/* PIN LOCK BYPASS INSTRUCTIONS */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-3 font-sans text-left"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-3 font-sans text-left"
                 id="bypass-info"
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <Award className="w-5 h-5 text-[#00B67A]" />
-                  <span className="font-bold text-xs text-white uppercase tracking-wider">
+                  <span className="font-bold text-xs text-slate-900 uppercase tracking-wider">
                     Simulated Bypass Code
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 tracking-tight leading-relaxed">
+                <p className="text-[11px] text-slate-600 tracking-tight leading-relaxed">
                   To simulate the monthly lock operation and permanently freeze
                   ledger parameters, use the bypass token code:{" "}
                   <b className="text-emerald-400 font-mono text-xs font-black">
@@ -2350,14 +2350,14 @@ export default function EnterpriseSuite({
 
             {/* MONTH-END CHECKLIST WORKSPACE */}
             <div
-              className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-5"
+              className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-5"
               id="bento-closings-manager"
             >
-              <div className="border-b border-[#24272C] pb-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+              <div className="border-b border-slate-200 pb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">
                   Fiscal Closings Tracker
                 </h3>
-                <p className="text-[11px] text-zinc-500 mt-1">
+                <p className="text-[11px] text-slate-500 mt-1">
                   Track compliance items and reconcile general accounts prior to
                   freezing the monthly journals.
                 </p>
@@ -2368,20 +2368,20 @@ export default function EnterpriseSuite({
                   <button
                     key={s.id}
                     onClick={() => toggleClosingStep(s.id)}
-                    className="w-full p-4 bg-[#141618] border border-[#24272C]/40 hover:border-zinc-500 rounded-2xl text-left transition flex items-center justify-between gap-4 cursor-pointer"
+                    className="w-full p-4 bg-white border border-slate-200/40 hover:border-slate-300 rounded-2xl text-left transition flex items-center justify-between gap-4 cursor-pointer"
                   >
                     <div className="flex items-center gap-3 select-none flex-1">
                       <div
                         className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 ${
                           s.completed
-                            ? "border-[#00B67A] bg-[#1A2E1A] text-[#10B981]"
-                            : "border-zinc-700 bg-[#141618]"
+                            ? "border-[#00B67A] bg-emerald-50 text-emerald-600"
+                            : "border-slate-200 bg-white"
                         }`}
                       >
                         {s.completed && <CheckSquare className="w-4 h-4" />}
                       </div>
                       <span
-                        className={`text-xs ${s.completed ? "text-zinc-450 line-through" : "text-zinc-200"}`}
+                        className={`text-xs ${s.completed ? "text-zinc-450 line-through" : "text-slate-800"}`}
                       >
                         {s.task}
                       </span>
@@ -2396,13 +2396,13 @@ export default function EnterpriseSuite({
               </div>
 
               {/* CLOSINGS LOCK FOOTER PANEL */}
-              <div className="pt-5 border-t border-[#24272C]/40">
+              <div className="pt-5 border-t border-slate-200/40">
                 <form
                   onSubmit={handleCloseAndLockPeriod}
                   className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 text-left"
                 >
                   <div>
-                    <label className="text-[10.5px] uppercase text-zinc-500 block mb-1">
+                    <label className="text-[10.5px] uppercase text-slate-500 block mb-1">
                       Authorization Bypass PIN Code Key
                     </label>
                     <input
@@ -2412,7 +2412,7 @@ export default function EnterpriseSuite({
                       value={pinCode}
                       onChange={(e) => setPinCode(e.target.value)}
                       disabled={periodLocked}
-                      className="px-3.5 py-2 bg-[#141618] text-white border border-[#24272C] rounded-xl focus:outline-hidden focus:border-red-400 placeholder-zinc-700 font-mono text-xs font-black min-w-[200px]"
+                      className="px-3.5 py-2 bg-white text-slate-900 border border-slate-200 rounded-xl focus:outline-hidden focus:border-red-400 placeholder-zinc-700 font-mono text-xs font-black min-w-[200px]"
                     />
                   </div>
 
@@ -2423,8 +2423,8 @@ export default function EnterpriseSuite({
                       periodLocked
                         ? "bg-red-950/20 text-red-500 border border-red-900/40 cursor-not-allowed"
                         : closingAuditScore < 85
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-red-950/60 hover:bg-rose-900/60 text-red-400 border border-red-800/80 hover:border-red-500"
+                          ? "bg-slate-50 text-slate-500 cursor-not-allowed"
+                          : "bg-red-950/60 hover:bg-rose-900/60 text-red-400 border border-red-200/80 hover:border-red-500"
                     }`}
                   >
                     {periodLocked
@@ -2454,25 +2454,25 @@ export default function EnterpriseSuite({
             {/* DATA GOVERNANCE CONTROL COCKPIT */}
             <div className="space-y-6">
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4 text-left"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4 text-left"
                 id="security-control-matrix"
               >
-                <div className="border-b border-[#24272C] pb-3">
+                <div className="border-b border-slate-200 pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#00B67A]">
                     MFA & Security Parameters
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     Protect sensitive group corporate records and files.
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-[#141618] border border-zinc-850 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-white border border-zinc-850 rounded-xl">
                     <div className="space-y-0.5">
-                      <span className="font-bold text-white text-xs block">
+                      <span className="font-bold text-slate-900 text-xs block">
                         MFA Access Gateways
                       </span>
-                      <span className="text-[9.5px] text-zinc-500 block">
+                      <span className="text-[9.5px] text-slate-500 block">
                         Enforce authentication checkpoints
                       </span>
                     </div>
@@ -2483,8 +2483,8 @@ export default function EnterpriseSuite({
                       }}
                       className={`px-3.5 py-1.5 text-[10px] font-bold rounded-lg cursor-pointer ${
                         mfaEnabled
-                          ? "bg-[#1A2E1A] text-[#10B981] border border-[#235332]"
-                          : "bg-red-950/40 text-[#EF4444] border border-red-900/40"
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                          : "bg-red-50 text-[#EF4444] border border-red-900/40"
                       }`}
                     >
                       {mfaEnabled ? "ENABLED" : "DISABLED"}
@@ -2492,16 +2492,16 @@ export default function EnterpriseSuite({
                   </div>
 
                   <div className="space-y-1.5 pt-2">
-                    <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                       Active Encryption Shards standard
                     </span>
-                    <div className="p-3 bg-[#141618] border border-[#24272C] rounded-xl flex items-center justify-between font-mono text-xs">
-                      <span className="text-zinc-300 font-semibold truncate max-w-[120px]">
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between font-mono text-xs">
+                      <span className="text-slate-700 font-semibold truncate max-w-[120px]">
                         {dataEncryptionKey}
                       </span>
                       <button
                         onClick={rotatedEncryptionKeys}
-                        className="text-[9px] bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded hover:bg-zinc-750 transition"
+                        className="text-[9px] bg-slate-50 text-slate-700 px-2.5 py-1 rounded hover:bg-slate-100 transition"
                       >
                         Rotate Key
                       </button>
@@ -2515,16 +2515,16 @@ export default function EnterpriseSuite({
 
               {/* SECURE BLOCKCHAIN BACKUP ARCHIVE */}
               <div
-                className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-3 text-left"
+                className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-3 text-left"
                 id="security-audit-integrity"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Fingerprint className="text-[#00B67A] w-5 h-5 animate-pulse" />
-                  <span className="font-bold text-white text-xs uppercase">
+                  <span className="font-bold text-slate-900 text-xs uppercase">
                     Ledger Encryption Integrity
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 leading-relaxed leading-tight text-zinc-500">
+                <p className="text-[11px] text-slate-600 leading-relaxed leading-tight text-slate-500">
                   Every transaction ledger modification hashes into block
                   states, creating irreversible cryptographic audit tracking
                   signatures.
@@ -2534,14 +2534,14 @@ export default function EnterpriseSuite({
 
             {/* IP RANGE AND SESSION CONTROLS */}
             <div
-              className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4"
+              className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4"
               id="bento-security-nodes"
             >
-              <div className="border-b border-[#24272C] pb-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+              <div className="border-b border-slate-200 pb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">
                   Active Authorized Session Nodes
                 </h3>
-                <p className="text-[11px] text-zinc-500 mt-1">
+                <p className="text-[11px] text-slate-500 mt-1">
                   Authorized terminals and network endpoints permitted to alter
                   consolidated systems.
                 </p>
@@ -2551,29 +2551,29 @@ export default function EnterpriseSuite({
                 {securityDevicesNode.map((node, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-[#141618] border border-zinc-800 rounded-2xl flex items-center justify-between gap-4"
+                    className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-white font-bold">
+                        <span className="text-[10px] text-slate-900 font-bold">
                           {node.ip}
                         </span>
-                        <span className="text-[9px] bg-[#1A2E1A] text-[#10B981] px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-[#235332]">
+                        <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-emerald-200">
                           {node.mfaState}
                         </span>
                       </div>
-                      <p className="text-[11.5px] text-zinc-400 font-semibold">
+                      <p className="text-[11.5px] text-slate-600 font-semibold">
                         {node.device}
                       </p>
-                      <span className="text-[9px] text-zinc-500 block">
+                      <span className="text-[9px] text-slate-500 block">
                         {node.time}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] text-zinc-500 uppercase tracking-widest block">
+                      <span className="text-[9px] text-slate-500 uppercase tracking-widest block">
                         Geographical Node
                       </span>
-                      <span className="text-xs font-semibold text-white block mt-1">
+                      <span className="text-xs font-semibold text-slate-900 block mt-1">
                         {node.location}
                       </span>
                     </div>
@@ -2593,40 +2593,40 @@ export default function EnterpriseSuite({
           );
           if (!activeAudit) return null;
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-              <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-fadeIn">
-                <div className="p-6 border-b border-[#24272C] flex items-center justify-between">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-fadeIn">
+                <div className="p-6 border-b border-slate-200 flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-light text-white flex items-center gap-2">
+                    <h3 className="text-lg font-light text-slate-900 flex items-center gap-2">
                       <ShieldAlert className="text-red-400 w-5 h-5" /> Detailed
                       Audit Trail
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-1 font-mono">
+                    <p className="text-xs text-slate-500 mt-1 font-mono">
                       Audit ID: {activeAudit.id} | Generated: {activeAudit.dt}
                     </p>
                   </div>
                   <button
                     onClick={() => setEscalatedAuditId(null)}
-                    className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
+                    className="p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="p-6 space-y-6">
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
                       System Compliance Alert Trigger
                     </h4>
-                    <div className="bg-[#2D161A]/50 border border-red-500/30 rounded-xl p-4">
+                    <div className="bg-red-50 border border-red-500/30 rounded-xl p-4">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="bg-red-950 text-red-400 px-2.5 py-1 rounded-md text-[10px] font-bold border border-red-900/50">
                           {activeAudit.severity} RISK
                         </span>
-                        <span className="text-xs font-mono font-bold text-white tracking-widest">
+                        <span className="text-xs font-mono font-bold text-slate-900 tracking-widest">
                           {activeAudit.type}
                         </span>
                       </div>
-                      <p className="text-sm text-zinc-300 leading-relaxed">
+                      <p className="text-sm text-slate-700 leading-relaxed">
                         {activeAudit.message}
                       </p>
                     </div>
@@ -2634,23 +2634,23 @@ export default function EnterpriseSuite({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest block font-bold">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">
                         Involved Entity
                       </span>
-                      <span className="text-sm text-white font-mono">
+                      <span className="text-sm text-slate-900 font-mono">
                         {activeAudit.companyCode} Subsidiary
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest block font-bold">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">
                         Detection Vector
                       </span>
-                      <span className="text-sm text-white font-mono">
+                      <span className="text-sm text-slate-900 font-mono">
                         Heuristic Analysis Model v2.4
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest block font-bold">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">
                         Action Required
                       </span>
                       <span className="text-sm text-amber-500 font-mono">
@@ -2658,19 +2658,19 @@ export default function EnterpriseSuite({
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest block font-bold">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">
                         Network Trace
                       </span>
-                      <span className="text-sm text-zinc-400 font-mono">
+                      <span className="text-sm text-slate-600 font-mono">
                         IP: 192.168.1.104
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-[#24272C] flex items-center justify-end gap-3 text-left">
+                  <div className="pt-6 border-t border-slate-200 flex items-center justify-end gap-3 text-left">
                     <button
                       onClick={() => setEscalatedAuditId(null)}
-                      className="px-4 py-2 text-[10px] md:text-xs font-mono font-bold tracking-widest text-zinc-400 hover:text-white transition cursor-pointer"
+                      className="px-4 py-2 text-[10px] md:text-xs font-mono font-bold tracking-widest text-slate-600 hover:text-slate-900 transition cursor-pointer"
                     >
                       CANCEL
                     </button>
@@ -2679,7 +2679,7 @@ export default function EnterpriseSuite({
                         handleDismissFraudAlert(activeAudit.id);
                         setEscalatedAuditId(null);
                       }}
-                      className="px-5 py-2 text-[10px] md:text-xs font-mono font-bold tracking-widest bg-red-950/60 hover:bg-red-900/80 text-red-400 border border-red-800/80 rounded-xl transition cursor-pointer"
+                      className="px-5 py-2 text-[10px] md:text-xs font-mono font-bold tracking-widest bg-red-950/60 hover:bg-red-900/80 text-red-400 border border-red-200/80 rounded-xl transition cursor-pointer"
                     >
                       FREEZE RELATED TRANSACTIONS
                     </button>

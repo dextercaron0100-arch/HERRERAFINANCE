@@ -43,6 +43,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Wallet,
+  ChevronRight,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
@@ -66,7 +67,6 @@ import AlertsMenu from "./components/AlertsMenu";
 import FinancialAssistant from "./components/FinancialAssistant";
 import DocumentVault from "./components/DocumentVault";
 import LoginPage from "./components/LoginPage";
-import AccountingWorkflow from "./components/AccountingWorkflow";
 import SettingsPage from "./components/Settings";
 
 import {
@@ -96,15 +96,14 @@ type ActivePage =
   | "pay_rec"
   | "payroll"
   | "reports"
-  | "bank_rec"
   | "cash_acc"
+  | "bank_rec"
+  | "vault"
+  | "enterprise"
+  | "tax_compliance"
   | "audit_log"
   | "workspace"
-  | "enterprise"
   | "assistant"
-  | "vault"
-  | "tax_compliance"
-  | "workflow"
   | "owner_dashboard"
   | "settings";
 
@@ -119,26 +118,25 @@ export default function App() {
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [rolesState, setRolesState] = useState(getRoles());
   const [navOrder, setNavOrder] = useState<string[]>([
-    "owner_dashboard",
-    "accounting_workbench",
     "dashboard",
-    "money_flow",
-    "workflow",
+    "accounting_workbench",
     "ledger",
-    "approvals",
+    "money_flow",
     "budgets",
+    "approvals",
     "pay_rec",
     "payroll",
     "reports",
     "cash_acc",
     "bank_rec",
-    "assistant",
     "vault",
     "enterprise",
     "tax_compliance",
     "audit_log",
     "workspace",
-    "settings"
+    "assistant",
+    "owner_dashboard",
+    "settings",
   ]);
 
   useEffect(() => {
@@ -147,22 +145,11 @@ export default function App() {
     } else {
       document.body.style.overflow = "auto";
     }
-    
+
     return () => {
       document.body.style.overflow = "auto";
     };
   }, [mobileSidebarOpen]);
-
-  // Theme Toggler
-  const [isLightMode, setIsLightMode] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (isLightMode) {
-      document.documentElement.classList.add("light-theme");
-    } else {
-      document.documentElement.classList.remove("light-theme");
-    }
-  }, [isLightMode]);
 
   // Triggering state changes logger
   const [triggerCount, setTriggerCount] = useState(0);
@@ -211,18 +198,39 @@ export default function App() {
   }, []);
 
   const currentRole = getUserRole(activeUserId, activeCompanyId);
-  const currentUserRoleData = rolesState.find(r => r.userId === activeUserId && r.companyId === activeCompanyId);
+  const currentUserRoleData = rolesState.find(
+    (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
+  );
 
   useEffect(() => {
-    if (currentProfile?.dashboardLayout && currentProfile.dashboardLayout.length > 0) {
+    if (
+      currentProfile?.dashboardLayout &&
+      currentProfile.dashboardLayout.length > 0
+    ) {
       const defaultOrder = [
-        "owner_dashboard", "accounting_workbench", "dashboard", "money_flow", "workflow", "ledger",
-        "approvals", "budgets", "pay_rec", "payroll", "reports", "cash_acc", "bank_rec", "assistant",
-        "vault", "enterprise", "tax_compliance", "audit_log", "workspace", "settings"
+        "owner_dashboard",
+        "accounting_workbench",
+        "dashboard",
+        "money_flow",
+        "ledger",
+        "approvals",
+        "budgets",
+        "pay_rec",
+        "payroll",
+        "reports",
+        "cash_acc",
+        "bank_rec",
+        "assistant",
+        "vault",
+        "enterprise",
+        "tax_compliance",
+        "audit_log",
+        "workspace",
+        "settings",
       ];
       const newOrder = [...currentProfile.dashboardLayout];
       // Append any missing items that might be new
-      defaultOrder.forEach(item => {
+      defaultOrder.forEach((item) => {
         if (!newOrder.includes(item)) {
           newOrder.push(item);
         }
@@ -230,12 +238,32 @@ export default function App() {
       setNavOrder(newOrder);
     } else {
       setNavOrder([
-        "owner_dashboard", "accounting_workbench", "dashboard", "money_flow", "workflow", "ledger",
-        "approvals", "budgets", "pay_rec", "payroll", "reports", "cash_acc", "bank_rec", "assistant",
-        "vault", "enterprise", "tax_compliance", "audit_log", "workspace", "settings"
+        "owner_dashboard",
+        "accounting_workbench",
+        "dashboard",
+        "money_flow",
+        "ledger",
+        "approvals",
+        "budgets",
+        "pay_rec",
+        "payroll",
+        "reports",
+        "cash_acc",
+        "bank_rec",
+        "assistant",
+        "vault",
+        "enterprise",
+        "tax_compliance",
+        "audit_log",
+        "workspace",
+        "settings",
       ]);
     }
-  }, [currentProfile?.dashboardLayout ? currentProfile.dashboardLayout.join(',') : '']);
+  }, [
+    currentProfile?.dashboardLayout
+      ? currentProfile.dashboardLayout.join(",")
+      : "",
+  ]);
 
   // PESO FORMATTER
   const formatPeso = (num: number) => {
@@ -272,7 +300,7 @@ export default function App() {
 
   const groupTreasuryTrend = useMemo(() => {
     const today = new Date();
-    const data: { date: string, balance: number }[] = [];
+    const data: { date: string; balance: number }[] = [];
     let currentBalance = groupTotalTreasury;
 
     // Calculate balances for the last 7 days backwards
@@ -280,17 +308,21 @@ export default function App() {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
-      
+
       data.unshift({ date: dateStr, balance: currentBalance });
 
       // Remove the net of that day to get the previous day's balance
       companies.forEach((com) => {
         const txns = getTransactions(activeUserId, com.id).filter(
-          (t) => t.status === "approved" && t.txnDate === dateStr
+          (t) => t.status === "approved" && t.txnDate === dateStr,
         );
-        const inflow = txns.filter(t => t.type === "cash_in").reduce((acc, t) => acc + t.amount, 0);
-        const outflow = txns.filter(t => t.type === "cash_out").reduce((acc, t) => acc + t.amount, 0);
-        currentBalance -= (inflow - outflow);
+        const inflow = txns
+          .filter((t) => t.type === "cash_in")
+          .reduce((acc, t) => acc + t.amount, 0);
+        const outflow = txns
+          .filter((t) => t.type === "cash_out")
+          .reduce((acc, t) => acc + t.amount, 0);
+        currentBalance -= inflow - outflow;
       });
     }
     return data;
@@ -299,7 +331,10 @@ export default function App() {
   // Sync session logs upon profiling swaps
   const handleUserSwap = (userId: string) => {
     setActiveUserId(userId);
-    if (isAccountingUser(userId) && ["audit_log", "workspace", "approvals"].includes(activePage)) {
+    if (
+      isAccountingUser(userId) &&
+      ["audit_log", "workspace", "approvals"].includes(activePage)
+    ) {
       setActivePage("dashboard");
     }
     // Logging security log
@@ -349,7 +384,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen bg-[#0F1113] text-[#F1F5F9] flex flex-col antialiased font-sans overflow-hidden">
+    <div className="h-screen bg-gray-100 text-slate-900 flex flex-col antialiased font-sans overflow-hidden">
       <Toaster
         theme="dark"
         position="bottom-right"
@@ -357,31 +392,31 @@ export default function App() {
       />
 
       {/* GLOBAL ENTERPRISE TOP STICKY BAR */}
-      <header className="bg-[#141618] text-white sticky top-0 z-40 px-3 md:px-6 h-16 flex items-center justify-between border-b border-[#24272C] select-none font-sans gap-4 w-full overflow-x-auto no-scrollbar">
+      <header className="bg-white text-slate-900 sticky top-0 z-40 px-3 md:px-6 h-16 flex items-center justify-between border-b border-slate-200 select-none font-sans gap-4 w-full">
         {/* MOB TRIGGERS AND BRANDING */}
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className="md:hidden p-1.5 -ml-1 hover:bg-zinc-800/80 rounded-lg text-zinc-400 cursor-pointer transition-all shrink-0"
+            className="md:hidden p-1.5 -ml-1 hover:bg-slate-50/80 rounded-lg text-slate-600 cursor-pointer transition-all shrink-0"
           >
-            <Menu className="w-5 h-5 text-white" />
+            <Menu className="w-5 h-5 text-slate-900" />
           </button>
 
           <div className="flex items-center gap-2 md:gap-3 select-none">
-            <div className="font-display font-light text-xl md:text-2xl tracking-tighter text-white shrink-0">
+            <div className="font-display font-light text-xl md:text-2xl tracking-tighter text-slate-900 shrink-0">
               HF
               <span className="text-[#00B67A] font-serif italic text-lg md:text-xl">
                 .
               </span>
             </div>
-            <div className="border-l border-[#24272C] pl-3 hidden lg:block shrink-0">
-              <h1 className="text-xs uppercase font-semibold font-display tracking-[3px] text-white leading-none whitespace-nowrap">
+            <div className="border-l border-slate-200 pl-3 hidden lg:block shrink-0">
+              <h1 className="text-xs uppercase font-semibold font-display tracking-[3px] text-slate-900 leading-none whitespace-nowrap">
                 HERRERA{" "}
                 <span className="serif-italic text-sm font-light text-[#00B67A] font-serif">
                   finance
                 </span>
               </h1>
-              <p className="text-[8px] text-zinc-500 font-mono font-medium tracking-widest uppercase whitespace-nowrap mt-1">
+              <p className="text-[8px] text-slate-500 font-mono font-medium tracking-widest uppercase whitespace-nowrap mt-1">
                 Atelier Workspace Suite
               </p>
             </div>
@@ -391,13 +426,13 @@ export default function App() {
         {/* GLOBAL SEARCH BAR */}
         <div className="flex-1 max-w-xl min-w-[200px] hidden xl:flex items-center">
           <div className="relative w-full group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
             <input
               type="text"
               placeholder="Search companies, groups or transactions..."
-              className="w-full bg-[#0F1113] border border-[#24272C] text-sm text-white pl-10 pr-4 py-2 rounded-xl focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all font-mono"
+              className="w-full bg-white border border-slate-200 text-sm text-slate-900 pl-10 pr-4 py-2 rounded-xl focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all font-mono"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-zinc-600 bg-[#24272C]/50 px-1.5 py-0.5 rounded border border-[#24272C]">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-zinc-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
               ⌘K
             </div>
           </div>
@@ -406,19 +441,19 @@ export default function App() {
         {/* COMPREHENSIVE CONTROLS DECK */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
           {/* SYNC CONTROLS */}
-          <div className="hidden xl:flex items-center gap-3 bg-[#181A1C] border border-[#24272C] px-3.5 py-1.5 rounded-xl shadow-inner shrink-0">
+          <div className="hidden xl:flex items-center gap-3 bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl shadow-inner shrink-0">
             <div className="flex flex-col">
-              <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest leading-none">
+              <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest leading-none">
                 Last Sync
               </span>
-              <span className="text-[10px] font-mono text-zinc-300">
+              <span className="text-[10px] font-mono text-slate-700">
                 {lastSyncTime.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </span>
             </div>
-            <div className="w-[1px] h-6 bg-[#24272C]"></div>
+            <div className="w-[1px] h-6 bg-slate-50"></div>
             <button
               onClick={handleManualSync}
               disabled={isSyncing}
@@ -426,10 +461,10 @@ export default function App() {
               title="Force Data Sync"
             >
               <RefreshCw
-                className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin text-[#00B67A]" : "text-zinc-400 group-hover:text-white transition-colors"}`}
+                className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin text-[#00B67A]" : "text-slate-600 group-hover:text-slate-900 transition-colors"}`}
               />
               <span
-                className={`text-[10px] font-bold uppercase tracking-wider ${isSyncing ? "text-[#00B67A]" : "text-zinc-400 group-hover:text-white transition-colors"}`}
+                className={`text-[10px] font-bold uppercase tracking-wider ${isSyncing ? "text-[#00B67A]" : "text-slate-600 group-hover:text-slate-900 transition-colors"}`}
               >
                 {isSyncing ? "Syncing..." : "Sync Now"}
               </span>
@@ -438,43 +473,21 @@ export default function App() {
 
           <AlertsMenu activeUserId={activeUserId} />
 
-          {/* THEME TOGGLE BUTTON */}
-          <button
-            onClick={() => {
-              setIsLightMode(!isLightMode);
-              toast.success(`Theme Changed`, {
-                description: `Switched to ${!isLightMode ? "Clean Light" : "Midnight Dark"} mode`,
-              });
-            }}
-            className="hidden sm:flex shrink-0 p-1.5 items-center justify-center bg-[#181A1C] border border-[#24272C] text-zinc-400 hover:text-white rounded-lg transition-all"
-            title={
-              isLightMode
-                ? "Switch to Midnight Dark Mode"
-                : "Switch to Clean Light Mode"
-            }
-          >
-            {isLightMode ? (
-              <Moon className="w-3.5 h-3.5" />
-            ) : (
-              <Sun className="w-3.5 h-3.5" />
-            )}
-          </button>
-
           {/* GROUP TOTAL TREASURY STAT PILL */}
-          <div className="hidden xl:flex items-center gap-3 bg-[#181A1C] border border-[#24272C] pl-3.5 pr-2 py-1.5 text-xs rounded-xl shadow-inner shrink-0">
+          <div className="hidden xl:flex items-center gap-3 bg-white border border-slate-200 pl-3.5 pr-2 py-1.5 text-xs rounded-xl shadow-inner shrink-0">
             <div className="flex items-center gap-2">
               <Coins className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[#94A3B8] font-medium uppercase tracking-wider text-[10px] whitespace-nowrap">
+              <span className="text-slate-500 font-medium uppercase tracking-wider text-[10px] whitespace-nowrap">
                 Group Treasury:
               </span>
-              <span className="font-mono text-white font-bold tracking-tight whitespace-nowrap">
+              <span className="font-mono text-slate-900 font-bold tracking-tight whitespace-nowrap">
                 {formatPeso(groupTotalTreasury)}
               </span>
             </div>
-            <div className="h-6 w-16 border-l border-[#24272C] pl-2">
+            <div className="h-6 w-16 border-l border-slate-200 pl-2">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={groupTreasuryTrend}>
-                  <YAxis domain={['dataMin', 'dataMax']} hide />
+                  <YAxis domain={["dataMin", "dataMax"]} hide />
                   <Line
                     type="monotone"
                     dataKey="balance"
@@ -490,13 +503,13 @@ export default function App() {
 
           {/* ACTIVE COMPANY CONTEXT DROPDOWN */}
           <div className="flex items-center gap-1.5 font-sans shrink-0">
-            <span className="hidden xl:inline text-[9.5px] uppercase font-bold text-zinc-400 tracking-wider font-sans whitespace-nowrap">
+            <span className="hidden xl:inline text-[9.5px] uppercase font-bold text-slate-600 tracking-wider font-sans whitespace-nowrap">
               Focus Company:
             </span>
             <select
               value={activeCompanyId}
               onChange={(e) => handleCompanySwap(e.target.value)}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[#181A1C] text-[#F1F5F9] text-[10px] sm:text-xs focus:ring-1 focus:ring-[#00B67A] focus:outline-hidden font-medium border border-[#24272C] rounded-lg cursor-pointer max-w-[100px] sm:max-w-[120px] lg:max-w-none text-ellipsis transition-all hover:bg-[#1D2024] font-semibold"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-white text-slate-900 text-[10px] sm:text-xs focus:ring-1 focus:ring-[#00B67A] focus:outline-hidden font-medium border border-slate-200 rounded-lg cursor-pointer max-w-[100px] sm:max-w-[120px] lg:max-w-none text-ellipsis transition-all hover:bg-slate-50 font-semibold"
             >
               <option value="all" className="font-bold text-[#00B67A]">
                 Consolidated (ALL)
@@ -510,7 +523,7 @@ export default function App() {
           </div>
 
           {/* SIMULATOR SECURITY ACTOR SWITCHER */}
-          <div className="flex items-center gap-1.5 border-l border-[#24272C] pl-1.5 md:pl-5 shrink-0">
+          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-1.5 md:pl-5 shrink-0">
             {/* Reset button removed from header */}
           </div>
         </div>
@@ -518,22 +531,41 @@ export default function App() {
 
       <div className="flex-1 flex relative overflow-hidden">
         {/* MOBILE SIDEBAR OVERLAY */}
-        {mobileSidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-        )}
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-20 md:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* SIDEBAR NAVIGATION PANEL (STATIC DESKTOP, PORTAL ON MOBILE) */}
         <aside
-          className={`bg-[#141618] text-gray-300 border-r border-[#24272C] shrink-0 select-none flex flex-col justify-between z-30 transition-all duration-300 overflow-y-auto ${mobileSidebarOpen ? "fixed inset-y-0 left-0 translate-x-0 w-64 pt-20 pb-4 shadow-2xl" : "hidden md:flex h-full"} ${sidebarMinimized && !mobileSidebarOpen ? "w-20" : "w-64"}`}
+          className={`bg-white/80 backdrop-blur-xl text-slate-700 border-r border-slate-200/60 shrink-0 select-none flex flex-col justify-between z-30 overflow-y-auto custom-scrollbar transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            mobileSidebarOpen 
+              ? "fixed inset-y-0 left-0 translate-x-0 w-72 pt-16 pb-4 shadow-[10px_0_40px_rgba(0,0,0,0.08)]" 
+              : "fixed inset-y-0 -translate-x-full md:relative md:translate-x-0 md:flex h-full"
+          } ${
+            sidebarMinimized && !mobileSidebarOpen ? "md:w-[88px]" : "md:w-72"
+          }`}
         >
-          <div className={`space-y-6 ${sidebarMinimized && !mobileSidebarOpen ? "p-3 pt-6" : "p-5"}`}>
+          <div
+            className={`space-y-6 ${sidebarMinimized && !mobileSidebarOpen ? "p-3 pt-6" : "p-5"}`}
+          >
             {/* CURRENT LOGGED IN USER CONTEXT CARD */}
-            <div className={`bg-[#181A1C] border border-[#24272C] flex flex-col justify-between shadow-md overflow-hidden ${sidebarMinimized && !mobileSidebarOpen ? "p-1.5 rounded-full items-center space-y-0" : "p-4 space-y-3 rounded-2xl"}`}>
+            <div
+              className={`bg-white border border-slate-200 flex flex-col justify-between shadow-md overflow-hidden ${sidebarMinimized && !mobileSidebarOpen ? "p-1.5 rounded-full items-center space-y-0" : "p-4 space-y-3 rounded-2xl"}`}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-[#00B67A] text-white shrink-0 shadow-lg select-none" title={currentProfile?.fullName}>
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-[#00B67A] text-white shrink-0 shadow-lg select-none"
+                  title={currentProfile?.fullName}
+                >
                   {currentProfile?.fullName
                     ? currentProfile.fullName
                         .split(" ")
@@ -544,17 +576,17 @@ export default function App() {
                 </div>
                 {(!sidebarMinimized || mobileSidebarOpen) && (
                   <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-white truncate uppercase tracking-wider">
+                    <h3 className="text-xs font-bold text-slate-900 truncate uppercase tracking-wider">
                       {currentProfile?.fullName}
                     </h3>
-                    <p className="text-[10px] text-zinc-500 truncate font-mono">
+                    <p className="text-[10px] text-slate-500 truncate font-mono">
                       {currentProfile?.email}
                     </p>
                   </div>
                 )}
               </div>
               {(!sidebarMinimized || mobileSidebarOpen) && (
-                <div className="text-[9px] bg-zinc-900/60 border border-[#24272C] text-[#00B67A] px-2 py-1 rounded-lg font-mono font-bold uppercase tracking-widest text-center shadow-inner">
+                <div className="text-[9px] bg-slate-100 border border-slate-200 text-[#00B67A] px-2 py-1 rounded-lg font-mono font-bold uppercase tracking-widest text-center shadow-inner">
                   {currentRoleLabel}
                 </div>
               )}
@@ -562,8 +594,8 @@ export default function App() {
 
             {/* COMPANY ENTITY QUICK SELECTOR PANEL */}
             {(!sidebarMinimized || mobileSidebarOpen) && (
-              <div className="space-y-2 border-b border-[#24272C]/40 pb-5">
-                <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-widest font-mono block pl-1">
+              <div className="space-y-2 border-b border-slate-200/40 pb-5">
+                <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest font-mono block pl-1">
                   CORPORATE ENTITY SWITCHER
                 </span>
                 <div className="space-y-1.5">
@@ -572,32 +604,68 @@ export default function App() {
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl border font-sans font-medium text-[11px] transition-all flex items-center justify-between cursor-pointer ${
                       activeCompanyId === "all"
                         ? "bg-[#00B67A] text-white border-transparent shadow-[0_4px_12px_rgba(0,182,122,0.25)] font-bold"
-                        : "bg-[#181A1C] text-zinc-400 border-[#24272C] hover:text-white hover:bg-[#1D2024]"
+                        : "bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <Layers className="w-3.5 h-3.5" />
                       <span>Consolidated (ALL)</span>
                     </div>
-                    <span className="font-mono text-[8px] px-1.5 py-0.5 bg-black/30 rounded border border-white/10 uppercase shrink-0">
+                    <span className="font-mono text-[8px] px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 uppercase shrink-0">
                       ALL
                     </span>
                   </button>
                   <div className="grid grid-cols-2 gap-1.5">
                     {companies.map((c) => {
                       const isSelected = activeCompanyId === c.id;
+
+                      let baseColorClass =
+                        "bg-[#00B67A] text-white border-transparent";
+                      let shadowClass =
+                        "shadow-[0_4px_12px_rgba(0,182,122,0.25)]";
+
+                      switch (c.code) {
+                        case "BMC":
+                          baseColorClass =
+                            "bg-yellow-500 text-white border-transparent";
+                          shadowClass = "shadow-[0_4px_12px_rgba(234,179,8,0.25)]";
+                          break;
+                        case "HFH":
+                          baseColorClass =
+                            "bg-amber-500 text-white border-transparent";
+                          shadowClass = "shadow-[0_4px_12px_rgba(245,158,11,0.25)]";
+                          break;
+                        case "BS":
+                          baseColorClass =
+                            "bg-red-500 text-white border-transparent";
+                          shadowClass = "shadow-[0_4px_12px_rgba(239,68,68,0.25)]";
+                          break;
+                        case "SMC":
+                          baseColorClass =
+                            "bg-green-500 text-white border-transparent";
+                          shadowClass = "shadow-[0_4px_12px_rgba(34,197,94,0.25)]";
+                          break;
+                        case "HBP":
+                          baseColorClass =
+                            "bg-blue-500 text-white border-transparent";
+                          shadowClass = "shadow-[0_4px_12px_rgba(59,130,246,0.25)]";
+                          break;
+                      }
+
                       return (
                         <button
                           key={c.id}
                           onClick={() => handleCompanySwap(c.id)}
-                          className={`text-left px-2.5 py-2 rounded-xl border font-sans text-[10px] transition-all flex items-center justify-between cursor-pointer ${
+                          className={`text-left px-2.5 py-2 rounded-xl border font-sans text-[10px] transition-all flex items-center justify-between cursor-pointer ${baseColorClass} ${
                             isSelected
-                              ? "bg-[#00B67A]/25 text-[#00B67A] border-[#00B67A] font-bold"
-                              : "bg-[#181A1C] text-zinc-400 border-[#24272C] hover:text-white hover:bg-[#1D2024]"
+                              ? `font-bold ring-2 ring-slate-300 ${shadowClass}`
+                              : "opacity-75 hover:opacity-100"
                           }`}
                         >
                           <span className="truncate">{c.name}</span>
-                          <span className="font-mono text-[8px] px-1 bg-black/20 rounded border border-white/5 text-zinc-500 uppercase shrink-0">
+                          <span
+                            className={`font-mono text-[8px] px-1 bg-slate-50 rounded border border-slate-200 uppercase shrink-0 ${isSelected ? "text-slate-900 opacity-100" : "text-slate-900 opacity-90"}`}
+                          >
                             {c.code}
                           </span>
                         </button>
@@ -609,171 +677,249 @@ export default function App() {
             )}
 
             {/* NAVIGATION MENU ITEMS */}
-            <nav className="space-y-1.5 flex flex-col justify-center">
-              {[
-                {
-                  id: "owner_dashboard",
-                  label: "Owner Action Summary",
-                  icon: Activity,
-                },
-                {
-                  id: "accounting_workbench",
-                  label: "Accounting Workbench",
-                  icon: CheckSquare,
-                },
-                {
-                  id: "dashboard",
-                  label: "Overview Dashboard",
-                  icon: TrendingUp,
-                },
-                {
-                  id: "money_flow",
-                  label: "Money Flow & Profit",
-                  icon: Wallet,
-                },
-                {
-                  id: "workflow",
-                  label: "Accounting Workflow SOPs",
-                  icon: CheckCircle2,
-                  pulse: true,
-                },
-                { id: "ledger", label: "Transaction Journal", icon: Coins },
-                {
-                  id: "approvals",
-                  label: "Approvals queue",
-                  icon: FileSignature,
-                  pulse: true,
-                },
-                { id: "budgets", label: "Budgets Monitor", icon: PiggyBank },
-                {
-                  id: "pay_rec",
-                  label: "Liabilities & Assets (AP/AR)",
-                  icon: FolderMinus,
-                },
-                { id: "payroll", label: "Wages & Payroll", icon: Users },
-                {
-                  id: "reports",
-                  label: "Executive Sheets Reports",
-                  icon: FileText,
-                },
-                {
-                  id: "cash_acc",
-                  label: "Cash & Bank Accounts",
-                  icon: Notebook,
-                },
-                {
-                  id: "bank_rec",
-                  label: "Bank Reconciliation",
-                  icon: BookOpen,
-                },
-                {
-                  id: "assistant",
-                  label: "Intelligence Assistant",
-                  icon: CloudLightning,
-                  pulse: true,
-                },
-                {
-                  id: "vault",
-                  label: "Document Vault",
-                  icon: FileText,
-                },
-                {
-                  id: "enterprise",
-                  label: "Enterprise Suite Hub",
-                  icon: Sliders,
-                  pulse: true,
-                },
-                {
-                  id: "tax_compliance",
-                  label: "PH TAX Compliance Hub",
-                  icon: Percent,
-                },
-                {
-                  id: "audit_log",
-                  label: "Security Compliance Log",
-                  icon: ShieldCheck,
-                },
-                {
-                  id: "workspace",
-                  label: "Workspace Sync Center",
-                  icon: Globe,
-                  pulse: true,
-                },
-                {
-                  id: "settings",
-                  label: "Settings",
-                  icon: Settings,
-                },
-              ].filter(item => {
-                if (isGroupAdmin(activeUserId)) return true;
-                
-                if (currentUserRoleData && currentUserRoleData.allowedSections && currentUserRoleData.allowedSections.length > 0) {
-                  return currentUserRoleData.allowedSections.includes(item.id);
-                }
+            {(() => {
+              const activeCompanyCode =
+                activeCompanyId === "all"
+                  ? "ALL"
+                  : companies.find((c) => c.id === activeCompanyId)?.code;
+              let navActiveColorClass =
+                "bg-[#00B67A] text-white font-bold shadow-[0_4px_12px_rgba(0,182,122,0.25)]";
+              switch (activeCompanyCode) {
+                case "BMC":
+                  navActiveColorClass =
+                    "bg-yellow-500 text-white font-bold shadow-[0_4px_12px_rgba(234,179,8,0.25)]";
+                  break;
+                case "HFH":
+                  navActiveColorClass =
+                    "bg-amber-500 text-white font-bold shadow-[0_4px_12px_rgba(245,158,11,0.25)]";
+                  break;
+                case "BS":
+                  navActiveColorClass =
+                    "bg-red-500 text-white font-bold shadow-[0_4px_12px_rgba(239,68,68,0.25)]";
+                  break;
+                case "SMC":
+                  navActiveColorClass =
+                    "bg-green-500 text-white font-bold shadow-[0_4px_12px_rgba(34,197,94,0.25)]";
+                  break;
+                case "HBP":
+                  navActiveColorClass =
+                    "bg-blue-500 text-white font-bold shadow-[0_4px_12px_rgba(59,130,246,0.25)]";
+                  break;
+              }
 
-                if (item.id === "owner_dashboard") {
-                  return currentRole === "company_admin" || currentRole === "owner";
-                }
-                if (item.id === "payroll") {
-                  return activeCompanyId === 'all' ? false : canManagePayroll(activeUserId, activeCompanyId);
-                }
-                if (isAccountingUser(activeUserId)) {
-                  if (item.id === "audit_log" || item.id === "workspace" || item.id === "approvals" || item.id === "settings") {
-                    return false;
-                  }
-                }
-                return true;
-              }).sort((a, b) => {
-                 const aIdx = navOrder.indexOf(a.id);
-                 const bIdx = navOrder.indexOf(b.id);
-                 if (aIdx === -1 && bIdx === -1) return 0;
-                 if (aIdx === -1) return 1;
-                 if (bIdx === -1) return -1;
-                 return aIdx - bIdx;
-              }).map((item) => {
-                const Icon = item.icon;
-                const isSelected = activePage === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActivePage(item.id as any);
-                      setMobileSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center ${
-                      (!sidebarMinimized || mobileSidebarOpen) ? "justify-between px-3.5" : "justify-center px-0"
-                    } py-2.5 text-xs font-semibold rounded-xl transition-all duration-200 cursor-pointer ${
-                      isSelected
-                        ? "bg-[#00B67A] text-white font-bold shadow-[0_4px_12px_rgba(0,182,122,0.25)]"
-                        : "text-zinc-400 hover:text-white hover:bg-[#181A1C]/60"
-                    }`}
-                    title={sidebarMinimized && !mobileSidebarOpen ? item.label : undefined}
-                  >
-                    <div className={`flex items-center ${(!sidebarMinimized || mobileSidebarOpen) ? "gap-2.5" : ""}`}>
-                      <Icon
-                        className={`w-4 h-4 ${isSelected ? "text-white" : "text-zinc-500"} ${item.pulse && !isSelected ? "animate-pulse text-amber-500" : ""}`}
-                      />
-                      {(!sidebarMinimized || mobileSidebarOpen) && (
-                        <span className="uppercase tracking-wider text-[10px]">
-                          {item.label}
-                        </span>
-                      )}
-                    </div>
-                    {(!sidebarMinimized || mobileSidebarOpen) && !isSelected && (
-                      <ChevronDown className="w-3 h-3 opacity-30" />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+              return (
+                <nav className="space-y-1.5 flex flex-col justify-center">
+                  {[
+                    {
+                      id: "dashboard",
+                      label: "Overview Dashboard",
+                      icon: TrendingUp,
+                    },
+                    {
+                      id: "accounting_workbench",
+                      label: "Accounting Workbench",
+                      icon: CheckSquare,
+                    },
+                    { id: "ledger", label: "Transaction", icon: Coins },
+                    {
+                      id: "money_flow",
+                      label: "Cash Flow",
+                      icon: Wallet,
+                    },
+                    { id: "budgets", label: "Budget Monitor", icon: PiggyBank },
+                    {
+                      id: "approvals",
+                      label: "Approvals Queue",
+                      icon: FileSignature,
+                      pulse: true,
+                    },
+                    {
+                      id: "assistant",
+                      label: "Intelligence Assistant",
+                      icon: CloudLightning,
+                      pulse: true,
+                    },
+                    {
+                      id: "owner_dashboard",
+                      label: "Owner Action Summary",
+                      icon: Activity,
+                    },
+                    {
+                      id: "pay_rec",
+                      label: "Corporate AP/AR",
+                      icon: FolderMinus,
+                    },
+                    { id: "payroll", label: "Wages & Payroll", icon: Users },
+                    {
+                      id: "reports",
+                      label: "Executive Sheets",
+                      icon: FileText,
+                    },
+                    {
+                      id: "cash_acc",
+                      label: "Cash & Bank",
+                      icon: Notebook,
+                    },
+                    {
+                      id: "bank_rec",
+                      label: "Bank Reconciliation",
+                      icon: BookOpen,
+                    },
+                    {
+                      id: "vault",
+                      label: "Document Vault",
+                      icon: FileText,
+                    },
+                    {
+                      id: "enterprise",
+                      label: "Enterprise Suite",
+                      icon: Sliders,
+                      pulse: true,
+                    },
+                    {
+                      id: "tax_compliance",
+                      label: "Tax Compliance",
+                      icon: Percent,
+                    },
+                    {
+                      id: "audit_log",
+                      label: "Security & Audit",
+                      icon: ShieldCheck,
+                    },
+                    {
+                      id: "workspace",
+                      label: "Workspace Sync",
+                      icon: Globe,
+                      pulse: true,
+                    },
+                    {
+                      id: "settings",
+                      label: "Settings",
+                      icon: Settings,
+                    },
+                  ]
+                    .filter((item) => {
+                      if (activeUserId === "u-it") return true; // IT sees everything
+
+                      if (isGroupAdmin(activeUserId)) {
+                        // The owner should ONLY see these items.
+                        const ownerAllowed = [
+                          "dashboard",
+                          "accounting_workbench",
+                          "ledger",
+                          "money_flow",
+                          "budgets",
+                          "approvals",
+                          "assistant",
+                          "owner_dashboard",
+                          "pay_rec",
+                          "payroll",
+                          "settings",
+                        ];
+                        return ownerAllowed.includes(item.id);
+                      }
+
+                      if (
+                        currentUserRoleData &&
+                        currentUserRoleData.allowedSections &&
+                        currentUserRoleData.allowedSections.length > 0
+                      ) {
+                        return currentUserRoleData.allowedSections.includes(
+                          item.id,
+                        );
+                      }
+
+                      if (item.id === "owner_dashboard") {
+                        return (
+                          currentRole === "company_admin" ||
+                          currentRole === "owner"
+                        );
+                      }
+                      if (item.id === "payroll") {
+                        return activeCompanyId === "all"
+                          ? false
+                          : canManagePayroll(activeUserId, activeCompanyId);
+                      }
+                      if (isAccountingUser(activeUserId)) {
+                        if (
+                          item.id === "audit_log" ||
+                          item.id === "workspace" ||
+                          item.id === "approvals" ||
+                          item.id === "settings"
+                        ) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    })
+                    .sort((a, b) => {
+                      const aIdx = navOrder.indexOf(a.id);
+                      const bIdx = navOrder.indexOf(b.id);
+                      if (aIdx === -1 && bIdx === -1) return 0;
+                      if (aIdx === -1) return 1;
+                      if (bIdx === -1) return -1;
+                      return aIdx - bIdx;
+                    })
+                    .map((item) => {
+                      const Icon = item.icon;
+                      const isSelected = activePage === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActivePage(item.id as any);
+                            setMobileSidebarOpen(false);
+                          }}
+                          className={`w-full flex items-center group relative overflow-hidden ${
+                            !sidebarMinimized || mobileSidebarOpen
+                              ? "justify-between px-3.5"
+                              : "justify-center px-0"
+                          } py-2.5 text-xs font-semibold rounded-xl transition-all duration-300 ease-out cursor-pointer ${
+                            isSelected
+                              ? navActiveColorClass
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 hover:shadow-sm border border-transparent hover:border-slate-200"
+                          }`}
+                          title={
+                            sidebarMinimized && !mobileSidebarOpen
+                              ? item.label
+                              : undefined
+                          }
+                        >
+                          <div
+                            className={`flex items-center z-10 ${!sidebarMinimized || mobileSidebarOpen ? "gap-3" : ""}`}
+                          >
+                            <Icon
+                              className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isSelected ? "text-white drop-shadow-sm" : "text-slate-500 group-hover:text-slate-700"} ${item.pulse && !isSelected ? "animate-pulse text-amber-500 group-hover:text-amber-600" : ""}`}
+                            />
+                            {(!sidebarMinimized || mobileSidebarOpen) && (
+                              <span className="text-[13px] text-left leading-tight font-medium tracking-wide">
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                          {(!sidebarMinimized || mobileSidebarOpen) &&
+                            !isSelected && (
+                              <ChevronRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-40 group-hover:translate-x-0 text-slate-400" />
+                            )}
+                          {isSelected && (
+                              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
+                          )}
+                        </button>
+                      );
+                    })}
+                </nav>
+              );
+            })()}
           </div>
 
           {/* OAUTH INTEGRATION FOOTER ACCORDION */}
-          <div className={`border-t border-[#24272C] bg-[#181A1C]/20 select-none text-[10px] text-zinc-500 flex flex-col ${sidebarMinimized && !mobileSidebarOpen ? "p-3 space-y-3" : "p-5 space-y-4"}`}>
+          <div
+            className={`border-t border-slate-200 bg-white/20 select-none text-[10px] text-slate-500 flex flex-col ${sidebarMinimized && !mobileSidebarOpen ? "p-3 space-y-3" : "p-5 space-y-4"}`}
+          >
             {(!sidebarMinimized || mobileSidebarOpen) && (
               <>
                 <div className="space-y-1">
-                  <span className="font-bold text-zinc-400 uppercase tracking-widest text-[9px]">
+                  <span className="font-bold text-slate-600 uppercase tracking-widest text-[9px]">
                     Environment:
                   </span>
                   <p className="font-mono text-zinc-600">
@@ -783,52 +929,62 @@ export default function App() {
 
                 <button
                   onClick={handleOAuthSetup}
-                  className="w-full py-2 px-3 bg-[#181A1C] hover:bg-[#1D2024] text-zinc-400 hover:text-white rounded-lg text-[9px] font-mono font-bold cursor-pointer transition text-center block tracking-widest uppercase border border-[#24272C]"
+                  className="w-full py-2 px-3 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-lg text-[9px] font-mono font-bold cursor-pointer transition text-center block tracking-widest uppercase border border-slate-200"
                 >
                   Configure OAuth scopes
                 </button>
               </>
             )}
-            
+
             <button
               onClick={() => {
-                import('./lib/firebase').then(({ auth }) => {
-                  auth.signOut().then(() => {
-                    setActiveUserId("");
-                  }).catch(() => setActiveUserId(""));
+                import("./lib/firebase").then(({ auth }) => {
+                  auth
+                    .signOut()
+                    .then(() => {
+                      setActiveUserId("");
+                    })
+                    .catch(() => setActiveUserId(""));
                 });
               }}
               className={`w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 rounded-lg text-[9px] font-mono font-bold cursor-pointer transition flex items-center justify-center gap-1.5 tracking-widest uppercase border border-red-500/20 ${sidebarMinimized && !mobileSidebarOpen ? "px-0" : "px-3"}`}
               title="End Session"
             >
-              <LogOut className="w-3 h-3 shrink-0" /> {(!sidebarMinimized || mobileSidebarOpen) && "End Session"}
+              <LogOut className="w-3 h-3 shrink-0" />{" "}
+              {(!sidebarMinimized || mobileSidebarOpen) && "End Session"}
             </button>
 
             <button
               onClick={() => setSidebarMinimized(!sidebarMinimized)}
-              className={`hidden md:flex w-full py-2 bg-[#181A1C] hover:bg-[#1D2024] text-zinc-400 hover:text-white rounded-lg text-[9px] font-mono font-bold cursor-pointer transition items-center justify-center gap-1.5 tracking-widest uppercase border border-[#24272C] ${sidebarMinimized && !mobileSidebarOpen ? "px-0" : "px-3"}`}
+              className={`hidden md:flex w-full py-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-lg text-[9px] font-mono font-bold cursor-pointer transition items-center justify-center gap-1.5 tracking-widest uppercase border border-slate-200 ${sidebarMinimized && !mobileSidebarOpen ? "px-0" : "px-3"}`}
               title={sidebarMinimized ? "Expand Sidebar" : "Minimize Sidebar"}
             >
-              {sidebarMinimized ? <PanelLeftOpen className="w-4 h-4 shrink-0" /> : <><PanelLeftClose className="w-4 h-4 shrink-0" /> Minimize Mode</>}
+              {sidebarMinimized ? (
+                <PanelLeftOpen className="w-4 h-4 shrink-0" />
+              ) : (
+                <>
+                  <PanelLeftClose className="w-4 h-4 shrink-0" /> Minimize Mode
+                </>
+              )}
             </button>
           </div>
         </aside>
 
         {/* CONTAINER VIEWPORTS PORTALS COMPONENT ROUTING */}
-        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0 transition overflow-y-auto space-y-6">
+        <main className="flex-1 p-4 md:p-8 w-full min-w-0 transition overflow-y-auto space-y-6">
           {/* SYSTEM WIDE WARNING NOTICES */}
           {activePage !== "audit_log" && (
-            <div className="hidden lg:flex items-center justify-between bg-[#181A1C] border border-[#24272C] rounded-2xl p-4 select-none animate-fadeIn no-print shadow-sm">
+            <div className="hidden lg:flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4 select-none animate-fadeIn no-print shadow-sm">
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#00B67A] shrink-0 animate-pulse" />
-                <span className="text-[11px] uppercase tracking-wider text-zinc-400">
+                <span className="text-[11px] uppercase tracking-wider text-slate-600">
                   Accounting Ledger Context:{" "}
-                  <b className="text-white font-sans text-xs">
+                  <b className="text-slate-900 font-sans text-xs">
                     {currentCompany?.name} ({currentCompany?.code})
                   </b>
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 font-mono text-[9px] text-zinc-500 tracking-wider uppercase">
+              <div className="flex items-center gap-1.5 font-mono text-[9px] text-slate-500 tracking-wider uppercase">
                 <Activity className="w-3 h-3 text-[#00B67A] shrink-0" />
                 <span>
                   Routines: Fully compliant with Philippine Treasury
@@ -844,11 +1000,15 @@ export default function App() {
               initial={{ opacity: 0, y: 20, filter: "blur(8px)", scale: 0.98 }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }}
               exit={{ opacity: 0, y: -20, filter: "blur(8px)", scale: 0.98 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], staggerChildren: 0.1 }}
+              transition={{
+                duration: 0.4,
+                ease: [0.22, 1, 0.36, 1],
+                staggerChildren: 0.1,
+              }}
               className="space-y-6"
             >
               {/* PAGE COMPONENT BINDINGS */}
-              
+
               {activePage === "accounting_workbench" && (
                 <AccountingOfficerWorkbench
                   userId={activeUserId}
@@ -939,13 +1099,19 @@ export default function App() {
               {activePage === "reports" && (
                 <Reports userId={activeUserId} companyId={activeCompanyId} />
               )}
-              
+
               {activePage === "cash_acc" && (
-                <CashBankModule userId={activeUserId} companyId={activeCompanyId} />
+                <CashBankModule
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                />
               )}
 
               {activePage === "bank_rec" && (
-                <BankReconciliation userId={activeUserId} companyId={activeCompanyId} />
+                <BankReconciliation
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                />
               )}
 
               {activePage === "assistant" && (
@@ -953,7 +1119,10 @@ export default function App() {
               )}
 
               {activePage === "vault" && (
-                <DocumentVault userId={activeUserId} companyId={activeCompanyId} />
+                <DocumentVault
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                />
               )}
 
               {activePage === "enterprise" && (
@@ -984,13 +1153,10 @@ export default function App() {
                   onRequestOAuth={handleOAuthSetup}
                 />
               )}
-              {activePage === "workflow" && (
-                <AccountingWorkflow onNavigate={(page) => setActivePage(page as ActivePage)} />
-              )}
               {activePage === "settings" && (
-                <SettingsPage 
-                  userId={activeUserId} 
-                  companyId={activeCompanyId} 
+                <SettingsPage
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
                   navOrder={navOrder}
                   setNavOrder={setNavOrder}
                 />
@@ -1007,14 +1173,14 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 md:hidden"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 md:hidden"
           >
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="w-64 bg-gray-900 text-white min-h-screen p-4 flex flex-col justify-between"
+              className="w-64 bg-gray-900 text-slate-900 min-h-screen p-4 flex flex-col justify-between"
             >
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-gray-800 pb-3">
@@ -1023,204 +1189,124 @@ export default function App() {
                   </span>
                   <button
                     onClick={() => setMobileSidebarOpen(false)}
-                    className="p-1 hover:bg-gray-800 rounded-lg text-gray-400 cursor-pointer text-white"
+                    className="p-1 hover:bg-gray-800 rounded-lg text-slate-600 cursor-pointer text-slate-900"
                   >
-                    <X className="w-5 h-5 text-white" />
+                    <X className="w-5 h-5 text-slate-900" />
                   </button>
                 </div>
 
                 {/* NAV COMPONENT */}
                 <nav className="space-y-2">
-                  <button
-                    onClick={() => {
-                      setActivePage("accounting_workbench");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <CheckSquare className="w-4 h-4 text-gray-400" />
-                    <span>Accounting Workbench</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("dashboard");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <TrendingUp className="w-4 h-4 text-gray-400" />
-                    <span>Overview Dashboard</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("money_flow");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Wallet className="w-4 h-4 text-gray-400" />
-                    <span>Money Flow & Profit</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("workflow");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-gray-400" />
-                    <span>Accounting Workflow SOPs</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("ledger");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Coins className="w-4 h-4 text-gray-400" />
-                    <span>Transaction Journal</span>
-                  </button>
-                  {!isAccountingUser(activeUserId) && (
-                    <button
-                      onClick={() => {
-                        setActivePage("approvals");
-                        setMobileSidebarOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                    >
-                      <FileSignature className="w-4 h-4 text-amber-500 animate-pulse" />
-                      <span>Approvals queue</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setActivePage("budgets");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <PiggyBank className="w-4 h-4 text-gray-400" />
-                    <span>Budgets monitor</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("pay_rec");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <FolderMinus className="w-4 h-4 text-gray-400" />
-                    <span>Corporate AP/AR</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("payroll");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <span>Payroll compensation</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("reports");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <span>Analytical Executive sheets</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("cash_acc");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Notebook className="w-4 h-4 text-gray-400" />
-                    <span>Cash & Bank Accounts</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("bank_rec");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <BookOpen className="w-4 h-4 text-gray-400" />
-                    <span>Bank Reconciliation</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("assistant");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <CloudLightning className="w-4 h-4 text-gray-400 animate-pulse" />
-                    <span>Intelligence Assistant</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("vault");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <span>Document Vault</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("enterprise");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Sliders className="w-4 h-4 text-gray-400" />
-                    <span>Enterprise Suite Hub</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePage("tax_compliance");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                  >
-                    <Percent className="w-4 h-4 text-gray-400" />
-                    <span>PH TAX Compliance Hub</span>
-                  </button>
-                  {!isAccountingUser(activeUserId) && (
-                    <button
-                      onClick={() => {
-                        setActivePage("audit_log");
-                        setMobileSidebarOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer font-mono"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-gray-400" />
-                      <span>Compliance logs</span>
-                    </button>
-                  )}
-                  {!isAccountingUser(activeUserId) && (
-                    <button
-                      onClick={() => {
-                        setActivePage("workspace");
-                        setMobileSidebarOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
-                    >
-                      <Globe className="w-4 h-4 text-indigo-400 animate-pulse" />
-                      <span>Workspace Sync Center</span>
-                    </button>
-                  )}
+                  {[
+                    {
+                      id: "dashboard",
+                      label: "OVERVIEW DASHBOARD",
+                      icon: TrendingUp,
+                    },
+                    {
+                      id: "accounting_workbench",
+                      label: "ACCOUNTING WORKBENCH",
+                      icon: CheckSquare,
+                    },
+                    { id: "ledger", label: "TRANSACTION", icon: Coins },
+                    {
+                      id: "money_flow",
+                      label: "CASH FLOW",
+                      icon: Wallet,
+                    },
+                    {
+                      id: "budgets",
+                      label: "BUDGET MONITOR / DUE DATES",
+                      icon: PiggyBank,
+                    },
+                    {
+                      id: "approvals",
+                      label: "APPROVALS QUEUE",
+                      icon: FileSignature,
+                      pulse: true,
+                    },
+                    {
+                      id: "assistant",
+                      label: "INTELLIGENCE ASSISTANT",
+                      icon: CloudLightning,
+                      pulse: true,
+                    },
+                    {
+                      id: "owner_dashboard",
+                      label: "OWNER ACTION SUMMARY",
+                      icon: Activity,
+                    },
+                    {
+                      id: "pay_rec",
+                      label: "LIABILITIES & ASSETS (AP/AR)",
+                      icon: FolderMinus,
+                    },
+                    { id: "payroll", label: "WAGES & PAYROLL", icon: Users },
+                    {
+                      id: "settings",
+                      label: "SETTINGS",
+                      icon: Settings,
+                    },
+                  ]
+                    .filter((item) => {
+                      if (isGroupAdmin(activeUserId)) return true;
+                      if (
+                        currentUserRoleData &&
+                        currentUserRoleData.allowedSections &&
+                        currentUserRoleData.allowedSections.length > 0
+                      ) {
+                        return currentUserRoleData.allowedSections.includes(
+                          item.id,
+                        );
+                      }
+                      if (item.id === "owner_dashboard") {
+                        return (
+                          currentRole === "company_admin" ||
+                          currentRole === "owner"
+                        );
+                      }
+                      if (item.id === "payroll") {
+                        return activeCompanyId === "all"
+                          ? false
+                          : canManagePayroll(activeUserId, activeCompanyId);
+                      }
+                      if (isAccountingUser(activeUserId)) {
+                        if (item.id === "approvals" || item.id === "settings") {
+                          return false;
+                        }
+                      }
+                      return true;
+                    })
+                    .sort((a, b) => {
+                      const aIdx = navOrder.indexOf(a.id);
+                      const bIdx = navOrder.indexOf(b.id);
+                      if (aIdx === -1 && bIdx === -1) return 0;
+                      if (aIdx === -1) return 1;
+                      if (bIdx === -1) return -1;
+                      return aIdx - bIdx;
+                    })
+                    .map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActivePage(item.id as ActivePage);
+                            setMobileSidebarOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-gray-800 text-left cursor-pointer"
+                        >
+                          <Icon
+                            className={`w-4 h-4 ${item.pulse ? "text-amber-500 animate-pulse" : "text-slate-600"}`}
+                          />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
                 </nav>
               </div>
 
-              <div className="p-4 border-t border-gray-800 text-[10px] text-gray-500 font-mono text-center">
+              <div className="p-4 border-t border-gray-800 text-[10px] text-slate-500 font-mono text-center">
                 FM Sandbox Platform
               </div>
             </motion.div>

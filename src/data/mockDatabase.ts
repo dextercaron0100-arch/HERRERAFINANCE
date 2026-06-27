@@ -127,6 +127,13 @@ export const SEED_PROFILES: Profile[] = [
     isGroupAdmin: false,
     createdAt: "2026-01-01T08:00:00Z",
   },
+  {
+    id: "u-it",
+    fullName: "IT Support",
+    email: "it@herrera.com",
+    isGroupAdmin: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
 ];
 
 export const SEED_ROLES: UserCompanyRole[] = [];
@@ -537,7 +544,7 @@ export function initDB() {
   let currentProfiles = load<Profile[]>(KEYS.PROFILES, SEED_PROFILES);
   let profilesChanged = false;
 
-  const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com"];
+  const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com", "it@herrera.com"];
   const invalidProfiles = currentProfiles.filter(p => !validEmails.includes(p.email));
   
   if (invalidProfiles.length > 0) {
@@ -549,7 +556,8 @@ export function initDB() {
     { id: "u-mark", name: "Mark Herrera", email: "mark@herrera.com" },
     { id: "u-ryan", name: "Ryan Herrera", email: "ryan@herrera.com" },
     { id: "u-marvin", name: "Marvin Herrera", email: "marvin@herrera.com" },
-    { id: "u-accounting", name: "Accounting", email: "accounting@herrera.com" }
+    { id: "u-accounting", name: "Accounting", email: "accounting@herrera.com" },
+    { id: "u-it", name: "IT Support", email: "it@herrera.com" }
   ];
 
   newHerreras.forEach(u => {
@@ -579,11 +587,23 @@ export function initDB() {
   let currentRoles = load<UserCompanyRole[]>(KEYS.ROLES, SEED_ROLES);
   const validUserIds = currentProfiles.map(p => p.id);
   const invalidRoles = currentRoles.filter(r => !validUserIds.includes(r.userId));
+  let rolesChanged = false;
   if (invalidRoles.length > 0) {
     save(KEYS.ROLES, currentRoles.filter(r => validUserIds.includes(r.userId)));
+    rolesChanged = true;
   }
 
   isSeeding = false;
+
+  // Push local seeding changes to firestore if needed
+  if (db && (profilesChanged || rolesChanged)) {
+    const docRef = doc(db, "appData", "master");
+    const state: Record<string, any> = {};
+    if (profilesChanged) state[KEYS.PROFILES] = JSON.parse(localStorage.getItem(KEYS.PROFILES) || '[]');
+    if (rolesChanged) state[KEYS.ROLES] = JSON.parse(localStorage.getItem(KEYS.ROLES) || '[]');
+    const cleanState = JSON.parse(JSON.stringify(state));
+    setDoc(docRef, cleanState, { merge: true }).catch(console.error);
+  }
 
   // Hook Firebase Realtime Updates
   if (db) {
@@ -689,7 +709,18 @@ export function getCompanies(): Company[] {
 
 export function getProfiles(): Profile[] {
   initDB();
-  return load<Profile[]>(KEYS.PROFILES, []);
+  const profiles = load<Profile[]>(KEYS.PROFILES, []);
+  if (!profiles.find(p => p.id === 'u-it')) {
+    profiles.push({
+      id: "u-it",
+      fullName: "IT Support",
+      email: "it@herrera.com",
+      isGroupAdmin: true,
+      createdAt: new Date().toISOString(),
+    });
+    saveSilent(KEYS.PROFILES, profiles);
+  }
+  return profiles;
 }
 
 export function getRoles(): UserCompanyRole[] {
@@ -897,6 +928,41 @@ export async function resetAllData() {
       await deleteDoc(docRef);
     } catch (e) {
       console.error("Failed to delete from Firestore:", e);
+    }
+  }
+}
+
+export async function emptyDashboardData() {
+  saveSilent(KEYS.TRANSACTIONS, []);
+  saveSilent(KEYS.PAYABLES, []);
+  saveSilent(KEYS.RECEIVABLES, []);
+  saveSilent(KEYS.EMPLOYEES, []);
+  saveSilent(KEYS.PAYROLL_RUNS, []);
+  saveSilent(KEYS.PAYROLL_ITEMS, []);
+  saveSilent(KEYS.CASH_ACCOUNTS, []);
+  saveSilent(KEYS.BANK_STATEMENT_LINES, []);
+  saveSilent(KEYS.BANK_RECONCILIATIONS, []);
+  saveSilent(KEYS.RECONCILIATION_MATCHES, []);
+  saveSilent(KEYS.CASH_CUSTODIANS, []);
+  saveSilent(KEYS.CASH_LEDGER_ENTRIES, []);
+  saveSilent(KEYS.CASH_COUNTS, []);
+  saveSilent(KEYS.BANK_DEPOSITS, []);
+  
+  if (db) {
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      const docRef = doc(db, "appData", "master");
+      
+      const state: Record<string, any> = {};
+      Object.values(KEYS).forEach((k) => {
+        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
+        const v = localStorage.getItem(k);
+        if (v) state[k] = JSON.parse(v);
+      });
+      const cleanState = JSON.parse(JSON.stringify(state));
+      await setDoc(docRef, cleanState, { merge: true });
+    } catch (e) {
+      console.error("Failed to write to Firestore:", e);
     }
   }
 }
@@ -1805,7 +1871,7 @@ export function getDailyBalances(
     (t) => t.status === "approved",
   );
 
-  const targetCompanies = companyId
+  const targetCompanies = companyId && companyId !== 'all'
     ? [companyId]
     : getCompanies().map((c) => c.id);
   const result: DailyBalance[] = [];
@@ -1895,7 +1961,7 @@ export function getProfitLoss(companyId: string | null = null) {
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []).filter(
     (t) => t.status === "approved",
   );
-  const targetCompanies = companyId
+  const targetCompanies = companyId && companyId !== 'all'
     ? [companyId]
     : getCompanies().map((c) => c.id);
 
@@ -2065,6 +2131,11 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   }
 
   return all.filter((a) => a.companyId === companyId);
+}
+
+export function getAllCashAccounts(): CashAccount[] {
+  initDB();
+  return load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
 }
 
 export function saveCashAccount(

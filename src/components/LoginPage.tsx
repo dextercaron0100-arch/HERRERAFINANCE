@@ -45,7 +45,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     }
 
     const lowerEmail = email.trim().toLowerCase();
-    const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com"];
+    const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com", "it@herrera.com"];
     const isHerrera = validEmails.includes(lowerEmail);
 
     if (!isHerrera) {
@@ -66,6 +66,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       if (lowerEmail === "ryan@herrera.com") onLogin("u-ryan");
       if (lowerEmail === "marvin@herrera.com") onLogin("u-marvin");
       if (lowerEmail === "accounting@herrera.com") onLogin("u-accounting");
+      if (lowerEmail === "it@herrera.com") onLogin("u-it");
       return;
     }
     
@@ -101,7 +102,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F1113] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.02]" />
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
@@ -157,7 +158,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="mt-6 text-center text-3xl font-extrabold text-white font-display tracking-tight"
+          className="mt-6 text-center text-3xl font-extrabold text-slate-900 font-display tracking-tight"
         >
           HERRERA FINANCE
         </motion.h2>
@@ -165,7 +166,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-2 text-center text-sm text-zinc-400 font-mono"
+          className="mt-2 text-center text-sm text-slate-600 font-mono"
         >
           Corporate Ledger & Treasury
         </motion.p>
@@ -177,7 +178,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         transition={{ duration: 0.5, delay: 0.3 }}
         className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10"
       >
-        <div className="bg-[#141618] py-8 px-4 shadow-2xl border border-[#24272C] sm:rounded-3xl sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-2xl border border-slate-200 sm:rounded-3xl sm:px-10">
           <form className="space-y-6" onSubmit={handleEmailAuth}>
             {errorMsg && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-lg font-mono">
@@ -186,12 +187,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             )}
             
             <div>
-              <label htmlFor="email" className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2 font-mono">
+              <label htmlFor="email" className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 font-mono">
                 Identity Email
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-zinc-500" />
+                  <Mail className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
                   id="email"
@@ -204,18 +205,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="mark@herrera.com"
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-[#24272C] rounded-xl bg-[#0F1113] text-white focus:outline-hidden focus:ring-1 focus:ring-[#00B67A] focus:border-[#00B67A] sm:text-sm transition-colors"
+                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-[#00B67A] focus:border-[#00B67A] sm:text-sm transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="pin" className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2 font-mono">
+              <label htmlFor="pin" className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 font-mono">
                 Passphrase
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-zinc-500" />
+                  <Lock className="h-5 w-5 text-slate-500" />
                 </div>
                 <input
                   id="pin"
@@ -225,7 +226,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-[#24272C] rounded-xl bg-[#0F1113] text-zinc-300 placeholder-zinc-600 sm:text-sm focus:outline-hidden focus:ring-1 focus:ring-[#00B67A] focus:border-[#00B67A]"
+                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 placeholder-zinc-600 sm:text-sm focus:outline-hidden focus:ring-1 focus:ring-[#00B67A] focus:border-[#00B67A]"
                 />
               </div>
             </div>
@@ -234,7 +235,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-xs text-sm font-bold uppercase tracking-widest text-white bg-[#00B67A] hover:bg-[#00B67A]/90 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#141618] focus:ring-[#00B67A] transition-all disabled:opacity-50"
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-xs text-sm font-bold uppercase tracking-widest text-slate-900 bg-[#00B67A] hover:bg-[#00B67A]/90 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#00B67A] transition-all disabled:opacity-50"
               >
                 {isLoading ? "Authenticating..." : "Access Mainframe"} <ChevronRight className="w-4 h-4" />
               </button>
@@ -244,10 +245,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#24272C]" />
+                <div className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-[#141618] text-zinc-500 font-mono text-xs uppercase tracking-widest">Or</span>
+                <span className="px-2 bg-white text-slate-500 font-mono text-xs uppercase tracking-widest">Or</span>
               </div>
             </div>
 
@@ -255,7 +256,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-[#24272C] rounded-xl shadow-xs text-sm font-bold text-white bg-[#0F1113] hover:bg-[#1D2024] transition-all disabled:opacity-50 items-center justify-center gap-3"
+                className="w-full flex justify-center py-3 px-4 border border-slate-200 rounded-xl shadow-xs text-sm font-bold text-slate-900 bg-slate-50 hover:bg-slate-50 transition-all disabled:opacity-50 items-center justify-center gap-3"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -268,7 +269,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           </div>
           <div className="mt-6 text-center">
-            <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">
               Live Connection Secured
             </p>
           </div>

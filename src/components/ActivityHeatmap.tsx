@@ -71,7 +71,7 @@ export default function ActivityHeatmap({ transactions, days = 90 }: ActivityHea
   }, [transactions, days]);
 
   const getColor = (count: number, max: number) => {
-    if (count === 0) return "bg-[#24272C]";
+    if (count === 0) return "bg-slate-50";
     
     const intensity = max > 0 ? count / max : 0;
     if (intensity < 0.2) return "bg-emerald-900/40";
@@ -81,14 +81,14 @@ export default function ActivityHeatmap({ transactions, days = 90 }: ActivityHea
   };
 
   return (
-    <div className="bg-[#181A1C] p-6 border border-[#24272C] rounded-2xl shadow-lg mt-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-[#24272C] pb-4">
+    <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-lg mt-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-200 pb-4">
          <div>
-           <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-widest flex items-center gap-2">
+           <h2 className="text-sm font-semibold text-slate-900 font-mono uppercase tracking-widest flex items-center gap-2">
              <Calendar className="w-4 h-4 text-[#00B67A]" />
              Activity Heatmap ({days} Days)
            </h2>
-           <p className="text-xs text-zinc-400 mt-1">
+           <p className="text-xs text-slate-600 mt-1">
              Visualization of transaction frequency and intensity to identify usage spikes
            </p>
          </div>
@@ -97,13 +97,13 @@ export default function ActivityHeatmap({ transactions, days = 90 }: ActivityHea
       <div className="w-full flex justify-center md:justify-start overflow-x-auto pb-4">
         <div className="flex gap-1.5 min-w-max pr-4">
           <div className="flex flex-col gap-1.5 justify-around mt-1">
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center">Sun</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center opacity-0">Mon</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center">Tue</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center opacity-0">Wed</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center">Thu</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center opacity-0">Fri</span>
-             <span className="text-[9px] font-mono text-zinc-500 h-3 flex items-center">Sat</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center">Sun</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center opacity-0">Mon</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center">Tue</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center opacity-0">Wed</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center">Thu</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center opacity-0">Fri</span>
+             <span className="text-[9px] font-mono text-slate-500 h-3 flex items-center">Sat</span>
           </div>
 
           <div className="flex gap-1.5">
@@ -116,9 +116,9 @@ export default function ActivityHeatmap({ transactions, days = 90 }: ActivityHea
                            key={day.dateStr}
                            className={`w-3 h-3 rounded-sm group relative ${getColor(day.count, heatmapData.maxIntensity)} transition-colors`}
                         >
-                           <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs text-center p-2 bg-[#141618] border border-[#24272C] text-[10px] font-mono leading-tight shadow-xl rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                              <div className="font-bold text-white mb-0.5">{new Date(day.dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</div>
-                              <div className="text-zinc-400">{day.count} transaction{day.count !== 1 ? 's' : ''}</div>
+                           <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs text-center p-2 bg-white border border-slate-200 text-[10px] font-mono leading-tight shadow-xl rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                              <div className="font-bold text-slate-900 mb-0.5">{new Date(day.dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</div>
+                              <div className="text-slate-600">{day.count} transaction{day.count !== 1 ? 's' : ''}</div>
                            </div>
                         </div>
                      );
@@ -129,9 +129,9 @@ export default function ActivityHeatmap({ transactions, days = 90 }: ActivityHea
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 mt-2 text-[10px] font-mono text-zinc-400">
+      <div className="flex items-center justify-end gap-2 mt-2 text-[10px] font-mono text-slate-600">
          <span>Less</span>
-         <div className="w-3 h-3 rounded-sm bg-[#24272C]"></div>
+         <div className="w-3 h-3 rounded-sm bg-slate-50"></div>
          <div className="w-3 h-3 rounded-sm bg-emerald-900/40"></div>
          <div className="w-3 h-3 rounded-sm bg-emerald-700/60"></div>
          <div className="w-3 h-3 rounded-sm bg-emerald-500/80"></div>

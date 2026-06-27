@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Bell, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   getCompanies,
   getTransactions,
@@ -81,24 +82,31 @@ export default function AlertsMenu({ activeUserId }: AlertsMenuProps) {
     <div className="relative font-sans shrink-0" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative flex p-1.5 items-center justify-center bg-[#181A1C] border border-[#24272C] text-zinc-400 hover:text-white rounded-lg transition-all cursor-pointer"
+        className="relative flex p-1.5 items-center justify-center bg-white border border-slate-200 text-slate-600 hover:text-slate-900 rounded-lg transition-all cursor-pointer"
         title="Alerts & Notifications"
       >
         <Bell className="w-4 h-4 md:w-3.5 md:h-3.5" />
         {alerts.length > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white border border-[#141618]">
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-slate-900 border border-slate-200">
             {alerts.length}
           </span>
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#181A1C] border border-[#24272C] rounded-xl shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#24272C] bg-[#141618]">
-            <h3 className="text-sm font-bold text-white tracking-wider uppercase font-display">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: -5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -5 }}
+            transition={{ duration: 0.2 }}
+            className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden transform origin-top-right"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
+            <h3 className="text-sm font-bold text-slate-900 tracking-wider uppercase font-display">
               Alerts
             </h3>
-            <span className="text-[10px] bg-[#24272C] text-zinc-300 px-2 py-0.5 rounded-md font-mono">
+            <span className="text-[10px] bg-slate-50 text-slate-700 px-2 py-0.5 rounded-md font-mono">
               {alerts.length} new
             </span>
           </div>
@@ -107,16 +115,16 @@ export default function AlertsMenu({ activeUserId }: AlertsMenuProps) {
             {alerts.length === 0 ? (
               <div className="px-4 py-8 text-center flex flex-col items-center">
                 <CheckCircle2 className="w-8 h-8 text-[#00B67A] opacity-50 mb-2" />
-                <p className="text-xs text-zinc-500 font-mono">
+                <p className="text-xs text-slate-500 font-mono">
                   You're all caught up.
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col divide-y divide-[#24272C]/50">
+              <div className="flex flex-col divide-y divide-slate-200/50">
                 {alerts.map((alert) => (
                   <div
                     key={alert.id}
-                    className="flex items-start gap-3 p-4 hover:bg-[#1D2024] transition-colors cursor-pointer"
+                    className="flex items-start gap-3 p-4 hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <div
                       className={`shrink-0 p-2 rounded-lg flex items-center justify-center ${
@@ -133,14 +141,14 @@ export default function AlertsMenu({ activeUserId }: AlertsMenuProps) {
                     </div>
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">
+                        <span className="text-xs font-bold text-slate-900">
                           {alert.title}
                         </span>
-                        <span className="text-[9px] text-zinc-500 font-mono">
+                        <span className="text-[9px] text-slate-500 font-mono">
                           Just now
                         </span>
                       </div>
-                      <p className="text-[10px] text-zinc-400 leading-relaxed font-mono">
+                      <p className="text-[10px] text-slate-600 leading-relaxed font-mono">
                         {alert.message}
                       </p>
                     </div>
@@ -148,9 +156,10 @@ export default function AlertsMenu({ activeUserId }: AlertsMenuProps) {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

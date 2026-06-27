@@ -55,9 +55,30 @@ interface LedgerProps {
 
 export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps) {
   // Queries & Filter State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState(() => {
+    const s = localStorage.getItem('ledger_search_term');
+    if (s) {
+      localStorage.removeItem('ledger_search_term');
+      return s;
+    }
+    return '';
+  });
+  const [selectedType, setSelectedType] = useState<string>(() => {
+    const t = localStorage.getItem('ledger_filter_type');
+    if (t) {
+      localStorage.removeItem('ledger_filter_type');
+      return t;
+    }
+    return 'all';
+  });
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    const c = localStorage.getItem('ledger_filter_category');
+    if (c) {
+      localStorage.removeItem('ledger_filter_category');
+      return c;
+    }
+    return 'all';
+  });
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
@@ -179,28 +200,23 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
   // 1. CALCULATE DAILY BALANCES SUMMARY CARD
   const balanceSummary = useMemo(() => {
-    // Approved cash flow aggregation
-    const comBalances = getDailyBalances(companyId);
-    if (comBalances.length === 0) {
-      return {
-        beginning: 0, 
-        cashIn: 0,
-        cashOut: 0,
-        ending: 0
-      };
-    }
-    const latest = comBalances[comBalances.length - 1];
-    
     // Total cash in/out approved for selected period
     const approvedTxns = rawTxns.filter(t => t.status === 'approved');
     const cashIn = approvedTxns.filter(t => t.type === 'cash_in').reduce((sum, t) => sum + t.amount, 0);
     const cashOut = approvedTxns.filter(t => t.type === 'cash_out').reduce((sum, t) => sum + t.amount, 0);
+    
+    // Find initial capital (first cash-in or specific category)
+    // For simplicity, we can just say beginning is 0 for an all-time view, 
+    // but to match the UI which might expect something, let's just make beginning 0,
+    // cashIn as all cash inputs, and ending as cashIn - cashOut.
+    const beginning = 0;
+    const ending = cashIn - cashOut;
 
     return {
-      beginning: latest.beginningBalance,
+      beginning,
       cashIn,
       cashOut,
-      ending: latest.endingBalance
+      ending
     };
   }, [rawTxns, companyId]);
 
@@ -208,7 +224,10 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const filteredTransactions = useMemo(() => {
     return rawTxns.filter(t => {
       // Search
-      const searchStr = `${t.purpose} ${t.responsiblePerson} ${t.id}`.toLowerCase();
+      const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
+      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      const accName = acc ? `${acc.bankName} ${acc.accountName}` : '';
+      const searchStr = `${t.purpose} ${t.responsiblePerson} ${t.id} ${catName} ${t.paymentMethod || ''} ${accName}`.toLowerCase();
       if (searchTerm && !searchStr.includes(searchTerm.toLowerCase())) return false;
 
       // Type
@@ -480,62 +499,95 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }, 300);
   };
 
+  // Current Month/Year for title
+  const currentMonthYear = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* DAILY BALANCES SUMMARY */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-6 shadow-xl relative overflow-hidden rounded-2xl print:shadow-none print:border-none print:p-0">
+      <div className="bg-white border border-slate-200 p-6 shadow-xl relative overflow-hidden rounded-2xl print:shadow-none print:border-none print:p-0">
         {/* Abstract design vector accent lines */}
         <div className="absolute top-0 right-0 w-32 h-[1px] bg-gradient-to-l from-zinc-500/30 to-transparent"></div>
         <div className="absolute right-0 bottom-0 w-[1px] h-24 bg-gradient-to-t from-zinc-500/10 to-transparent"></div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#24272C] pb-4 mb-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 mb-5">
           <div>
-            <h2 className="text-lg font-mono text-white uppercase tracking-wider flex items-center gap-2 font-bold">
-              <FileCheck2 className="w-5 h-5 text-zinc-400" />
-              <span>June 2026 Daily Cash Position</span>
+            <h2 className="text-lg font-mono text-slate-900 uppercase tracking-wider flex items-center gap-2 font-bold">
+              <FileCheck2 className="w-5 h-5 text-slate-600" />
+              <span>{currentMonthYear} Daily Cash Position</span>
             </h2>
-            <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono mt-0.5">Values aggregated daily based on authorized transactional ledgers.</p>
+            <p className="text-[10px] text-slate-600 uppercase tracking-wider font-mono mt-0.5">Values aggregated daily based on authorized transactional ledgers.</p>
           </div>
-          <div className="text-[10px] bg-[#141618] border border-[#24272C] py-1.5 px-3.5 text-zinc-400 font-mono tracking-widest uppercase rounded-xl">
-            Company Cash Ledger: <span className="font-bold text-white">{currentCompany?.code}</span>
+          <div className="text-[10px] bg-white border border-slate-200 py-1.5 px-3.5 text-slate-600 font-mono tracking-widest uppercase rounded-xl">
+            Company Cash Ledger: <span className="font-bold text-slate-900">{currentCompany?.code}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
           {/* Box 1 */}
-          <div className="p-4 bg-[#141618] border border-[#24272C] border-l-2 border-l-amber-500 space-y-1 rounded-xl shadow-inner">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Beginning Capital Asset</span>
-            <div className="text-lg font-bold text-white font-mono tracking-tight">{formatPeso(balanceSummary.beginning)}</div>
+          <div 
+            onClick={() => {
+              setSearchTerm('capital');
+              setSelectedType('cash_in');
+              setSelectedStatus('approved');
+            }}
+            className="p-4 bg-white border border-slate-200 border-l-2 border-l-amber-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+          >
+            <span className="text-[9px] font-bold text-slate-500 group-hover:text-amber-400 uppercase tracking-widest block font-mono transition-colors">Beginning Capital Asset</span>
+            <div className="text-lg font-bold text-slate-900 font-mono tracking-tight">{formatPeso(balanceSummary.beginning)}</div>
           </div>
           {/* Box 2 */}
-          <div className="p-4 bg-[#141618] border border-[#24272C] border-l-2 border-l-[#00B67A] space-y-1 rounded-xl shadow-inner">
-            <span className="text-[9px] font-bold text-[#00B67A] uppercase tracking-widest block font-mono">Approved Cash Inputs (+)</span>
+          <div 
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedType('cash_in');
+              setSelectedStatus('approved');
+            }}
+            className="p-4 bg-white border border-slate-200 border-l-2 border-l-[#00B67A] space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+          >
+            <span className="text-[9px] font-bold text-[#00B67A] group-hover:text-emerald-400 uppercase tracking-widest block font-mono transition-colors">Approved Cash Inputs (+)</span>
             <div className="text-lg font-bold text-[#00B67A] font-mono tracking-tight">{formatPeso(balanceSummary.cashIn)}</div>
           </div>
           {/* Box 3 */}
-          <div className="p-4 bg-[#141618] border border-[#24272C] border-l-2 border-l-rose-500 space-y-1 rounded-xl shadow-inner">
-            <span className="text-[9px] font-bold text-rose-450 uppercase tracking-widest block font-mono">Approved Disbursements (-)</span>
+          <div 
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedType('cash_out');
+              setSelectedStatus('approved');
+            }}
+            className="p-4 bg-white border border-slate-200 border-l-2 border-l-rose-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+          >
+            <span className="text-[9px] font-bold text-rose-450 group-hover:text-rose-400 uppercase tracking-widest block font-mono transition-colors">Approved Disbursements (-)</span>
             <div className="text-lg font-bold text-rose-450 font-mono tracking-tight">{formatPeso(balanceSummary.cashOut)}</div>
           </div>
           {/* Box 4 */}
-          <div className="p-4 bg-[#141618] border border-[#24272C] border-l-2 border-l-sky-500 space-y-1 rounded-xl shadow-inner">
-            <span className="text-[9px] font-bold text-sky-400 uppercase tracking-widest block font-mono">Ending Treasury Balance (=)</span>
-            <div className="text-lg font-bold text-white font-mono tracking-tight">{formatPeso(balanceSummary.ending)}</div>
+          <div 
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedType('all');
+              setSelectedStatus('approved');
+            }}
+            className="p-4 bg-white border border-slate-200 border-l-2 border-l-sky-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+          >
+            <span className="text-[9px] font-bold text-sky-400 group-hover:text-sky-300 uppercase tracking-widest block font-mono transition-colors">Ending Treasury Balance (=)</span>
+            <div className="text-lg font-bold text-slate-900 font-mono tracking-tight">{formatPeso(balanceSummary.ending)}</div>
           </div>
         </div>
       </div>
 
       {/* ACTION HEADER BAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#24272C]/40 pb-4 no-print">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/40 pb-4 no-print">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight font-mono uppercase">Corporate Transaction Ledger</h1>
-          <p className="text-xs text-zinc-400 mt-1 font-mono italic">Record payments, income statements, corrections, and verify attached vouchers.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-mono uppercase">Corporate Transaction Ledger</h1>
+          <p className="text-xs text-slate-600 mt-1 font-mono italic">Record payments, income statements, corrections, and verify attached vouchers.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 no-print">
           <button 
             onClick={handlePrintPDF}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#181A1C] hover:bg-white hover:text-black text-zinc-300 border border-[#24272C] hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 hover:text-black text-slate-700 border border-slate-200 hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
             title="Export view as PDF"
           >
             <Printer className="w-4 h-4" />
@@ -544,280 +596,19 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           
           <button 
             onClick={handleDownloadCSV}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border border-[#24272C] hover:border-[#009E6B] text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border border-slate-200 hover:border-[#009E6B] text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
             title="Download currently filtered transactions as CSV file"
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>Export CSV</span>
           </button>
-
-          {canWriteFinance(userId, companyId) && (
-            <button 
-              onClick={() => setIsEncoding(!isEncoding)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#00B67A] hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-lg select-none border border-[#05C482]/20"
-            >
-              <Plus className="w-4 h-4 text-white" />
-              <span>Log Transaction</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* ENCODE DRAWER / ACCORDION */}
-      {isEncoding && (
-        <div className="bg-[#181A1C] border border-[#24272C] p-6 shadow-2xl relative animate-fadeIn space-y-6 rounded-2xl">
-          <div className="flex items-center justify-between border-b border-[#24272C] pb-3">
-            <div>
-              <h3 className="text-base font-bold font-mono text-white uppercase tracking-wider">Encode Financial Transaction Form</h3>
-              <p className="text-xs text-zinc-450 font-mono mt-0.5">Newly logged items trigger approval requirements inside Signatures queue.</p>
-            </div>
-            <button 
-              onClick={() => setIsEncoding(false)}
-              className="p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleEncodeSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* COMPANY SELECTOR (If "all" is active) */}
-            {companyId === 'all' && (
-              <div className="md:col-span-3 space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Target Company</label>
-                <select
-                  value={encTargetCompany}
-                  onChange={(e) => setEncTargetCompany(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer transition-all"
-                  required
-                >
-                  <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this transaction</option>
-                  {companies.filter(c => c.id !== 'all').map(c => (
-                    <option key={c.id} value={c.id} className="bg-[#181A1C]">
-                      {c.name} ({c.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* DATE */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Transaction Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
-                <input 
-                  type="date" 
-                  value={encDate}
-                  onChange={(e) => setEncDate(e.target.value)}
-                  required
-                  className="w-full pl-9 pr-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
-                />
-              </div>
-            </div>
-
-            {/* FLOW TYPE */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Cashflow Category Type</label>
-              <select
-                value={encType}
-                onChange={(e) => setEncType(e.target.value as CashflowType)}
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer transition-all"
-              >
-                <option value="cash_out" className="bg-[#181A1C]">Cash Out / Outflow Expense</option>
-                <option value="cash_in" className="bg-[#181A1C]">Cash In / Inflow Income</option>
-              </select>
-            </div>
-
-            {/* CATEGORY */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Account Category</label>
-              <select
-                value={encCategory}
-                onChange={(e) => setEncCategory(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer transition-all"
-              >
-                {formCategories.map(cat => (
-                  <option key={cat.id} value={cat.id} className="bg-[#181A1C]">
-                    {cat.name.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* AMOUNT */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Principal Amount (PHP)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-xs text-zinc-450 font-bold font-mono">₱</span>
-                <input 
-                  type="number" 
-                  value={encAmount}
-                  onChange={(e) => setEncAmount(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  required
-                  className="w-full pl-8 pr-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-bold transition-all"
-                />
-              </div>
-            </div>
-
-            {/* RESPONSIBLE PERSON */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Accountable Officer</label>
-              <input 
-                type="text" 
-                value={encResponsible}
-                onChange={(e) => setEncResponsible(e.target.value)}
-                placeholder="Name of clerk or payee"
-                required
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
-              />
-            </div>
-
-            {/* RECEIPT ATTACHMENT */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
-                <span>Receipt File Upload (Optional)</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[#141618] border border-[#24272C] text-xs text-zinc-300 hover:bg-[#1E2124] hover:text-white rounded-xl transition-all select-none">
-                    <UploadCloud className="w-4 h-4 text-emerald-500" />
-                    <span>Choose file</span>
-                    <input 
-                      type="file" 
-                      onChange={handleReceiptChange}
-                      accept="image/*"
-                      className="hidden" 
-                    />
-                  </label>
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[#141618] border border-[#24272C] text-xs text-zinc-300 hover:bg-[#1E2124] hover:text-white rounded-xl transition-all select-none">
-                    <Camera className="w-4 h-4 text-emerald-500" />
-                    <span>Take Photo</span>
-                    <input 
-                      type="file" 
-                      onChange={handleReceiptChange}
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden" 
-                    />
-                  </label>
-                </div>
-                {encReceipt && (
-                  <span className="text-[9px] bg-emerald-950/30 text-[#00B67A] font-mono border border-emerald-900/40 py-1 px-2.5 rounded-lg truncate max-w-[150px]">
-                    Image attached
-                  </span>
-                )}
-                {encReceipt && (
-                  <button
-                    type="button"
-                    onClick={handleScanReceipt}
-                    disabled={isScanning}
-                    className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs transition-all cursor-pointer font-bold disabled:opacity-50"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {isScanning ? 'Scanning...' : 'Scan with Gemini'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* CASH ACCOUNT */}
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Cash / Bank Account</label>
-              <select 
-                value={encAccountId}
-                onChange={(e) => setEncAccountId(e.target.value)}
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
-              >
-                <option value="">Unspecified</option>
-                {formCashAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.bankName} - {acc.accountName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* PURPOSE DECLARATION */}
-            <div className="md:col-span-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Explicit Audit Purpose / Remarks</label>
-                <button
-                  type="button"
-                  onClick={handleSuggestCategory}
-                  disabled={isSuggestingCategory || !encPurpose.trim()}
-                  className="inline-flex items-center gap-1 text-[10px] text-sky-400 font-bold hover:text-sky-300 disabled:opacity-50 transition-colors uppercase tracking-widest cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  {isSuggestingCategory ? 'Analyzing...' : 'Auto-Categorize'}
-                </button>
-              </div>
-              <input 
-                type="text" 
-                value={encPurpose}
-                onChange={(e) => setEncPurpose(e.target.value)}
-                placeholder="e.g., Meralco Store power branch bill settlement June"
-                required
-                className="w-full px-3.5 py-2 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
-              />
-            </div>
-
-            <div className="md:col-span-3 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#24272C]">
-              <div className="text-xs text-amber-400 font-mono">
-                {(() => {
-                  const role = getUserRole(userId, encTargetCompany || companyId);
-                  const currentUser = profiles.find(p => p.id === userId);
-                  const isOwner = role === 'company_admin' || currentUser?.isGroupAdmin;
-                  const isCapital = categories.find(c => c.id === encCategory)?.name.toLowerCase() === 'capital_injection';
-                  const amt = encAmount ? parseFloat(encAmount) : 0;
-                  if (amt > 10000) {
-                    if (isOwner && isCapital) return null;
-                    if (amt > 50000) {
-                      return '⚠️ Tier 3: Amount > ₱50,000. Requires Company Admin.';
-                    } else {
-                      return '⚠️ Tier 2: Amount > ₱10,000. Requires Finance Officer or Admin.';
-                    }
-                  }
-                  return null;
-                })()}
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsEncoding(false)}
-                  className="px-4 py-2 border border-[#24272C] text-zinc-400 bg-transparent hover:bg-[#1E2124] text-xs font-semibold rounded-xl cursor-pointer transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-5 py-2.5 bg-[#00B67A] hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all shadow-md"
-                >
-                  Confirm and Log Record
-                </button>
-              </div>
-            </div>
-          </form>
-
-          {formError && (
-            <p className="p-3 bg-rose-950/20 border border-[#532323] text-rose-300 rounded-xl text-xs font-mono">
-              {formError}
-            </p>
-          )}
-          {formSuccess && (
-            <p className="p-3 bg-emerald-950/20 border border-emerald-900/40 text-[#00B67A] rounded-xl text-xs font-mono animate-pulse">
-              {formSuccess}
-            </p>
-          )}
-        </div>
-      )}
-
       {/* FILTER CONTROLS TRAY */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-6 shadow-xl space-y-4 rounded-2xl no-print">
-        <div className="flex items-center justify-between border-b border-[#24272C] pb-3.5">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[2px] flex items-center gap-1.5 font-mono">
+      <div className="bg-white border border-slate-200 p-6 shadow-xl space-y-4 rounded-2xl no-print">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3.5">
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-[2px] flex items-center gap-1.5 font-mono">
             <Filter className="w-4 h-4 text-[#00B67A]" />
             <span>Advanced Search filters</span>
           </span>
@@ -831,7 +622,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               setStartDate('');
               setEndDate('');
             }}
-            className="text-[10px] bg-[#141618] border border-[#24272C] py-1 px-3 rounded-lg text-zinc-400 font-mono tracking-widest hover:text-[#00B67A] transition-all cursor-pointer uppercase"
+            className="text-[10px] bg-white border border-slate-200 py-1 px-3 rounded-lg text-slate-600 font-mono tracking-widest hover:text-[#00B67A] transition-all cursor-pointer uppercase"
           >
             Reset Filters
           </button>
@@ -840,44 +631,44 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {/* SEARCH */}
           <div className="sm:col-span-2 space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Keyword search</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Keyword search</span>
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500" />
               <input 
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search purpose, clerk, code..."
-                className="w-full pl-8 pr-3 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
+                placeholder="Search purpose, ID, category, or account..."
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
               />
             </div>
           </div>
 
           {/* TYPE */}
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Flow Type</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Flow Type</span>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
             >
-              <option value="all" className="bg-[#181A1C]">All Flows</option>
-              <option value="cash_in" className="bg-[#181A1C]">Inflows / Net Income</option>
-              <option value="cash_out" className="bg-[#181A1C]">Outflows / Expenses</option>
+              <option value="all" className="bg-white">All Flows</option>
+              <option value="cash_in" className="bg-white">Inflows / Net Income</option>
+              <option value="cash_out" className="bg-white">Outflows / Expenses</option>
             </select>
           </div>
 
           {/* CATEGORY */}
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Ledger Category</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Ledger Category</span>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
             >
-              <option value="all" className="bg-[#181A1C]">All Categories</option>
+              <option value="all" className="bg-white">All Categories</option>
               {categories.map(c => (
-                <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                <option key={c.id} value={c.id} className="bg-white">
                   {c.name.toUpperCase()}
                 </option>
               ))}
@@ -886,34 +677,34 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
           {/* STATUS */}
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Signatures Status</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Signatures Status</span>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
             >
-              <option value="all" className="bg-[#181A1C]">All Statuses</option>
-              <option value="pending" className="bg-[#181A1C]">Pending review</option>
-              <option value="approved" className="bg-[#181A1C]">Approved / Finalized</option>
-              <option value="rejected" className="bg-[#181A1C]">Rejected / Returned</option>
+              <option value="all" className="bg-white">All Statuses</option>
+              <option value="pending" className="bg-white">Pending review</option>
+              <option value="approved" className="bg-white">Approved / Finalized</option>
+              <option value="rejected" className="bg-white">Rejected / Returned</option>
             </select>
           </div>
 
           {/* PAYMENT METHOD */}
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Source / Method</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Source / Method</span>
             <select
               value={selectedPaymentMethod}
               onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
             >
-              <option value="all" className="bg-[#181A1C]">All Methods</option>
-              <option value="unspecified" className="bg-[#181A1C]">Unspecified</option>
+              <option value="all" className="bg-white">All Methods</option>
+              <option value="unspecified" className="bg-white">Unspecified</option>
               {uniquePaymentMethods.map(method => {
                 const acc = allCashAccounts.find(a => a.id === method);
                 const label = acc ? `${acc.bankName} - ${acc.accountName}` : method.toUpperCase();
                 return (
-                  <option key={method} value={method} className="bg-[#181A1C]">
+                  <option key={method} value={method} className="bg-white">
                     {label}
                   </option>
                 );
@@ -923,21 +714,21 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
           {/* DATES */}
           <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Start Date</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Start Date</span>
             <input 
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-2 py-1.5 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
+              className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
             />
           </div>
         </div>
       </div>
 
       {/* DISPLAYED LIST SUMMARY */}
-      <div className="flex gap-4 p-4 bg-[#141618] border border-sky-500/20 rounded-2xl shadow-inner mb-4 no-print sm:flex-row flex-col justify-between items-center relative overflow-hidden">
+      <div className="flex gap-4 p-4 bg-white border border-sky-500/20 rounded-2xl shadow-inner mb-4 no-print sm:flex-row flex-col justify-between items-center relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl rounded-full"></div>
-        <div className="text-zinc-400 font-mono text-xs max-w-sm">
+        <div className="text-slate-600 font-mono text-xs max-w-sm">
           <strong className="text-sky-400 block uppercase tracking-wider mb-1">Displayed Search Results</strong>
           Calculating aggregated totals strictly across currently filtered table transactions. Adjust filters above to change this summary.
         </div>
@@ -950,59 +741,59 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
             <div className="text-[10px] font-bold text-rose-450 uppercase tracking-widest font-mono">Total Outflow</div>
             <div className="font-mono text-lg text-rose-450 font-bold">{formatPeso(filteredSummary.outflow)}</div>
           </div>
-          <div className="border-l border-[#24272C] pl-6 sm:pl-12">
+          <div className="border-l border-slate-200 pl-6 sm:pl-12">
             <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest font-mono">Net Balance</div>
-            <div className={`font-mono text-xl font-bold ${filteredSummary.net >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatPeso(filteredSummary.net)}</div>
+            <div className={`font-mono text-xl font-bold ${filteredSummary.net >= 0 ? 'text-slate-900' : 'text-rose-400'}`}>{formatPeso(filteredSummary.net)}</div>
           </div>
         </div>
       </div>
 
       {/* LEDGER DATA TABLE */}
-      <div id="print-canvas" className="bg-[#181A1C] border border-[#24272C] shadow-xl overflow-hidden rounded-2xl print:shadow-none print:border-none">
+      <div id="print-canvas" className="bg-white border border-slate-200 shadow-xl overflow-hidden rounded-2xl print:shadow-none print:border-none">
         {/* TABLE ACTION CONTROLS / TOOLBAR SEARCH BAR */}
-        <div className="bg-[#141618] border-b border-[#24272C] p-4 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
+        <div className="bg-white border-b border-slate-200 p-4 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
           <div className="relative w-full md:max-w-md">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Search className="h-4 w-4 text-zinc-400" />
+              <Search className="h-4 w-4 text-slate-600" />
             </span>
             <input
               type="text"
-              className="block w-full pl-9 pr-8 py-2 bg-[#181A1C] border border-[#24272C] placeholder-zinc-500 text-white text-xs font-mono rounded-xl focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] transition-all"
-              placeholder="Search by description, payee/officer, or Txn Reference ID..."
+              className="block w-full pl-9 pr-8 py-2 bg-white border border-slate-200 placeholder-zinc-500 text-slate-900 text-xs font-mono rounded-xl focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] transition-all"
+              placeholder="Search by description, reference ID, category, or account..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400 hover:text-white cursor-pointer"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-600 hover:text-slate-900 cursor-pointer"
                 title="Clear Search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
-            <span>Showed <strong className="text-white font-semibold">{filteredTransactions.length}</strong> of <strong className="text-zinc-500">{rawTxns.length}</strong> entries</span>
+          <div className="flex items-center gap-2 text-slate-600 font-mono text-[10px] uppercase tracking-wider">
+            <span>Showed <strong className="text-slate-900 font-semibold">{filteredTransactions.length}</strong> of <strong className="text-slate-500">{rawTxns.length}</strong> entries</span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#141618] text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+            <thead className="bg-white text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
               <tr>
-                <th className="p-3.5 border-b border-[#24272C]">Txn ID</th>
-                <th className="p-3.5 border-b border-[#24272C]">Val Date</th>
-                <th className="p-3.5 border-b border-[#24272C]">Flow</th>
-                <th className="p-3.5 border-b border-[#24272C]">Principal Amount</th>
-                <th className="p-3.5 border-b border-[#24272C]">Purpose & Details</th>
-                <th className="p-3.5 border-b border-[#24272C]">Clerk / Controller</th>
-                <th className="p-3.5 border-b border-[#24272C]">Signatures</th>
-                <th className="p-3.5 border-b border-[#24272C] text-center no-print">Docs & Meta</th>
-                <th className="p-3.5 border-b border-[#24272C] text-right text-zinc-500 no-print">Adjustment Tools</th>
+                <th className="p-3.5 border-b border-slate-200">Txn ID</th>
+                <th className="p-3.5 border-b border-slate-200">Val Date</th>
+                <th className="p-3.5 border-b border-slate-200">Flow</th>
+                <th className="p-3.5 border-b border-slate-200">Principal Amount</th>
+                <th className="p-3.5 border-b border-slate-200">Purpose & Details</th>
+                <th className="p-3.5 border-b border-slate-200">Clerk / Controller</th>
+                <th className="p-3.5 border-b border-slate-200">Signatures</th>
+                <th className="p-3.5 border-b border-slate-200 text-center no-print">Docs & Meta</th>
+                <th className="p-3.5 border-b border-slate-200 text-right text-slate-500 no-print">Adjustment Tools</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#24272C]/60 font-medium text-zinc-300">
+            <tbody className="divide-y divide-slate-200/60 font-medium text-slate-700">
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map((t) => {
                   // Find category label
@@ -1011,14 +802,14 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                   const txnAttachments = vaultAttachments.filter(a => a.entityId === t.id && a.entityType === 'transaction');
 
                   return (
-                    <tr key={t.id} className="hover:bg-zinc-900/40 transition">
+                    <tr key={t.id} className="hover:bg-slate-50/40 transition">
                       {/* ID */}
-                      <td className="p-3 font-mono text-[10px] text-zinc-500 whitespace-nowrap">
+                      <td className="p-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">
                         #{t.id}
                       </td>
 
                       {/* DATE */}
-                      <td className="p-3 font-mono whitespace-nowrap text-zinc-300">
+                      <td className="p-3 font-mono whitespace-nowrap text-slate-700">
                         {t.txnDate}
                       </td>
 
@@ -1038,7 +829,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                       </td>
 
                       {/* AMOUNT */}
-                      <td className="p-3 font-mono font-bold text-white whitespace-nowrap">
+                      <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
                         {formatPeso(t.amount)}
                       </td>
 
@@ -1049,7 +840,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                             {t.purpose}
                           </div>
                           <div className="flex flex-wrap items-center gap-1">
-                            <span className="px-1.5 py-0.5 bg-[#141618] text-zinc-400 font-bold font-mono text-[8px] border border-[#24272C] rounded-lg uppercase">
+                            <span className="px-1.5 py-0.5 bg-white text-slate-600 font-bold font-mono text-[8px] border border-slate-200 rounded-lg uppercase">
                               {catName}
                             </span>
                             {(t.cashAccountId || t.paymentMethod) && (
@@ -1081,11 +872,11 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                       </td>
 
                       {/* ACCOUNTABLE AND ENCODER */}
-                      <td className="p-3 text-zinc-400">
+                      <td className="p-3 text-slate-600">
                         <div className="space-y-1">
                           <div className="text-zinc-255 font-mono text-[11px] font-medium">{t.responsiblePerson}</div>
-                          <div className="text-[9px] text-zinc-500 flex items-center gap-0.5 font-mono">
-                            <User className="w-2.5 h-2.5 text-zinc-650" />
+                          <div className="text-[9px] text-slate-500 flex items-center gap-0.5 font-mono">
+                            <User className="w-2.5 h-2.5 text-slate-400" />
                             <span className="truncate max-w-[120px]">{encoderEmail}</span>
                           </div>
                         </div>
@@ -1120,7 +911,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                           {t.receiptPath ? (
                             <button 
                               onClick={() => setPreviewReceiptUrl(t.receiptPath)}
-                              className="p-1 text-zinc-400 hover:text-[#00B67A] bg-[#141618] border border-[#24272C] hover:border-[#00B67A] rounded-lg cursor-pointer transition-all"
+                              className="p-1 text-slate-600 hover:text-[#00B67A] bg-white border border-slate-200 hover:border-[#00B67A] rounded-lg cursor-pointer transition-all"
                               title="Preview secure billing vouchers"
                             >
                               <Eye className="w-3.5 h-3.5 mx-auto" />
@@ -1137,7 +928,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                               setMetaReceiptUrl(t.receiptPath || '');
                             }}
                             className={`p-1 border rounded-lg cursor-pointer transition-all ${
-                              t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-[#141618] text-zinc-400 border-[#24272C] hover:text-white hover:border-zinc-500'
+                              t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
                             }`}
                             title="Attach or View Mock Reference Metadata"
                           >
@@ -1151,9 +942,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                         {t.status === 'approved' && !t.reversalOf && (
                           <button 
                             onClick={() => handleReversal(t.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-[#24272C] text-zinc-300 hover:text-white bg-[#141618] hover:bg-[#1E2124] rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-slate-200 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
                           >
-                            <RefreshCcw className="w-3 h-3 text-zinc-500" />
+                            <RefreshCcw className="w-3 h-3 text-slate-500" />
                             <span>Intelligent Reverse</span>
                           </button>
                         )}
@@ -1167,7 +958,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               ) : (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-zinc-550 font-mono uppercase text-xs">
-                    No matching transaction journal entries located under current selections.
+                    No matching TRANSACTION entries located under current selections.
                   </td>
                 </tr>
               )}
@@ -1178,20 +969,20 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
       {/* RECEIPT VIEWER POPUP MODAL */}
       {previewReceiptUrl && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
-          <div className="bg-[#181A1C] border border-[#24272C] p-6 max-w-lg w-full relative space-y-4 rounded-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+          <div className="bg-white border border-slate-200 p-6 max-w-lg w-full relative space-y-4 rounded-2xl">
             <button 
               onClick={() => setPreviewReceiptUrl(null)}
-              className="absolute right-4 top-4 p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
+              className="absolute right-4 top-4 p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg cursor-pointer transition-all"
             >
               <X className="w-4.5 h-4.5" />
             </button>
             <div>
-              <h3 className="font-mono text-base font-bold text-white uppercase tracking-wider">Secure Receipt Image Preview</h3>
+              <h3 className="font-mono text-base font-bold text-slate-900 uppercase tracking-wider">Secure Receipt Image Preview</h3>
               <p className="text-xs text-zinc-405 font-mono mt-0.5">Accessed through secure mock encrypted local storage asset pathways.</p>
             </div>
             
-            <div className="border border-[#24272C] rounded-xl overflow-hidden max-h-[350px] flex items-center justify-center bg-[#141618]">
+            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[350px] flex items-center justify-center bg-white">
               <img 
                 src={previewReceiptUrl} 
                 alt="Payment voucher attachment" 
@@ -1203,7 +994,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
             <div className="flex justify-end pt-2">
               <button 
                 onClick={() => setPreviewReceiptUrl(null)}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono"
+                className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-900 text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono"
               >
                 Close Anchor Preview
               </button>
@@ -1214,24 +1005,24 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
       {/* METADATA ATTACHMENT DRAWER/MODAL */}
       {activeMetadataTxn && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
-          <div className="bg-[#181A1C] border border-[#24272C] p-6 max-w-md w-full relative space-y-5 rounded-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+          <div className="bg-white border border-slate-200 p-6 max-w-md w-full relative space-y-5 rounded-2xl">
             <button 
               onClick={() => setActiveMetadataTxn(null)}
-              className="absolute right-4 top-4 p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
+              className="absolute right-4 top-4 p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg cursor-pointer transition-all"
             >
               <X className="w-4.5 h-4.5" />
             </button>
             <div>
-              <h3 className="font-mono text-base font-bold text-white uppercase tracking-wider">Document Metadata</h3>
+              <h3 className="font-mono text-base font-bold text-slate-900 uppercase tracking-wider">Document Metadata</h3>
               <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to txn #{activeMetadataTxn.id}.</p>
             </div>
             
             <div className="space-y-4">
               {activeMetadataTxn.mockMetadata?.controlNumber && (
-                <div className="flex gap-4 p-3 bg-zinc-900 border border-zinc-800 rounded-xl items-center">
+                <div className="flex gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
                   <div className="flex-1">
-                    <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Control Number</p>
+                    <p className="text-[10px] font-mono text-slate-600 uppercase tracking-wider">Control Number</p>
                     <p className="text-sm font-mono font-bold text-sky-400 mt-1">#{activeMetadataTxn.mockMetadata.controlNumber}</p>
                   </div>
                   <div className="bg-white p-1 rounded-md">
@@ -1243,47 +1034,47 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Receipt Image Link</label>
+                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Receipt Image Link</label>
                 <input 
                   type="text" 
                   value={metaReceiptUrl}
                   onChange={(e) => setMetaReceiptUrl(e.target.value)}
                   placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Scan Reference Code</label>
+                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Scan Reference Code</label>
                 <input 
                   type="text" 
                   value={metaScanRef}
                   onChange={(e) => setMetaScanRef(e.target.value)}
                   placeholder="e.g. DOC-2026-XQ91"
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Document Timestamp</label>
+                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Document Timestamp</label>
                 <input 
                   type="text" 
                   value={metaTimestamp}
                   onChange={(e) => setMetaTimestamp(e.target.value)}
                   placeholder="ISO Date"
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#24272C]">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
               <button 
                 onClick={() => setActiveMetadataTxn(null)}
-                className="px-4 py-2 border border-[#24272C] text-zinc-400 bg-transparent hover:bg-[#1E2124] text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+                className="px-4 py-2 border border-slate-200 text-slate-600 bg-transparent hover:bg-slate-50 text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSaveMetadata}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-900 text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
               >
                 Save Metadata
               </button>

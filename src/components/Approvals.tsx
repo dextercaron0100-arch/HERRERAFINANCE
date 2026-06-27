@@ -18,6 +18,8 @@ import {
   getCategories,
   getApprovals,
   getProfiles,
+  getCompanies,
+  getAllCashAccounts,
 } from "../data/mockDatabase";
 import { Transaction } from "../types";
 import { toast } from "sonner";
@@ -41,6 +43,8 @@ export default function Approvals({
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
   const profiles = getProfiles();
+  const allCompanies = getCompanies();
+  const allAccounts = getAllCashAccounts();
 
   const currentUser = profiles.find((p) => p.id === userId);
   const isOwner = currentUser && ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(currentUser.email);
@@ -175,11 +179,11 @@ export default function Approvals({
       {/* HEADER SECTION */}
       <div className="flex sm:flex-row flex-col justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold font-display tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
             <FileSignature className="w-6 h-6 text-amber-500" />
             Approvals Queue
           </h2>
-          <p className="text-zinc-500 text-sm font-mono mt-1">
+          <p className="text-slate-500 text-sm font-mono mt-1">
             Review and clear pending transactions for general ledger
             integration.
           </p>
@@ -201,8 +205,8 @@ export default function Approvals({
 
       {/* DASHBOARD WIDGETS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-[#141618] border border-[#24272C] rounded-2xl p-5 shadow-inner">
-          <div className="text-xs uppercase font-bold text-zinc-500 mb-1 tracking-wider">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-inner">
+          <div className="text-xs uppercase font-bold text-slate-500 mb-1 tracking-wider">
             Pending Approvals
           </div>
           <div className="text-3xl font-display font-light text-amber-500">
@@ -212,14 +216,14 @@ export default function Approvals({
       </div>
 
       {/* SEARCH AND FILTER */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-[#141618] border border-[#24272C] p-4 rounded-2xl">
-        <div className="flex bg-[#181A1C] border border-[#24272C] rounded-xl p-1 gap-1">
+      <div className="flex flex-col sm:flex-row gap-4 bg-white border border-slate-200 p-4 rounded-2xl">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
           <button
             onClick={() => setViewMode("pending")}
             className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
               viewMode === "pending"
-                ? "bg-[#24272C] text-white shadow"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-slate-50 text-slate-900 shadow"
+                : "text-slate-500 hover:text-slate-700"
             }`}
           >
             Pending
@@ -228,41 +232,44 @@ export default function Approvals({
             onClick={() => setViewMode("history")}
             className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
               viewMode === "history"
-                ? "bg-[#24272C] text-white shadow"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-slate-50 text-slate-900 shadow"
+                : "text-slate-500 hover:text-slate-700"
             }`}
           >
             History
           </button>
         </div>
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="Search by purpose or amount..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-[#181A1C] border border-[#24272C] text-sm text-white focus:ring-1 focus:ring-amber-500 focus:outline-hidden rounded-xl transition hover:bg-[#1D2024]"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500 focus:outline-hidden rounded-xl transition hover:bg-slate-50"
           />
         </div>
       </div>
 
       {/* PENDING LIST */}
-      <div className="bg-[#141618] border border-[#24272C] rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
         {filteredTxns.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500">
+          <div className="p-12 text-center text-slate-500">
             <FileCheck2 className="w-12 h-12 mx-auto text-zinc-700 mb-3" />
             <p className="font-mono text-sm">
               {viewMode === "pending" ? "Queue is empty. No pending transactions." : "No approval history found for this company."}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#24272C]">
+          <div className="divide-y divide-slate-200">
             <AnimatePresence initial={false}>
               {filteredTxns.map((txn, idx) => {
                 const category = categories.find(
                   (c) => c.id === txn.categoryId,
                 );
+                const company = allCompanies.find((c) => c.id === txn.companyId);
+                const account = allAccounts.find((a) => a.id === txn.accountId);
+
                 return (
                   <motion.div
                     key={txn.id}
@@ -270,11 +277,11 @@ export default function Approvals({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                     transition={{ delay: idx * 0.05, duration: 0.2 }}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 hover:bg-[#181A1C] transition"
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 hover:bg-slate-50 transition"
                   >
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-zinc-500 bg-[#181A1C] px-2 py-1 rounded border border-[#24272C]">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
                           {txn.txnDate}
                         </span>
                         <span
@@ -291,21 +298,28 @@ export default function Approvals({
                             Receipt Found
                           </span>
                         )}
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                          {company?.name || company?.code || txn.companyId}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-sky-400 bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20 truncate max-w-[200px]" title={`${account?.accountType || 'Wallet'} • ${account?.bankName || 'Unknown'} - ${account?.accountName || txn.accountId}`}>
+                          {account?.accountType || 'Wallet'} • {account?.bankName || 'Unknown'} - {account?.accountName || txn.accountId}
+                        </span>
                       </div>
                       <div>
-                        <h4 className="text-white font-medium text-sm leading-snug">
+                        <h4 className="text-slate-900 font-medium text-sm leading-snug">
                           {txn.purpose}
                         </h4>
-                        <p className="text-sm font-mono text-zinc-400 mt-1">
-                          Cat: {category?.name || txn.categoryId} | By:{" "}
-                          {txn.encodedBy}
+                        <p className="text-sm font-mono text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                          <span>Cat: {category?.name || txn.categoryId}</span>
+                          <span className="text-zinc-600">•</span>
+                          <span>By: {txn.encodedBy}</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-8 w-full lg:w-auto">
                       <div className="text-left sm:text-right w-full sm:w-auto">
-                        <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-0.5">
+                        <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-0.5">
                           Amount Scheduled
                         </div>
                         <div
@@ -323,7 +337,7 @@ export default function Approvals({
                                 setSelectedTxn(txn);
                                 setReviewRemarks("");
                               }}
-                              className="flex-1 sm:flex-none px-4 py-2 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500 hover:text-white border border-zinc-500/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
+                              className="flex-1 sm:flex-none px-4 py-2 bg-slate-500/10 text-slate-700 hover:bg-slate-500 hover:text-slate-900 border border-slate-300/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
                             >
                               Timeline
                             </button>
@@ -351,7 +365,7 @@ export default function Approvals({
                                 setSelectedTxn(txn);
                                 setReviewRemarks("");
                               }}
-                              className="flex-1 sm:flex-none px-4 py-2 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white border border-amber-500/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
+                              className="flex-1 sm:flex-none px-4 py-2 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-900 border border-amber-500/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
                             >
                               Review
                             </button>
@@ -374,37 +388,47 @@ export default function Approvals({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", duration: 0.3, bounce: 0 }}
-              className="bg-[#141618] border border-[#24272C] rounded-2xl w-full max-w-lg shadow-2xl p-6 relative"
+              className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative"
             >
-              <h3 className="text-xl font-bold font-display text-white mb-2">
+              <h3 className="text-xl font-bold font-display text-slate-900 mb-2">
                 {selectedTxn.status === "pending" ? "Review Transaction" : "Transaction Timeline"}
               </h3>
-              <div className="text-sm text-zinc-400 mb-6 bg-[#181A1C] p-3 rounded-xl border border-[#24272C] font-mono">
-                <strong className="text-zinc-300 block mb-1">
+              <div className="text-sm text-slate-600 mb-6 bg-white p-3 rounded-xl border border-slate-200 font-mono">
+                <strong className="text-slate-700 block mb-1">
                   {selectedTxn.purpose}
                 </strong>
-                Amount:{" "}
-                <strong
-                  className={
-                    selectedTxn.type === "cash_in"
-                      ? "text-emerald-400"
-                      : "text-rose-450"
-                  }
-                >
-                  {formatPeso(selectedTxn.amount)}
-                </strong>
+                <div className="flex flex-col gap-1">
+                  <div>
+                    Amount:{" "}
+                    <strong
+                      className={
+                        selectedTxn.type === "cash_in"
+                          ? "text-emerald-400"
+                          : "text-rose-450"
+                      }
+                    >
+                      {formatPeso(selectedTxn.amount)}
+                    </strong>
+                  </div>
+                  <div className="text-amber-500/90">
+                    Entity: {allCompanies.find((c) => c.id === selectedTxn.companyId)?.name || selectedTxn.companyId}
+                  </div>
+                  <div className="text-sky-400/90 truncate">
+                    Wallet: {allAccounts.find((a) => a.id === selectedTxn.accountId)?.bankName} - {allAccounts.find((a) => a.id === selectedTxn.accountId)?.accountName || selectedTxn.accountId}
+                  </div>
+                </div>
               </div>
 
               {/* TIMELINE */}
-              <div className="mb-6 bg-[#181A1C] border border-[#24272C] p-4 rounded-xl">
-                <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-4 font-mono">
+              <div className="mb-6 bg-white border border-slate-200 p-4 rounded-xl">
+                <h4 className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-4 font-mono">
                   Approval History
                 </h4>
                 <div className="space-y-0 relative">
@@ -421,12 +445,12 @@ export default function Approvals({
                        {/* Content */}
                        <div className="flex-1 min-w-0 pt-1">
                          <div className="flex items-center gap-2 justify-between">
-                            <span className="text-sm font-bold text-white tracking-tight">{item.title}</span>
+                            <span className="text-sm font-bold text-slate-900 tracking-tight">{item.title}</span>
                             {item.date && (
-                              <span className="text-[10px] font-mono text-zinc-500 shrink-0">{item.date}</span>
+                              <span className="text-[10px] font-mono text-slate-500 shrink-0">{item.date}</span>
                             )}
                          </div>
-                         <p className="text-sm text-zinc-400 mt-0.5 leading-snug break-words">
+                         <p className="text-sm text-slate-600 mt-0.5 leading-snug break-words">
                             {item.description}
                          </p>
                        </div>
@@ -438,7 +462,7 @@ export default function Approvals({
               {selectedTxn.status === "pending" && (
                 <div className="space-y-4 mb-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest block font-mono">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-widest block font-mono">
                       Review Remarks & Comments (Required for Reject)
                     </label>
                     <textarea
@@ -446,30 +470,30 @@ export default function Approvals({
                       value={reviewRemarks}
                       onChange={(e) => setReviewRemarks(e.target.value)}
                       placeholder="e.g., Authorized per budget or Missing valid invoice..."
-                      className="w-full px-3 py-2 bg-[#181A1C] border border-[#24272C] text-sm text-white focus:outline-hidden focus:border-amber-500 rounded-xl resize-none font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:outline-hidden focus:border-amber-500 rounded-xl resize-none font-mono"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-[#24272C]">
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-200">
                 {selectedTxn.status === "pending" ? (
                   <>
                     <button
                       onClick={() => setSelectedTxn(null)}
-                      className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white font-bold tracking-wider text-xs uppercase cursor-pointer"
+                      className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-bold tracking-wider text-xs uppercase cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={() => handleAction("rejected")}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/10 text-rose-450 hover:bg-rose-500 border border-rose-500/30 hover:text-white font-bold tracking-wider text-xs uppercase transition cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/10 text-rose-450 hover:bg-rose-500 border border-rose-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer"
                     >
                       <XCircle className="w-4 h-4" /> Reject
                     </button>
                     <button
                       onClick={() => handleAction("approved")}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-white font-bold tracking-wider text-xs uppercase transition cursor-pointer"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer"
                     >
                       <CheckCircle className="w-4 h-4" /> Approve
                     </button>
@@ -477,7 +501,7 @@ export default function Approvals({
                 ) : (
                   <button
                     onClick={() => setSelectedTxn(null)}
-                    className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white font-bold tracking-wider text-xs uppercase cursor-pointer hover:bg-zinc-700 transition"
+                    className="px-4 py-2 rounded-xl bg-slate-50 text-slate-700 hover:text-slate-900 font-bold tracking-wider text-xs uppercase cursor-pointer hover:bg-slate-100 transition"
                   >
                     Close
                   </button>

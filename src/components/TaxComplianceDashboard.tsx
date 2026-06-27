@@ -532,18 +532,18 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
     <div className="space-y-8 animate-fadeIn" id="tax-dashboard-container">
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-[#24272C] pb-6 gap-4" id="tax-header">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-6 gap-4" id="tax-header">
         <div>
           <div className="flex items-center gap-1.5 mb-1.5">
             <Percent className="w-5 h-5 text-[#00B67A] shrink-0 animate-bounce" />
-            <span className="text-[10px] font-mono tracking-widest text-[#00B67A] uppercase font-bold bg-[#141618] border border-[#235332] px-3 py-0.5 rounded-full">
+            <span className="text-[10px] font-mono tracking-widest text-[#00B67A] uppercase font-bold bg-white border border-emerald-200 px-3 py-0.5 rounded-full">
               Filing Module 8
             </span>
           </div>
-          <h1 className="text-2xl font-light text-white tracking-tight font-sans">
+          <h1 className="text-2xl font-light text-slate-900 tracking-tight font-sans">
             Tax Compliance & <span className="text-[#00B67A] font-serif italic">Government Filings</span>
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-600 mt-1">
             Official internal gateway for calculations, VAT alphalist tagging, creditable withholding monitoring, and electronic BIR Form preparation.
           </p>
         </div>
@@ -551,13 +551,13 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
         {/* TIME FRAME AND GROUP TOGGLE CHANGER */}
         <div className="flex flex-wrap items-center gap-3">
           {/* MONTH SELECTION */}
-          <div className="flex items-center gap-2 bg-[#181A1C] border border-[#24272C] px-3.5 py-1.5 rounded-xl">
-            <Calendar className="w-4 h-4 text-zinc-500" />
+          <div className="flex items-center gap-2 bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl">
+            <Calendar className="w-4 h-4 text-slate-500" />
             <input 
               type="month"
               value={taxMonth}
               onChange={(e) => setTaxMonth(e.target.value)}
-              className="bg-transparent text-xs font-mono font-semibold text-white focus:outline-hidden cursor-pointer"
+              className="bg-transparent text-xs font-mono font-semibold text-slate-900 focus:outline-hidden cursor-pointer"
             />
           </div>
 
@@ -574,8 +574,8 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
             disabled={companyId === 'all'}
             className={`px-4 py-2 text-xs font-semibold font-mono tracking-wider transition-all duration-150 rounded-xl border flex items-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed ${
               isConsolidated 
-                ? 'bg-[#00B67A] border-[#00B67A] text-white font-bold' 
-                : 'bg-zinc-900 border-[#24272C] text-zinc-400 hover:text-white hover:border-zinc-700'
+                ? 'bg-[#00B67A] border-[#00B67A] text-slate-900 font-bold' 
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-200'
             }`}
           >
             <Building2 className="w-4 h-4" />
@@ -588,57 +588,57 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6" id="tax-compliance-metrics">
         
         {/* OUTPUT VAT CARD */}
-        <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
-          <div className="absolute right-3 top-3 bg-[#1A2E1A] text-[#10B981] p-1.5 rounded-xl text-xs font-mono border border-emerald-850/50">
+        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
+          <div className="absolute right-3 top-3 bg-emerald-50 text-emerald-600 p-1.5 rounded-xl text-xs font-mono border border-emerald-850/50">
             12% VAT
           </div>
-          <span className="text-[9px] uppercase font-mono text-zinc-500 tracking-wider font-bold">Total Output VAT (Sales)</span>
+          <span className="text-[9px] uppercase font-mono text-slate-500 tracking-wider font-bold">Total Output VAT (Sales)</span>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold font-mono text-white leading-none">
+            <h2 className="text-xl font-bold font-mono text-slate-900 leading-none">
               {formatPeso(taxSummaryStats.totalOutputVat)}
             </h2>
             <div className="flex items-center gap-1.5 text-zinc-550 text-[10px] font-mono">
               <span className="text-emerald-400 font-bold">&#8369;{taxSummaryStats.salesVat12.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> Net Taxable Sales
             </div>
           </div>
-          <div className="pt-2 border-t border-[#24272C]/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
+          <div className="pt-2 border-t border-slate-200/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
             <span>Forms: 2550M Line 12A</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           </div>
         </div>
 
         {/* INPUT VAT CARD */}
-        <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
-          <div className="absolute right-3 top-3 bg-zinc-800 text-zinc-400 p-1.5 rounded-xl text-xs font-mono">
+        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
+          <div className="absolute right-3 top-3 bg-slate-50 text-slate-600 p-1.5 rounded-xl text-xs font-mono">
             Purchases
           </div>
-          <span className="text-[9px] uppercase font-mono text-zinc-500 tracking-wider font-bold">Claimable Input VAT</span>
+          <span className="text-[9px] uppercase font-mono text-slate-500 tracking-wider font-bold">Claimable Input VAT</span>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold font-mono text-zinc-300 leading-none">
+            <h2 className="text-xl font-bold font-mono text-slate-700 leading-none">
               {formatPeso(taxSummaryStats.totalInputVat)}
             </h2>
             <div className="flex items-center gap-1.5 text-zinc-550 text-[10px] font-mono">
               <span className="text-emerald-400">&#8369;{taxSummaryStats.purchasesVat12.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> Net Capital Goods
             </div>
           </div>
-          <div className="pt-2 border-t border-[#24272C]/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
+          <div className="pt-2 border-t border-slate-200/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
             <span>Forms: 2550M Line 16</span>
             <ArrowDownRight className="w-3.5 h-3.5 text-orange-400 shrink-0" />
           </div>
         </div>
 
         {/* NET VAT PAYABLE */}
-        <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
-          <span className="text-[9px] uppercase font-mono text-zinc-500 tracking-wider font-bold">Net VAT Payable to government</span>
+        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
+          <span className="text-[9px] uppercase font-mono text-slate-500 tracking-wider font-bold">Net VAT Payable to government</span>
           <div className="space-y-1">
             <h2 className={`text-xl font-bold font-mono leading-none ${taxSummaryStats.netVatPayable >= 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
               {formatPeso(Math.abs(taxSummaryStats.netVatPayable))}
             </h2>
-            <p className="text-[9px] text-zinc-500 italic">
+            <p className="text-[9px] text-slate-500 italic">
               {taxSummaryStats.netVatPayable >= 0 ? 'Requires BIR Form 2550M settlement' : 'Excess input tax credit carry-over'}
             </p>
           </div>
-          <div className="pt-2 border-t border-[#24272C]/40 flex items-center justify-between text-[10px] text-zinc-550 font-mono">
+          <div className="pt-2 border-t border-slate-200/40 flex items-center justify-between text-[10px] text-zinc-550 font-mono">
             <span className="font-bold">TAX DUE</span>
             <span className={`text-[9px] font-bold uppercase ${taxSummaryStats.netVatPayable >= 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
               {taxSummaryStats.netVatPayable >= 0 ? 'LIABILITY' : 'CREDIT'}
@@ -647,38 +647,38 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
         </div>
 
         {/* EXPANDED WITHHOLDING TAX (EWT) CARD */}
-        <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
-          <div className="absolute right-3 top-3 bg-rose-950/40 text-rose-400 p-1.5 rounded-xl text-[9px] font-mono border border-rose-900/30">
+        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-md space-y-3 relative overflow-hidden">
+          <div className="absolute right-3 top-3 bg-rose-50 text-rose-400 p-1.5 rounded-xl text-[9px] font-mono border border-rose-900/30">
             Form 1601EQ
           </div>
-          <span className="text-[9px] uppercase font-mono text-zinc-500 tracking-wider font-bold">Total Withholding Tax Liability</span>
+          <span className="text-[9px] uppercase font-mono text-slate-500 tracking-wider font-bold">Total Withholding Tax Liability</span>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold font-mono text-white leading-none">
+            <h2 className="text-xl font-bold font-mono text-slate-900 leading-none">
               {formatPeso(taxSummaryStats.totalEwtRemittance)}
             </h2>
-            <div className="flex items-center gap-1 font-mono text-[9px] text-zinc-500">
+            <div className="flex items-center gap-1 font-mono text-[9px] text-slate-500">
               <span>Remittance Base:</span>
-              <span className="font-bold text-zinc-300">{formatPeso(taxSummaryStats.ewtTotalsBase)}</span>
+              <span className="font-bold text-slate-700">{formatPeso(taxSummaryStats.ewtTotalsBase)}</span>
             </div>
           </div>
-          <div className="pt-2 border-t border-[#24272C]/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
+          <div className="pt-2 border-t border-slate-200/40 flex items-center justify-between text-[10px] text-zinc-450 font-mono">
             <span>EWT Creditable source</span>
-            <span className="text-[9px] text-zinc-400 uppercase font-bold">1%, 2%, 5% Applied</span>
+            <span className="text-[9px] text-slate-600 uppercase font-bold">1%, 2%, 5% Applied</span>
           </div>
         </div>
       </div>
 
       {/* CORE SPREADSHEET TABLE AND METADATA EDITING COMPONENT */}
-      <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md" id="tax-interactive-alphalist-board">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md" id="tax-interactive-alphalist-board">
         
         {/* FILTERS AND SEARCH ROW */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-5 border-b border-[#24272C] gap-4" id="table-filter-bar">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-5 border-b border-slate-200 gap-4" id="table-filter-bar">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-[#00B67A]" />
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-white font-mono">Transaction Alphalist Tagger</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 font-mono">Transaction Alphalist Tagger</h3>
             </div>
-            <span className="text-[10px] text-zinc-500 font-mono bg-zinc-900 px-2.5 py-1 rounded">
+            <span className="text-[10px] text-slate-500 font-mono bg-slate-50 px-2.5 py-1 rounded">
               {filteredGovTxns.length} Verified Entries
             </span>
           </div>
@@ -690,14 +690,14 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               placeholder="Search details / partner..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="bg-[#141618] border border-[#24272C] px-3 py-1.5 rounded-xl text-xs font-mono text-white focus:outline-hidden focus:border-[#00B67A] w-full sm:w-48 placeholder-zinc-650"
+              className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-900 focus:outline-hidden focus:border-[#00B67A] w-full sm:w-48 placeholder-zinc-650"
             />
 
             {/* VAT FILTER */}
             <select
               value={vatFilter}
               onChange={(e) => setVatFilter(e.target.value)}
-              className="bg-[#141618] border border-[#24272C] px-3 py-1.5 rounded-xl text-xs font-mono text-white focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
+              className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-900 focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
             >
               <option value="all">All Tax Types</option>
               <option value="vat_12">12% VAT standard</option>
@@ -711,7 +711,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               onClick={() => {
                 toast.success('Regenerated tax matrices', { description: 'Tax parameters and compliance alphalist synchronized from primary accounts general ledger!' });
               }}
-              className="p-2 border border-[#24272C] bg-[#141618] text-zinc-400 rounded-xl hover:text-white cursor-pointer hover:border-zinc-750"
+              className="p-2 border border-slate-200 bg-white text-slate-600 rounded-xl hover:text-slate-900 cursor-pointer hover:border-zinc-750"
               title="Refresh transactions from server ledger"
             >
               <RefreshCw className="w-4 h-4" />
@@ -721,9 +721,9 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
         {/* ALPHALIST TABLE SCROLL CONTROL */}
         <div className="overflow-x-auto" id="alphalist-table">
-          <table className="w-full text-left font-mono text-xs text-zinc-300">
+          <table className="w-full text-left font-mono text-xs text-slate-700">
             <thead>
-              <tr className="border-b border-[#24272C] text-zinc-500 text-[10px] uppercase tracking-wider">
+              <tr className="border-b border-slate-200 text-slate-500 text-[10px] uppercase tracking-wider">
                 <th className="py-3 px-2">TXN ID</th>
                 <th className="py-3 px-2">Type</th>
                 <th className="py-3 px-2">Enterprise Name & TIN (Seller/Buyer)</th>
@@ -734,10 +734,10 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                 <th className="py-3 px-2">Notes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#24272C]/40">
+            <tbody className="divide-y divide-slate-200/40">
               {filteredGovTxns.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-zinc-500 italic">
+                  <td colSpan={8} className="py-10 text-center text-slate-500 italic">
                     No approved transactions found matching search / tax categories in {taxMonth}.
                   </td>
                 </tr>
@@ -753,10 +753,10 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                   };
 
                   return (
-                    <tr key={txn.id} className="hover:bg-[#1D2024]/40 transition group">
+                    <tr key={txn.id} className="hover:bg-slate-50/40 transition group">
                       {/* TXID */}
                       <td className="py-3 px-2">
-                        <span className="font-bold text-white block">{txn.id}</span>
+                        <span className="font-bold text-slate-900 block">{txn.id}</span>
                         <span className="text-[9px] text-zinc-550 block">{txn.txnDate}</span>
                       </td>
 
@@ -764,8 +764,8 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                       <td className="py-3 px-2 font-bold select-none">
                         <span className={`px-2 py-0.5 rounded text-[9px] block text-center w-16 ${
                           txn.type === 'cash_in' 
-                            ? 'bg-[#1A2E1A] text-[#10B981] border border-[#235332]' 
-                            : 'bg-rose-950/40 text-[#EF4444] border border-rose-900/30'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                            : 'bg-rose-50 text-[#EF4444] border border-rose-900/30'
                         }`}>
                           {txn.type === 'cash_in' ? 'OUTPUT' : 'INPUT'}
                         </span>
@@ -777,15 +777,15 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                           type="text"
                           value={overrides.legalName}
                           onChange={(e) => handleUpdateTxnTax(txn.id, 'legalName', e.target.value)}
-                          className="bg-transparent text-white focus:bg-zinc-900 font-bold border-b border-transparent focus:border-[#00B67A] shrink-0 outline-hidden w-full text-xs"
+                          className="bg-transparent text-slate-900 focus:bg-slate-50 font-bold border-b border-transparent focus:border-[#00B67A] shrink-0 outline-hidden w-full text-xs"
                         />
                         <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-zinc-500 uppercase tracking-widest shrink-0">TIN:</span>
+                          <span className="text-[9px] text-slate-500 uppercase tracking-widest shrink-0">TIN:</span>
                           <input 
                             type="text"
                             value={overrides.tin}
                             onChange={(e) => handleUpdateTxnTax(txn.id, 'tin', e.target.value)}
-                            className="bg-transparent text-zinc-400 focus:bg-zinc-900 border-b border-transparent focus:border-[#00B67A] text-[9.5px] font-mono outline-hidden w-full p-0 leading-none"
+                            className="bg-transparent text-slate-600 focus:bg-slate-50 border-b border-transparent focus:border-[#00B67A] text-[9.5px] font-mono outline-hidden w-full p-0 leading-none"
                           />
                         </div>
                       </td>
@@ -796,12 +796,12 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                           type="text"
                           value={overrides.orNumber}
                           onChange={(e) => handleUpdateTxnTax(txn.id, 'orNumber', e.target.value)}
-                          className="bg-transparent text-zinc-300 focus:bg-[#141618] border-b border-transparent focus:border-[#00B67A] font-semibold text-xs py-0.5 px-1 outline-hidden rounded focus:outline-hidden"
+                          className="bg-transparent text-slate-700 focus:bg-white border-b border-transparent focus:border-[#00B67A] font-semibold text-xs py-0.5 px-1 outline-hidden rounded focus:outline-hidden"
                         />
                       </td>
 
                       {/* AMOUNT */}
-                      <td className="py-3 px-2 font-bold text-white text-right font-mono pr-4">
+                      <td className="py-3 px-2 font-bold text-slate-900 text-right font-mono pr-4">
                         {formatPeso(txn.amount)}
                       </td>
 
@@ -810,7 +810,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                         <select
                           value={overrides.vatType}
                           onChange={(e) => handleUpdateTxnTax(txn.id, 'vatType', e.target.value as any)}
-                          className="bg-[#141618] text-white border border-[#24272C] text-[11px] rounded px-2 py-1 focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
+                          className="bg-white text-slate-900 border border-slate-200 text-[11px] rounded px-2 py-1 focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
                         >
                           <option value="vat_12">12% VAT standard</option>
                           <option value="vat_0">0% Zero-rated</option>
@@ -827,7 +827,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                           <select
                             value={overrides.wetType}
                             onChange={(e) => handleUpdateTxnTax(txn.id, 'wetType', e.target.value as any)}
-                            className="bg-[#141618] text-zinc-300 border border-[#24272C] text-[11px] rounded px-2 py-1 focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
+                            className="bg-white text-slate-700 border border-slate-200 text-[11px] rounded px-2 py-1 focus:outline-hidden focus:border-[#00B67A] cursor-pointer"
                           >
                             <option value="none">No Withholding</option>
                             <option value="ewt_1">EWT 1% (Purchased Goods)</option>
@@ -844,7 +844,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                           value={overrides.remarks}
                           onChange={(e) => handleUpdateTxnTax(txn.id, 'remarks', e.target.value)}
                           placeholder="compliance check notes"
-                          className="bg-transparent text-zinc-500 focus:text-zinc-300 text-[10px] italic border-b border-transparent focus:border-[#00B67A] outline-hidden w-full placeholder-zinc-700 font-sans"
+                          className="bg-transparent text-slate-500 focus:text-slate-700 text-[10px] italic border-b border-transparent focus:border-[#00B67A] outline-hidden w-full placeholder-zinc-700 font-sans"
                         />
                       </td>
                     </tr>
@@ -856,9 +856,9 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
         </div>
         
         {/* COMPLIANCE DISPATCH ACTION HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-5 border-t border-[#24272C]/40 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-5 border-t border-slate-200/40 gap-4">
           <div className="text-zinc-450 text-[10px] leading-relaxed max-w-xl text-left">
-            <span className="font-bold text-white block mb-0.5">Note on VAT Audit Trailing:</span>
+            <span className="font-bold text-slate-900 block mb-0.5">Note on VAT Audit Trailing:</span>
             Transactions in draft or pending status do not display in BIR compliant schedules. Keep invoice schemas synced with actual physical bank clearances to prevent penalties on VAT overclaims.
           </div>
 
@@ -870,7 +870,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               }
               toast.success('Configuration Saved', { description: 'BIR ledger compliance mappings and audited meta references saved successfully!' });
             }}
-            className="px-6 py-2.5 bg-zinc-900 border border-[#24272C] hover:text-white hover:border-zinc-700 transition duration-150 rounded-xl text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 cursor-pointer text-zinc-300"
+            className="px-6 py-2.5 bg-slate-50 border border-slate-200 hover:text-slate-900 hover:border-slate-200 transition duration-150 rounded-xl text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 cursor-pointer text-slate-700"
           >
             <Save className="w-4 h-4 text-[#00B67A]" />
             <span>Save Compliance Audit</span>
@@ -882,10 +882,10 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="statutory-preview-grid">
         
         {/* OFFICIAL BIR FILLABLE PARAMS SETTINGS */}
-        <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md space-y-4" id="tax-agent-bento">
-          <div className="flex items-center gap-2 border-b border-[#24272C] pb-3">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md space-y-4" id="tax-agent-bento">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
             <Sliders className="w-5 h-5 text-[#00B67A]" />
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Filer Legal Registry Profile</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">Filer Legal Registry Profile</h3>
           </div>
 
           <div className="space-y-4 text-left">
@@ -895,7 +895,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                 type="text" 
                 value={filerInfo.tin}
                 onChange={(e) => setFilerInfo(prev => ({ ...prev, tin: e.target.value }))}
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-white font-mono"
+                className="w-full px-3 py-2 bg-white border border-slate-200 text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-slate-900 font-mono"
               />
             </div>
 
@@ -905,7 +905,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                 type="text" 
                 value={filerInfo.tradeName}
                 onChange={(e) => setFilerInfo(prev => ({ ...prev, tradeName: e.target.value }))}
-                className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-[#00B67A] font-bold"
+                className="w-full px-3 py-2 bg-white border border-slate-200 text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-[#00B67A] font-bold"
               />
             </div>
 
@@ -916,7 +916,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                   type="text" 
                   value={filerInfo.rdoCode}
                   onChange={(e) => setFilerInfo(prev => ({ ...prev, rdoCode: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-white font-mono text-center"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-slate-900 font-mono text-center"
                 />
               </div>
               <div>
@@ -925,39 +925,39 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                   type="email" 
                   value={filerInfo.email}
                   onChange={(e) => setFilerInfo(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-white font-mono"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-xs focus:ring-1 focus:ring-[#00B67A] rounded-xl text-slate-900 font-mono"
                 />
               </div>
             </div>
 
-            <div className="pt-2 border-t border-[#24272C]/40 space-y-3">
-              <span className="text-[10px] font-bold text-zinc-400 block uppercase tracking-wider font-mono">Signatory Tax Attorney Credentials</span>
+            <div className="pt-2 border-t border-slate-200/40 space-y-3">
+              <span className="text-[10px] font-bold text-slate-600 block uppercase tracking-wider font-mono">Signatory Tax Attorney Credentials</span>
               <div>
-                <label className="text-[8.5px] uppercase font-mono text-zinc-500 block mb-1">Accreditable Attorney Agent</label>
+                <label className="text-[8.5px] uppercase font-mono text-slate-500 block mb-1">Accreditable Attorney Agent</label>
                 <input 
                   type="text" 
                   value={filerInfo.agentName}
                   onChange={(e) => setFilerInfo(prev => ({ ...prev, agentName: e.target.value }))}
-                  className="w-full px-3 py-1.5 bg-[#141618] border border-[#24272c] text-[11px] rounded-lg text-zinc-300 font-mono"
+                  className="w-full px-3 py-1.5 bg-white border border-[#24272c] text-[11px] rounded-lg text-slate-700 font-mono"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[8px] uppercase font-mono text-zinc-500 block mb-1">Agent TIN</label>
+                  <label className="text-[8px] uppercase font-mono text-slate-500 block mb-1">Agent TIN</label>
                   <input 
                     type="text" 
                     value={filerInfo.agentTIN}
                     onChange={(e) => setFilerInfo(prev => ({ ...prev, agentTIN: e.target.value }))}
-                    className="w-full px-2 py-1.5 bg-[#141618] border border-[#24272c] text-[11px] rounded-lg text-zinc-300 font-mono"
+                    className="w-full px-2 py-1.5 bg-white border border-[#24272c] text-[11px] rounded-lg text-slate-700 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[8px] uppercase font-mono text-zinc-500 block mb-1">Accreditation No</label>
+                  <label className="text-[8px] uppercase font-mono text-slate-500 block mb-1">Accreditation No</label>
                   <input 
                     type="text" 
                     value={filerInfo.agentAccreditation}
                     onChange={(e) => setFilerInfo(prev => ({ ...prev, agentAccreditation: e.target.value }))}
-                    className="w-full px-2 py-1.5 bg-[#141618] border border-[#24272c] text-[11px] rounded-lg text-zinc-400 font-mono"
+                    className="w-full px-2 py-1.5 bg-white border border-[#24272c] text-[11px] rounded-lg text-slate-600 font-mono"
                   />
                 </div>
               </div>
@@ -966,18 +966,18 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
         </div>
 
         {/* COMPREHENSIVE INTERACTIVE DIGITAL BIR FILING WORKROOM */}
-        <div className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md flex flex-col justify-between" id="statutory-preview-bento">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-md flex flex-col justify-between" id="statutory-preview-bento">
           
           {/* TAB BUTTONS FOR OFFICIAL GOVERNMENT FORMS */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#24272C] pb-3 flex-wrap gap-2">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#00B67A]" />
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">BIR Form Ledger Auto-Matching</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">BIR Form Ledger Auto-Matching</h3>
               </div>
 
               {/* TOGGLES */}
-              <div className="flex items-center gap-1.5 bg-[#141618] p-0.5 border border-[#24272C] rounded-xl">
+              <div className="flex items-center gap-1.5 bg-white p-0.5 border border-slate-200 rounded-xl">
                 {[
                   { id: '2550m', label: 'Form 2550M' },
                   { id: '1601eq', label: 'Form 1601-EQ' },
@@ -989,7 +989,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                     className={`px-3 py-1.5 text-[9px] font-mono tracking-widest uppercase transition-all rounded-lg cursor-pointer ${
                       activeFilingTab === formOpt.id 
                         ? 'bg-[#00B67A] text-white font-bold' 
-                        : 'text-zinc-500 hover:text-white'
+                        : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
                     {formOpt.label}
@@ -999,7 +999,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
             </div>
 
             {/* THE FORM CONTENT SCROLL RENDER */}
-            <div className="p-5 bg-[#0F1113] border border-zinc-900 rounded-xl space-y-4 font-mono text-[11px] max-h-[310px] overflow-y-auto">
+            <div className="p-5 bg-slate-50 border border-zinc-900 rounded-xl space-y-4 font-mono text-[11px] max-h-[310px] overflow-y-auto">
               {activeFilingTab === '2550m' && (
                 <div className="space-y-3 text-left">
                   <div className="flex items-center justify-between text-zinc-450 border-b border-zinc-900 pb-2 text-[10px]">
@@ -1008,14 +1008,14 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                   </div>
                   
                   {/* FORM HEADER METRIC BLOCKS */}
-                  <div className="grid grid-cols-2 gap-4 border-b border-[#24272C] pb-3 text-xs">
+                  <div className="grid grid-cols-2 gap-4 border-b border-slate-200 pb-3 text-xs">
                     <div>
-                      <span className="text-[8px] text-zinc-500 block">Item 1: For the Month of</span>
-                      <span className="font-bold text-white">{taxMonth}</span>
+                      <span className="text-[8px] text-slate-500 block">Item 1: For the Month of</span>
+                      <span className="font-bold text-slate-900">{taxMonth}</span>
                     </div>
                     <div>
-                      <span className="text-[8px] text-zinc-500 block">Item 2: Amended Return?</span>
-                      <span className="font-bold text-white">NO (Original Return)</span>
+                      <span className="text-[8px] text-slate-500 block">Item 2: Amended Return?</span>
+                      <span className="font-bold text-slate-900">NO (Original Return)</span>
                     </div>
                   </div>
 
@@ -1023,33 +1023,33 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                   <div className="space-y-2 mt-2">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-450 block">Part II: Computation of Tax</span>
                     
-                    <div className="flex justify-between items-center bg-zinc-900/40 p-2 rounded">
-                      <span className="text-zinc-400">Line 12A: Vatable Sales / Receipts (Inclusive of VAT)</span>
-                      <span className="text-white font-bold">{formatPeso(taxSummaryStats.salesVat12 * 1.12)}</span>
+                    <div className="flex justify-between items-center bg-slate-50/40 p-2 rounded">
+                      <span className="text-slate-600">Line 12A: Vatable Sales / Receipts (Inclusive of VAT)</span>
+                      <span className="text-slate-900 font-bold">{formatPeso(taxSummaryStats.salesVat12 * 1.12)}</span>
                     </div>
 
                     <div className="flex justify-between items-center p-2">
-                      <span className="text-zinc-400">Line 12B: Output VAT Payable (12% of Net Base)</span>
+                      <span className="text-slate-600">Line 12B: Output VAT Payable (12% of Net Base)</span>
                       <span className="text-[#00B67A] font-bold">{formatPeso(taxSummaryStats.totalOutputVat)}</span>
                     </div>
 
-                    <div className="flex justify-between items-center bg-zinc-900/40 p-2 rounded">
-                      <span className="text-zinc-400">Line 14: Zero-Rated Sales / Receipts</span>
-                      <span className="text-white font-mono">{formatPeso(taxSummaryStats.salesVat0)}</span>
+                    <div className="flex justify-between items-center bg-slate-50/40 p-2 rounded">
+                      <span className="text-slate-600">Line 14: Zero-Rated Sales / Receipts</span>
+                      <span className="text-slate-900 font-mono">{formatPeso(taxSummaryStats.salesVat0)}</span>
                     </div>
 
                     <div className="flex justify-between items-center p-2">
-                      <span className="text-zinc-400">Line 15: VAT Exempt Sales / Receipts</span>
-                      <span className="text-white font-mono">{formatPeso(taxSummaryStats.salesVatExempt)}</span>
+                      <span className="text-slate-600">Line 15: VAT Exempt Sales / Receipts</span>
+                      <span className="text-slate-900 font-mono">{formatPeso(taxSummaryStats.salesVatExempt)}</span>
                     </div>
 
-                    <div className="flex justify-between items-center bg-zinc-900/40 p-2 rounded">
-                      <span className="text-zinc-400">Line 16: Claimable Input Tax Creditable from Purchases</span>
-                      <span className="text-zinc-300 font-bold">{formatPeso(taxSummaryStats.totalInputVat)}</span>
+                    <div className="flex justify-between items-center bg-slate-50/40 p-2 rounded">
+                      <span className="text-slate-600">Line 16: Claimable Input Tax Creditable from Purchases</span>
+                      <span className="text-slate-700 font-bold">{formatPeso(taxSummaryStats.totalInputVat)}</span>
                     </div>
 
-                    <div className="flex justify-between items-center border-t border-[#00B67A] pt-2 mt-1 p-2 text-xs bg-[#141618] rounded">
-                      <span className="font-bold text-white">Line 19: NET VAT PAYABLE / (REMITTABLE OVERPAYMENT)</span>
+                    <div className="flex justify-between items-center border-t border-[#00B67A] pt-2 mt-1 p-2 text-xs bg-white rounded">
+                      <span className="font-bold text-slate-900">Line 19: NET VAT PAYABLE / (REMITTABLE OVERPAYMENT)</span>
                       <span className={`font-bold ${taxSummaryStats.netVatPayable >= 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                         {taxSummaryStats.netVatPayable >= 0 ? formatPeso(taxSummaryStats.netVatPayable) : `(${formatPeso(Math.abs(taxSummaryStats.netVatPayable))})`}
                       </span>
@@ -1065,14 +1065,14 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                     <span className="text-[#00B67A] font-bold">BIR REGULATION</span>
                   </div>
 
-                  <span className="text-[10px] font-bold uppercase text-zinc-400 block mb-1">PART II: Computation of Tax Withheld</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-600 block mb-1">PART II: Computation of Tax Withheld</span>
 
                   <div className="space-y-3">
                     {/* EWT 1% */}
                     <div className="border-b border-zinc-900 pb-2 space-y-1">
-                      <div className="flex justify-between text-zinc-300">
+                      <div className="flex justify-between text-slate-700">
                         <span className="font-semibold">ATC WI100: Purchased Goods (EWT 1%)</span>
-                        <span className="font-bold text-white">{formatPeso(taxSummaryStats.ewt1Withheld)}</span>
+                        <span className="font-bold text-slate-900">{formatPeso(taxSummaryStats.ewt1Withheld)}</span>
                       </div>
                       <div className="text-[9px] text-zinc-550 flex justify-between">
                         <span>Total Tax Base: {formatPeso(taxSummaryStats.ewt1Base)}</span>
@@ -1082,9 +1082,9 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
                     {/* EWT 2% */}
                     <div className="border-b border-zinc-900 pb-2 space-y-1">
-                      <div className="flex justify-between text-zinc-300">
+                      <div className="flex justify-between text-slate-700">
                         <span className="font-semibold">ATC WI160: Purchased Services (EWT 2%)</span>
-                        <span className="font-bold text-white">{formatPeso(taxSummaryStats.ewt2Withheld)}</span>
+                        <span className="font-bold text-slate-900">{formatPeso(taxSummaryStats.ewt2Withheld)}</span>
                       </div>
                       <div className="text-[9px] text-zinc-550 flex justify-between">
                         <span>Total Tax Base: {formatPeso(taxSummaryStats.ewt2Base)}</span>
@@ -1094,9 +1094,9 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
                     {/* EWT 5% */}
                     <div className="border-b border-zinc-900 pb-2 space-y-1">
-                      <div className="flex justify-between text-zinc-300">
+                      <div className="flex justify-between text-slate-700">
                         <span className="font-semibold">ATC WI140: Real Estate Rentals (EWT 5%)</span>
-                        <span className="font-bold text-white">{formatPeso(taxSummaryStats.ewt5Withheld)}</span>
+                        <span className="font-bold text-slate-900">{formatPeso(taxSummaryStats.ewt5Withheld)}</span>
                       </div>
                       <div className="text-[9px] text-zinc-550 flex justify-between">
                         <span>Total Tax Base: {formatPeso(taxSummaryStats.ewt5Base)}</span>
@@ -1105,7 +1105,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                     </div>
 
                     {/* TOTAL REMITTANCE */}
-                    <div className="flex justify-between items-center text-xs text-white bg-[#141618] border-t border-[#00B67A] pt-2.5 px-3 py-2 rounded">
+                    <div className="flex justify-between items-center text-xs text-slate-900 bg-white border-t border-[#00B67A] pt-2.5 px-3 py-2 rounded">
                       <span className="font-bold uppercase">Total Withholding Remittance Tax Due</span>
                       <span className="text-[#00B67A] font-bold font-mono">{formatPeso(taxSummaryStats.totalEwtRemittance)}</span>
                     </div>
@@ -1120,18 +1120,18 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                     <span className="text-[#00B67A] font-bold">FOR TRANSACTION SUPPLIERS</span>
                   </div>
                   
-                  <p className="text-zinc-400 text-[10.5px] leading-relaxed">
+                  <p className="text-slate-600 text-[10.5px] leading-relaxed">
                     This document acts as certified withholding credit slips given to your corporate entities. The alphalist monitors supplier invoices:
                   </p>
 
-                  <div className="bg-zinc-900 p-3 rounded-lg divide-y divide-zinc-800 space-y-2">
-                    <div className="flex justify-between items-center pb-2.5 text-zinc-300">
+                  <div className="bg-slate-50 p-3 rounded-lg divide-y divide-zinc-800 space-y-2">
+                    <div className="flex justify-between items-center pb-2.5 text-slate-700">
                       <span>Total suppliers with credit certificates:</span>
-                      <span className="text-white font-bold">
+                      <span className="text-slate-900 font-bold">
                         {filteredGovTxns.filter(t => t.type === 'cash_out').length} Supplies Units
                       </span>
                     </div>
-                    <div className="flex justify-between items-center pt-2.5 text-zinc-300">
+                    <div className="flex justify-between items-center pt-2.5 text-slate-700">
                       <span>Total certificates claimable by company:</span>
                       <span className="text-[#00B67A] font-bold">
                         {formatPeso(taxSummaryStats.totalEwtRemittance)} Remitted Credit
@@ -1144,7 +1144,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
           </div>
 
           {/* GENERATE ACTION TRIGGER */}
-          <div className="pt-4 border-t border-[#24272C]/40 flex items-center justify-between flex-wrap gap-3">
+          <div className="pt-4 border-t border-slate-200/40 flex items-center justify-between flex-wrap gap-3">
             <span className="text-[10px] text-zinc-550 font-mono italic">
               Pre-validation matches 2026 digital compliance standard
             </span>
@@ -1166,19 +1166,19 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
       </div>
 
       {/* COMPLIANCE LOG TABLE SHOWING SUBMITTED ITEMS */}
-      <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-md" id="submittal-history-section">
-        <div className="flex items-center justify-between border-b border-[#24272C] pb-4 flex-wrap gap-2">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md" id="submittal-history-section">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-[#00B67A]" />
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">BIR Filing Submission History & Audit Trail</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900">BIR Filing Submission History & Audit Trail</h3>
           </div>
-          <span className="text-[10px] text-zinc-500 font-mono">SECURE KMS DIGITAL HANDSHAKE ACCUMULATOR</span>
+          <span className="text-[10px] text-slate-500 font-mono">SECURE KMS DIGITAL HANDSHAKE ACCUMULATOR</span>
         </div>
 
         <div className="overflow-x-auto mt-4 font-mono text-xs">
-          <table className="w-full text-left text-zinc-300">
+          <table className="w-full text-left text-slate-700">
             <thead>
-              <tr className="border-b border-[#24272C]/40 text-zinc-500 text-[10px] uppercase">
+              <tr className="border-b border-slate-200/40 text-slate-500 text-[10px] uppercase">
                 <th className="py-2.5 pl-2">Transmission ID REFERENCE</th>
                 <th className="py-2.5">Statutory Return Name</th>
                 <th className="py-2.5">Submitted Timestamp</th>
@@ -1189,32 +1189,32 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                 <th className="py-2.5 pl-6">Documents & Attachments</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#24272C]/30">
+            <tbody className="divide-y divide-slate-200/30">
               {simulatedFilingLog.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-zinc-500 italic">
+                  <td colSpan={8} className="py-8 text-center text-slate-500 italic">
                     No historical BIR filings submitted yet for this company.
                   </td>
                 </tr>
               ) : (
                 simulatedFilingLog.map((f) => (
-                  <tr key={f.id} className="hover:bg-zinc-800/20 transition duration-155">
+                  <tr key={f.id} className="hover:bg-slate-50/20 transition duration-155">
                     <td className="py-3.5 pl-2 text-emerald-450 font-bold flex items-center gap-1">
                       <CheckCircle className="w-3.5 h-3.5 text-[#00B67A] shrink-0" />
                       <span>{f.id}</span>
                     </td>
-                    <td className="py-3.5 font-semibold text-white">{f.formType}</td>
-                    <td className="py-3.5 text-zinc-400">
+                    <td className="py-3.5 font-semibold text-slate-900">{f.formType}</td>
+                    <td className="py-3.5 text-slate-600">
                       <span className="flex items-center gap-1 text-[11px]">
                         <Calendar className="w-3.5 h-3.5 text-zinc-550 inline" />
                         {f.timestamp}
                       </span>
                     </td>
-                    <td className="py-3.5 text-zinc-300">{f.month}</td>
+                    <td className="py-3.5 text-slate-700">{f.month}</td>
                     <td className="py-3.5 text-center text-zinc-450 font-bold">{f.recordsProcessed} Records</td>
                     <td className="py-3.5 text-right font-bold text-[#00B67A] pr-4">{formatPeso(f.liability)}</td>
                     <td className="py-3.5 text-center select-none">
-                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#1A2E1A] text-[#10B981] border border-[#235332]">
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
                         {f.status}
                       </span>
                     </td>
@@ -1225,7 +1225,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                             setSelectedAuditDoc(f);
                             setSelectedDocTab('csv');
                           }}
-                          className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-[10px] font-bold text-[#00B67A] transition flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded text-[10px] font-bold text-[#00B67A] transition flex items-center gap-1 cursor-pointer"
                           title="Download/View CSV Alphalist Report"
                         >
                           <Paperclip className="w-3 h-3 text-[#00B67A]/80" />
@@ -1236,7 +1236,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                             setSelectedAuditDoc(f);
                             setSelectedDocTab('dat');
                           }}
-                          className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-[10px] font-bold text-amber-400 transition flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded text-[10px] font-bold text-amber-400 transition flex items-center gap-1 cursor-pointer"
                           title="Download/View DAT Electronic Submission Payload"
                         >
                           <FileCode className="w-3 h-3 text-amber-500/80" />
@@ -1247,7 +1247,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                             setSelectedAuditDoc(f);
                             setSelectedDocTab('json');
                           }}
-                          className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-[10px] font-bold text-sky-400 transition flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-slate-50 border border-slate-200 rounded text-[10px] font-bold text-sky-400 transition flex items-center gap-1 cursor-pointer"
                           title="Download/View Audit JSON Sync Payload"
                         >
                           <FileSpreadsheet className="w-3 h-3 text-sky-500/80" />
@@ -1265,18 +1265,18 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
       {/* EXPORT DIALOG / MODAL PANEL */}
       {exportModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#0F1113]/85 backdrop-blur-xs font-mono animate-fadeIn" id="export-modal">
-          <div className="bg-[#181A1C] border border-[#24272C] w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-50/85 backdrop-blur-xs font-mono animate-fadeIn" id="export-modal">
+          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
             
             {/* IN-MODAL HEADER */}
-            <div className="px-6 py-5 border-b border-[#24272C] flex items-center justify-between bg-[#141618]">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-[#00B67A]" />
-                <span className="text-xs uppercase font-bold tracking-widest text-white">BIR Official eFile Export Wizard</span>
+                <span className="text-xs uppercase font-bold tracking-widest text-slate-900">BIR Official eFile Export Wizard</span>
               </div>
               <button 
                 onClick={() => setExportModalOpen(false)}
-                className="text-zinc-500 hover:text-white font-bold cursor-pointer hover:bg-zinc-800/60 p-2 rounded-xl transition text-xs"
+                className="text-slate-500 hover:text-slate-900 font-bold cursor-pointer hover:bg-slate-100 p-2 rounded-xl transition text-xs"
               >
                 Close ✕
               </button>
@@ -1286,11 +1286,11 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
             <div className="p-6 space-y-4 text-xs">
               
               {/* FILING DETAIL WARNING BOX */}
-              <div className="p-4 bg-zinc-950/60 border border-[#24272C] rounded-2xl flex items-start gap-3 text-left">
+              <div className="p-4 bg-slate-50/60 border border-slate-200 rounded-2xl flex items-start gap-3 text-left">
                 <AlertTriangle className="w-5 h-5 text-[#00B67A] shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="font-bold text-white block">Pre-flight Validation: PASS (No outstanding errors)</span>
-                  <p className="text-[11px] text-zinc-500 leading-relaxed font-sans">
+                  <span className="font-bold text-slate-900 block">Pre-flight Validation: PASS (No outstanding errors)</span>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
                     Generating alphalists for <b>{filerInfo.tradeName}</b>, TIN <b>{filerInfo.tin}</b>. Standard validation checked reference serial compliance and tax-deductibility schemas correctly.
                   </p>
                 </div>
@@ -1298,13 +1298,13 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
               {/* GENERATED FILE SWITCH CONTENT TAB */}
               <div className="space-y-2 text-left">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest block font-mono">Audited Output Payload (CSV Formatted)</span>
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest block font-mono">Audited Output Payload (CSV Formatted)</span>
                 
                 <div className="relative">
                   <textarea
                     readOnly
                     value={generatedExportFiles.csv}
-                    className="w-full h-44 p-4 bg-[#141618] border border-[#24272C] text-[10px] text-zinc-300 rounded-2xl font-mono leading-relaxed focus:outline-hidden focus:ring-0 whitespace-pre overflow-x-auto"
+                    className="w-full h-44 p-4 bg-white border border-slate-200 text-[10px] text-slate-700 rounded-2xl font-mono leading-relaxed focus:outline-hidden focus:ring-0 whitespace-pre overflow-x-auto"
                   />
                   <div className="absolute bottom-3 right-3 flex items-center gap-2">
                     <button
@@ -1312,7 +1312,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                         navigator.clipboard.writeText(generatedExportFiles.csv);
                         toast.success('Saved to clipboard', { description: 'CSV compliance payload copied to clipboard!' });
                       }}
-                      className="px-3.5 py-1.5 bg-[#00B67A] hover:bg-emerald-600 font-bold rounded-xl text-[9px] text-white flex items-center gap-1 cursor-pointer transition shadow-sm"
+                      className="px-3.5 py-1.5 bg-[#00B67A] hover:bg-emerald-600 font-bold rounded-xl text-[9px] text-slate-900 flex items-center gap-1 cursor-pointer transition shadow-sm"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" /> Copy CSV
                     </button>
@@ -1326,7 +1326,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="px-3.5 py-1.5 bg-zinc-900 border border-zinc-800 hover:text-white font-bold rounded-xl text-[9px] text-zinc-305 flex items-center gap-1 cursor-pointer transition shadow-sm"
+                      className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 hover:text-slate-900 font-bold rounded-xl text-[9px] text-slate-600 flex items-center gap-1 cursor-pointer transition shadow-sm"
                     >
                       <Download className="w-3.5 h-3.5" /> Download
                     </button>
@@ -1337,26 +1337,26 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               {/* SECONDARY FILE PLUGINS AND JSON RECAP */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
                 <div>
-                  <span className="text-[10.5px] uppercase font-bold text-zinc-500 tracking-wider block mb-1">EIS Electronic payload (.DAT Format)</span>
+                  <span className="text-[10.5px] uppercase font-bold text-slate-500 tracking-wider block mb-1">EIS Electronic payload (.DAT Format)</span>
                   <textarea 
                     readOnly
                     value={generatedExportFiles.dat}
-                    className="w-full h-24 p-3 bg-[#141618] border border-[#24272C] rounded-xl text-[9.5px] text-zinc-400 font-mono focus:outline-hidden resize-none"
+                    className="w-full h-24 p-3 bg-white border border-slate-200 rounded-xl text-[9.5px] text-slate-600 font-mono focus:outline-hidden resize-none"
                   />
                 </div>
                 <div>
-                  <span className="text-[10.5px] uppercase font-bold text-zinc-500 tracking-wider block mb-1">Corporate Audit JSON payload</span>
+                  <span className="text-[10.5px] uppercase font-bold text-slate-500 tracking-wider block mb-1">Corporate Audit JSON payload</span>
                   <textarea 
                     readOnly
                     value={generatedExportFiles.json}
-                    className="w-full h-24 p-3 bg-[#141618] border border-[#24272C] rounded-xl text-[9.5px] text-zinc-450 font-mono focus:outline-hidden resize-none"
+                    className="w-full h-24 p-3 bg-white border border-slate-200 rounded-xl text-[9.5px] text-zinc-450 font-mono focus:outline-hidden resize-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* IN-MODAL DISPATCH CONTROLS */}
-            <div className="px-6 py-5 bg-[#141618] border-t border-[#24272C] flex items-center justify-between">
+            <div className="px-6 py-5 bg-white border-t border-slate-200 flex items-center justify-between">
               <span className="text-[10px] text-zinc-550 italic font-mono">
                 Digitally authenticated with AES256-GCM Secure Enclaves
               </span>
@@ -1364,14 +1364,14 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setExportModalOpen(false)}
-                  className="px-4 py-2 border border-[#24272C] hover:text-white rounded-xl text-xs font-bold transition cursor-pointer text-zinc-400"
+                  className="px-4 py-2 border border-slate-200 hover:text-slate-900 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUploadToBIRPortal}
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-[#00B67A] hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-650 text-white font-bold rounded-xl text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition"
+                  className="px-6 py-2.5 bg-[#00B67A] hover:bg-emerald-600 disabled:bg-slate-50 disabled:text-slate-400 text-slate-900 font-bold rounded-xl text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition"
                 >
                   {isSubmitting ? (
                     <>
@@ -1392,21 +1392,21 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
       {/* HISTORICAL DETAILED DOCUMENT VIEWER & ARCHIVE MODAL */}
       {selectedAuditDoc && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#0F1113]/90 backdrop-blur-xs font-mono animate-fadeIn" id="audit-doc-modal">
-          <div className="bg-[#181A1C] border border-[#24272C] w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-50/90 backdrop-blur-xs font-mono animate-fadeIn" id="audit-doc-modal">
+          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
             
             {/* MODAL HEADER */}
-            <div className="px-6 py-5 border-b border-[#24272C] flex items-center justify-between bg-[#141618]">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-[#00B67A] shrink-0 font-bold" />
                 <div className="text-left">
-                  <span className="text-xs uppercase font-bold tracking-widest text-white block">BIR Historical Transmission Archive</span>
-                  <span className="text-[10px] text-zinc-500 font-mono">REFERENCE: {selectedAuditDoc.id}</span>
+                  <span className="text-xs uppercase font-bold tracking-widest text-slate-900 block">BIR Historical Transmission Archive</span>
+                  <span className="text-[10px] text-slate-500 font-mono">REFERENCE: {selectedAuditDoc.id}</span>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedAuditDoc(null)}
-                className="text-zinc-500 hover:text-white font-bold cursor-pointer hover:bg-zinc-800/60 p-2 rounded-xl transition text-xs"
+                className="text-slate-500 hover:text-slate-900 font-bold cursor-pointer hover:bg-slate-100 p-2 rounded-xl transition text-xs"
               >
                 Close ✕
               </button>
@@ -1416,18 +1416,18 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
             <div className="p-6 space-y-5 text-xs text-left">
               
               {/* META INFO BANNER */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-[#141618] border border-[#24272C] rounded-2xl">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white border border-slate-200 rounded-2xl">
                 <div>
                   <span className="text-[9px] text-[#00B67A] uppercase block font-sans font-bold">Form Type</span>
-                  <span className="text-white font-bold text-[11px] font-mono leading-none">{selectedAuditDoc.formType}</span>
+                  <span className="text-slate-900 font-bold text-[11px] font-mono leading-none">{selectedAuditDoc.formType}</span>
                 </div>
                 <div>
                   <span className="text-[9px] text-[#00B67A] uppercase block font-sans font-bold">Period Month</span>
-                  <span className="text-white font-bold text-[11px] font-mono leading-none">{selectedAuditDoc.month}</span>
+                  <span className="text-slate-900 font-bold text-[11px] font-mono leading-none">{selectedAuditDoc.month}</span>
                 </div>
                 <div>
                   <span className="text-[9px] text-[#00B67A] uppercase block font-sans font-bold">Transmission Date</span>
-                  <span className="text-zinc-300 font-mono text-[11px] leading-none">{selectedAuditDoc.timestamp}</span>
+                  <span className="text-slate-700 font-mono text-[11px] leading-none">{selectedAuditDoc.timestamp}</span>
                 </div>
                 <div>
                   <span className="text-[9px] text-[#00B67A] uppercase block font-sans font-bold">Tax Cleared Amount</span>
@@ -1436,7 +1436,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
               </div>
 
               {/* DOCUMENT SWITCH TABS */}
-              <div className="flex items-center gap-1.5 border-b border-[#24272C] pb-2 overflow-x-auto">
+              <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2 overflow-x-auto">
                 {[
                   { id: 'csv', label: 'CSV (Alphalist Report)', icon: FileSpreadsheet },
                   { id: 'dat', label: 'DAT (Official e-Submission File)', icon: FileCode },
@@ -1451,7 +1451,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                       className={`flex items-center gap-2 px-4 py-2 text-[10px] uppercase font-bold tracking-wider transition-all rounded-xl cursor-pointer shrink-0 ${
                         isActive 
                           ? 'bg-[#00B67A] text-white' 
-                          : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#1D2024]/50 border border-transparent'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 border border-transparent'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -1463,13 +1463,13 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
 
               {/* PREVIEW TEXT PANEL */}
               <div className="relative">
-                <span className="text-[9px] text-zinc-500 uppercase tracking-widest block mb-1 font-mono">
+                <span className="text-[9px] text-slate-500 uppercase tracking-widest block mb-1 font-mono">
                   Document Payload Viewer ({selectedDocTab.toUpperCase()})
                 </span>
                 <textarea
                   readOnly
                   value={selectedAuditDoc.files ? selectedAuditDoc.files[selectedDocTab] : 'No attachment data stored for this report format.'}
-                  className="w-full h-56 p-4 bg-[#141618] border border-[#24272C] text-[10px] text-zinc-300 rounded-2xl font-mono leading-relaxed focus:outline-hidden focus:ring-0 whitespace-pre overflow-x-auto"
+                  className="w-full h-56 p-4 bg-white border border-slate-200 text-[10px] text-slate-700 rounded-2xl font-mono leading-relaxed focus:outline-hidden focus:ring-0 whitespace-pre overflow-x-auto"
                 />
                 <div className="absolute bottom-3 right-3 flex items-center gap-2">
                   <button
@@ -1478,7 +1478,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                       navigator.clipboard.writeText(text);
                       toast.success('Payload Copied', { description: `Attachment ${selectedDocTab.toUpperCase()} payload copied successfully!` });
                     }}
-                    className="px-3 py-1.5 bg-[#00B67A] hover:bg-emerald-600 font-bold rounded-xl text-[9px] text-white flex items-center gap-1 cursor-pointer transition shadow-sm"
+                    className="px-3 py-1.5 bg-[#00B67A] hover:bg-emerald-600 font-bold rounded-xl text-[9px] text-slate-900 flex items-center gap-1 cursor-pointer transition shadow-sm"
                   >
                     <ClipboardCheck className="w-3.5 h-3.5" /> Copy Data
                   </button>
@@ -1494,7 +1494,7 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
                       a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:text-white font-bold rounded-xl text-[9px] text-zinc-305 flex items-center gap-1 cursor-pointer transition shadow-sm"
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 hover:text-slate-900 font-bold rounded-xl text-[9px] text-slate-600 flex items-center gap-1 cursor-pointer transition shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" /> Download
                   </button>
@@ -1504,13 +1504,13 @@ export default function TaxComplianceDashboard({ userId, companyId, onAuditLogge
             </div>
 
             {/* MODAL FOOTER */}
-            <div className="px-6 py-5 bg-[#141618] border-t border-[#24272C] flex items-center justify-between flex-wrap gap-2">
-              <span className="text-[10px] text-zinc-500 italic">
+            <div className="px-6 py-5 bg-white border-t border-slate-200 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[10px] text-slate-500 italic">
                 Digital Fingerprint Verified 🗝️ SHA256 Secured Archive
               </span>
               <button
                 onClick={() => setSelectedAuditDoc(null)}
-                className="px-5 py-2 bg-zinc-900 hover:text-white border border-[#24272C] rounded-xl text-xs font-bold transition cursor-pointer text-zinc-400"
+                className="px-5 py-2 bg-slate-50 hover:text-slate-900 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600"
               >
                 Close Archive
               </button>

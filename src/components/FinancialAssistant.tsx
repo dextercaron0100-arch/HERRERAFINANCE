@@ -103,29 +103,29 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold font-display text-white flex items-center gap-2 tracking-tight">
+          <h2 className="text-xl font-bold font-display text-slate-900 flex items-center gap-2 tracking-tight">
             <Sparkles className="w-5 h-5 text-indigo-400" />
             Herrera Financial Intelligence Assistant
           </h2>
-          <p className="text-sm text-zinc-400 font-mono mt-1">
+          <p className="text-sm text-slate-600 font-mono mt-1">
             Analyze trends, query ledgers, and ask about AP/AR anomalies.
           </p>
         </div>
       </div>
 
-      <div className="flex-1 bg-[#141618] border border-[#24272C] rounded-2xl flex flex-col overflow-hidden relative shadow-lg">
+      <div className="flex-1 bg-white border border-slate-200 rounded-2xl flex flex-col overflow-hidden relative shadow-lg">
         {/* Chat History */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-[#00B67A] text-white' : 'bg-[#24272C] text-indigo-400 border border-[#24272C]'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-[#00B67A] text-white' : 'bg-slate-50 text-indigo-600 border border-slate-200'}`}>
                 {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
               <div className={`flex flex-col max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                 <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-[#00B67A] text-white rounded-tr-none' : 'bg-[#181A1C] text-zinc-300 border border-[#24272C] rounded-tl-none font-mono whitespace-pre-wrap'}`}>
+                 <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-[#00B67A] text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none font-mono whitespace-pre-wrap'}`}>
                     {msg.content}
                  </div>
-                 <span className="text-[10px] text-zinc-500 font-mono mt-1.5 px-1">
+                 <span className="text-[10px] text-slate-500 font-mono mt-1.5 px-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                  </span>
               </div>
@@ -133,13 +133,13 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
           ))}
           {isLoading && (
              <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-[#24272C] text-indigo-400 border border-[#24272C] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-slate-50 text-indigo-600 border border-slate-200 flex items-center justify-center shrink-0">
                 <Bot className="w-4 h-4 animate-pulse" />
               </div>
-              <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></div>
-                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce"></div>
+                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
               </div>
             </div>
           )}
@@ -147,27 +147,27 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-[#181A1C] border-t border-[#24272C]">
+        <div className="p-4 bg-white border-t border-slate-200">
            <form onSubmit={handleSend} className="relative flex items-center max-w-4xl mx-auto">
-             <TerminalSquare className="absolute left-4 w-5 h-5 text-zinc-500" />
+             <TerminalSquare className="absolute left-4 w-5 h-5 text-slate-500" />
              <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about recent expenses, missing collections, or budget health..."
-                className="w-full bg-[#0F1113] border border-[#24272C] rounded-xl pl-12 pr-14 py-3.5 text-sm text-white focus:outline-hidden focus:border-indigo-500 font-mono transition-colors"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-14 py-3.5 text-sm text-slate-900 focus:outline-hidden focus:border-indigo-500 font-mono transition-colors"
                 disabled={isLoading}
              />
              <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white rounded-lg transition-colors"
+                className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 text-slate-900 rounded-lg transition-colors"
              >
                 <Send className="w-4 h-4" />
              </button>
            </form>
            <div className="text-center mt-3 flex items-center justify-center gap-2">
-              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Powered by Google Gemini</span>
+              <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">Powered by Google Gemini</span>
            </div>
         </div>
       </div>

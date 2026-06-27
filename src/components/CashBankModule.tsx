@@ -75,18 +75,18 @@ export default function CashBankModule({ userId, companyId }: Props) {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-white font-display text-2xl tracking-tight flex items-center gap-2">
+          <h1 className="text-slate-900 font-display text-2xl tracking-tight flex items-center gap-2">
             <Landmark className="w-6 h-6 text-emerald-500" />
             Cash & Bank Reconciliation
           </h1>
-          <p className="text-sm text-zinc-400 font-mono mt-1">
+          <p className="text-sm text-slate-600 font-mono mt-1">
             Manage company bank balances, e-wallets, and physical cash custodians.
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-[#24272C]">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-slate-200">
         {[
           { id: "dashboard", label: "Dashboard" },
           { id: "accounts", label: "Cash & Bank Accounts" },
@@ -100,8 +100,8 @@ export default function CashBankModule({ userId, companyId }: Props) {
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-4 py-2 text-xs font-bold rounded-t-lg transition-colors whitespace-nowrap ${
               activeTab === tab.id
-                ? "bg-[#24272C] text-emerald-400 border-b-2 border-emerald-400"
-                : "text-zinc-500 hover:text-zinc-300 hover:bg-[#181A1C]"
+                ? "bg-slate-50 text-emerald-400 border-b-2 border-emerald-400"
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
             }`}
           >
             {tab.label}
@@ -114,20 +114,20 @@ export default function CashBankModule({ userId, companyId }: Props) {
         {activeTab === "dashboard" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl">
-                <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Total Cash on Hand</div>
-                <div className="text-2xl font-bold text-white mt-2">{formatPeso(stats.totalCashOnHand)}</div>
+              <div className="bg-white border border-slate-200 p-4 rounded-xl">
+                <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Total Cash on Hand</div>
+                <div className="text-2xl font-bold text-slate-900 mt-2">{formatPeso(stats.totalCashOnHand)}</div>
               </div>
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl">
-                <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Total Bank Balance</div>
-                <div className="text-2xl font-bold text-white mt-2">{formatPeso(stats.totalBank)}</div>
+              <div className="bg-white border border-slate-200 p-4 rounded-xl">
+                <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Total Bank Balance</div>
+                <div className="text-2xl font-bold text-slate-900 mt-2">{formatPeso(stats.totalBank)}</div>
               </div>
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl">
-                <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Total E-Wallet</div>
-                <div className="text-2xl font-bold text-white mt-2">{formatPeso(stats.totalGCash)}</div>
+              <div className="bg-white border border-slate-200 p-4 rounded-xl">
+                <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Total E-Wallet</div>
+                <div className="text-2xl font-bold text-slate-900 mt-2">{formatPeso(stats.totalGCash)}</div>
               </div>
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl">
-                <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest flex justify-between">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl">
+                <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest flex justify-between">
                   <span>Cash Short / Over</span>
                 </div>
                 <div className="text-xl font-bold mt-2 flex gap-4">
@@ -138,23 +138,23 @@ export default function CashBankModule({ userId, companyId }: Props) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl flex items-center justify-between">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                  <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Pending Cash Counts</div>
+                  <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Pending Cash Counts</div>
                   <div className="text-lg font-bold text-amber-400 mt-1">{stats.pendingCounts}</div>
                 </div>
                 <Receipt className="w-8 h-8 text-[#24272C]" />
               </div>
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl flex items-center justify-between">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                  <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Pending Bank Deposits</div>
+                  <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Pending Bank Deposits</div>
                   <div className="text-lg font-bold text-amber-400 mt-1">{stats.pendingDeposits}</div>
                 </div>
                 <Upload className="w-8 h-8 text-[#24272C]" />
               </div>
-              <div className="bg-[#141618] border border-[#24272C] p-4 rounded-xl flex items-center justify-between">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                  <div className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">Unreconciled Bank Accounts</div>
+                  <div className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Unreconciled Bank Accounts</div>
                   <div className="text-lg font-bold text-amber-400 mt-1">{stats.unreconciledBanks}</div>
                 </div>
                 <AlertCircle className="w-8 h-8 text-[#24272C]" />
@@ -162,12 +162,12 @@ export default function CashBankModule({ userId, companyId }: Props) {
             </div>
 
             {/* Cash by Custodian Table */}
-            <div className="bg-[#141618] border border-[#24272C] rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-[#24272C] bg-[#181A1C]">
-                <h3 className="text-sm font-bold text-white font-mono uppercase tracking-widest">Cash by Custodian</h3>
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-slate-200 bg-white">
+                <h3 className="text-sm font-bold text-slate-900 font-mono uppercase tracking-widest">Cash by Custodian</h3>
               </div>
-              <table className="w-full text-left text-xs text-zinc-400 font-mono">
-                <thead className="bg-[#181A1C] border-b border-[#24272C] text-[10px] uppercase tracking-widest">
+              <table className="w-full text-left text-xs text-slate-600 font-mono">
+                <thead className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-widest">
                   <tr>
                     <th className="p-3">Custodian</th>
                     <th className="p-3">Account Name</th>
@@ -178,8 +178,8 @@ export default function CashBankModule({ userId, companyId }: Props) {
                   {allCustodians.map(c => {
                     const acc = allAccounts.find(a => a.id === c.assignedCashAccountId);
                     return (
-                      <tr key={c.id} className="border-b border-[#24272C]">
-                        <td className="p-3 text-white font-bold">{c.name} <span className="text-zinc-500 font-normal">({c.role})</span></td>
+                      <tr key={c.id} className="border-b border-slate-200">
+                        <td className="p-3 text-slate-900 font-bold">{c.name} <span className="text-slate-500 font-normal">({c.role})</span></td>
                         <td className="p-3">{acc ? acc.accountName : "No account assigned"}</td>
                         <td className="p-3 text-right font-bold text-emerald-400">{acc ? formatPeso(acc.currentBalance) : formatPeso(0)}</td>
                       </tr>
@@ -187,7 +187,7 @@ export default function CashBankModule({ userId, companyId }: Props) {
                   })}
                   {allCustodians.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="p-4 text-center text-zinc-500">No custodians found.</td>
+                      <td colSpan={3} className="p-4 text-center text-slate-500">No custodians found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -198,9 +198,9 @@ export default function CashBankModule({ userId, companyId }: Props) {
 
         {/* Custodians Tab */}
         {activeTab === "custodians" && (
-          <div className="bg-[#141618] border border-[#24272C] rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-[#24272C] bg-[#181A1C] flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-widest">Cash Custodians</h3>
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+              <h3 className="text-sm font-bold text-slate-900 font-mono uppercase tracking-widest">Cash Custodians</h3>
               <button 
                 onClick={() => {
                   saveCashCustodian({
@@ -217,8 +217,8 @@ export default function CashBankModule({ userId, companyId }: Props) {
                 <Plus className="w-3 h-3" /> New Custodian
               </button>
             </div>
-            <table className="w-full text-left text-xs text-zinc-400 font-mono">
-              <thead className="bg-[#181A1C] border-b border-[#24272C] text-[10px] uppercase tracking-widest">
+            <table className="w-full text-left text-xs text-slate-600 font-mono">
+              <thead className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-widest">
                 <tr>
                   <th className="p-3">Custodian</th>
                   <th className="p-3">Role</th>
@@ -230,8 +230,8 @@ export default function CashBankModule({ userId, companyId }: Props) {
                 {allCustodians.map(c => {
                   const acc = allAccounts.find(a => a.id === c.assignedCashAccountId);
                   return (
-                    <tr key={c.id} className="border-b border-[#24272C]">
-                      <td className="p-3 text-white font-bold">{c.name}</td>
+                    <tr key={c.id} className="border-b border-slate-200">
+                      <td className="p-3 text-slate-900 font-bold">{c.name}</td>
                       <td className="p-3">{c.role}</td>
                       <td className="p-3">{acc ? acc.accountName : "None"}</td>
                       <td className="p-3">
@@ -244,7 +244,7 @@ export default function CashBankModule({ userId, companyId }: Props) {
                 })}
                 {allCustodians.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-4 text-center text-zinc-500">No custodians found.</td>
+                    <td colSpan={4} className="p-4 text-center text-slate-500">No custodians found.</td>
                   </tr>
                 )}
               </tbody>
@@ -270,9 +270,9 @@ export default function CashBankModule({ userId, companyId }: Props) {
 
         {/* Placeholder for other tabs, will fill out incrementally or let user explore */}
         {activeTab !== "dashboard" && activeTab !== "custodians" && activeTab !== "accounts" && activeTab !== "ledger" && activeTab !== "counts" && activeTab !== "deposits" && (
-          <div className="p-8 text-center bg-[#141618] border border-[#24272C] rounded-xl">
-            <h2 className="text-xl font-bold text-zinc-300">Under Construction</h2>
-            <p className="text-zinc-500 text-sm mt-2 font-mono">The {activeTab} section is coming shortly in the next build step.</p>
+          <div className="p-8 text-center bg-white border border-slate-200 rounded-xl">
+            <h2 className="text-xl font-bold text-slate-700">Under Construction</h2>
+            <p className="text-slate-500 text-sm mt-2 font-mono">The {activeTab} section is coming shortly in the next build step.</p>
           </div>
         )}
 

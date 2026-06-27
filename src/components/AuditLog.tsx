@@ -77,10 +77,10 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
   return (
     <div className="space-y-6">
       {/* HEADER SECTION PANEL */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
+      <div className="bg-white border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
         <div>
-          <h1 className="text-base font-display font-bold text-white tracking-tight flex items-center gap-1.5">
-            <ShieldCheck className="w-5 h-5 text-zinc-400 animate-pulse" />
+          <h1 className="text-base font-display font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+            <ShieldCheck className="w-5 h-5 text-slate-600 animate-pulse" />
             <span>Immutable Integrity Security Logs</span>
           </h1>
           <p className="text-[10px] text-zinc-450 font-mono uppercase tracking-wider mt-0.5 font-semibold">Strictly tracks accounting adjustments, salary modifications and reviews decisions.</p>
@@ -89,19 +89,19 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
         {/* SEARCH & FILTERS */}
         <div className="flex flex-col sm:flex-row gap-2 select-none w-full sm:w-auto">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500" />
             <input 
               type="text" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search actor email, action..."
-              className="pl-8 pr-3 py-1.5 bg-[#141618] border border-[#24272C] rounded-2xl text-xs text-white focus:outline-hidden focus:border-white w-full sm:w-64 font-mono placeholder:text-zinc-600"
+              className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-hidden focus:border-white w-full sm:w-64 font-mono placeholder:text-zinc-600"
             />
           </div>
           <select
             value={selectedLevel}
             onChange={(e) => setSelectedLevel(e.target.value)}
-            className="px-2.5 py-1.5 bg-[#141618] border border-[#24272C] rounded-2xl text-xs text-white focus:outline-hidden font-mono uppercase cursor-pointer"
+            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-hidden font-mono uppercase cursor-pointer"
           >
             <option value="all">All levels</option>
             <option value="info">INFO</option>
@@ -113,13 +113,13 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
       </div>
 
       {/* RISK ASSESSMENT PANEL */}
-      <div className="bg-gradient-to-r from-[#181A1C] to-[#1D2024] border border-[#24272C] p-6 shadow-md rounded-2xl flex flex-col gap-4 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-white to-[#1D2024] border border-slate-200 p-6 shadow-md rounded-2xl flex flex-col gap-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-5">
           <Activity className="w-48 h-48" />
         </div>
         <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-sm font-display font-bold text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-sm font-display font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-400" />
               <span>AI Risk Assessment & Pattern Analysis</span>
             </h2>
@@ -130,7 +130,7 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
           <button
             onClick={handleGenerateRiskAssessment}
             disabled={isAssessing}
-            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 hover:bg-amber-500/10 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 hover:border-amber-500/50 hover:bg-amber-500/10 text-slate-900 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAssessing ? (
               <>
@@ -147,8 +147,8 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
         </div>
 
         {riskSummary && (
-          <div className="relative z-10 mt-2 p-4 bg-zinc-950/80 border border-amber-900/30 rounded-xl">
-            <div className="prose prose-invert prose-p:text-xs prose-p:text-zinc-300 prose-headings:text-amber-500 prose-strong:text-zinc-200 w-full max-w-none text-xs font-mono leading-relaxed">
+          <div className="relative z-10 mt-2 p-4 bg-slate-50/80 border border-amber-900/30 rounded-xl">
+            <div className="prose prose-invert prose-p:text-xs prose-p:text-slate-700 prose-headings:text-amber-500 prose-strong:text-slate-800 w-full max-w-none text-xs font-mono leading-relaxed">
                <div className="markdown-body">
                 <Markdown>{riskSummary}</Markdown>
                </div>
@@ -158,16 +158,16 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
       </div>
 
       {/* AUDIT LOG TIMELINE */}
-      <div className="bg-[#181A1C] border border-[#24272C] shadow-md overflow-hidden text-xs rounded-2xl">
-        <div className="p-4 border-b border-[#24272C] bg-[#141618] flex justify-between items-center font-mono">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+      <div className="bg-white border border-slate-200 shadow-md overflow-hidden text-xs rounded-2xl">
+        <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center font-mono">
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-zinc-555" />
             <span>System Audits Log Journal</span>
           </span>
-          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{filteredLogs.length} Records Rendered</span>
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{filteredLogs.length} Records Rendered</span>
         </div>
 
-        <div className="divide-y divide-[#24272C]">
+        <div className="divide-y divide-slate-200">
           {filteredLogs.length > 0 ? (
             filteredLogs.map((l) => {
               const actorProfile = profiles.find(p => p.id === l.actorId);
@@ -176,29 +176,29 @@ export default function AuditLog({ userId, companyId }: AuditLogComponentProps) 
               const detailStr = (l.details.comment || JSON.stringify(l.details)) as string;
               const ip = (l.details.ip || '127.0.0.1') as string;
 
-              let levelBadge = 'bg-zinc-900 border-zinc-800 text-zinc-400';
+              let levelBadge = 'bg-slate-50 border-slate-200 text-slate-600';
               if (level === 'security') levelBadge = 'bg-rose-955/20 border-rose-900 text-rose-455 font-bold';
               else if (level === 'warning') levelBadge = 'bg-amber-955/20 border-amber-900 text-amber-400 font-bold';
               else if (level === 'treasury') levelBadge = 'bg-indigo-955/20 border-indigo-900 text-indigo-400 font-bold';
 
               return (
-                <div key={l.id} className="p-4 hover:bg-zinc-900/30 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div key={l.id} className="p-4 hover:bg-slate-50/30 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[9px] text-zinc-500 font-semibold">{l.createdAt.slice(0, 19).replace('T', ' ')}</span>
+                      <span className="font-mono text-[9px] text-slate-500 font-semibold">{l.createdAt.slice(0, 19).replace('T', ' ')}</span>
                       <span className={`px-2 py-0.5 text-[8px] font-bold border rounded-2xl font-mono uppercase tracking-wider ${levelBadge}`}>
                         {level}
                       </span>
                     </div>
-                    <div className="text-white font-display text-sm font-semibold tracking-tight">{l.action}</div>
-                    <p className="text-zinc-400 font-sans leading-relaxed text-xs">{detailStr}</p>
+                    <div className="text-slate-900 font-display text-sm font-semibold tracking-tight">{l.action}</div>
+                    <p className="text-slate-600 font-sans leading-relaxed text-xs">{detailStr}</p>
                   </div>
 
-                  <div className="shrink-0 flex flex-col items-start md:items-end gap-1 border-t border-[#24272C]/20 md:border-0 pt-2 md:pt-0">
+                  <div className="shrink-0 flex flex-col items-start md:items-end gap-1 border-t border-slate-200/20 md:border-0 pt-2 md:pt-0">
                     <div className="text-[10px] font-bold text-zinc-350 font-sans tracking-wide">{actorName}</div>
-                    <div className="flex items-center gap-1 font-mono text-[9px] text-zinc-500">
+                    <div className="flex items-center gap-1 font-mono text-[9px] text-slate-500">
                       <Monitor className="w-3 h-3 text-zinc-600" />
-                      <span>Caller IP: <b className="text-zinc-400">{ip}</b></span>
+                      <span>Caller IP: <b className="text-slate-600">{ip}</b></span>
                     </div>
                   </div>
                 </div>

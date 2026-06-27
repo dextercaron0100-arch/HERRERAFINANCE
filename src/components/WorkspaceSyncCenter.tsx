@@ -284,43 +284,43 @@ export default function WorkspaceSyncCenter({
     <div className="space-y-6">
       
       {/* 1. PREMIUM HEADER / OAUTH STATUS PANEL */}
-      <div className="bg-[#141618] border border-[#24272C] rounded-2xl p-6 relative overflow-hidden shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 relative overflow-hidden shadow-xl">
         {/* Decorative subtle vector coordinates lines */}
         <div className="absolute top-0 right-0 w-32 h-[1px] bg-gradient-to-l from-[#00B67A]/30 to-transparent"></div>
         <div className="absolute bottom-0 left-0 w-24 h-[1px] bg-gradient-to-r from-[#00B67A]/15 to-transparent"></div>
 
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="p-3.5 bg-[#181A1C] border border-[#24272C] text-white rounded-xl shrink-0 shadow-inner">
+            <div className="p-3.5 bg-white border border-slate-200 text-slate-900 rounded-xl shrink-0 shadow-inner">
               <Layers className="w-6 h-6 text-[#00B67A] animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Workspace Sync Center</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Workspace Sync Center</span>
                 <span className="px-2 py-0.5 bg-[#00B67A]/10 text-[#00B67A] text-[9px] rounded-full font-mono border border-[#00B67A]/20 font-bold uppercase">SECURE DIRECT NODE</span>
               </div>
-              <h1 className="text-xl md:text-2xl font-light font-display text-white tracking-tight mt-0.5">
+              <h1 className="text-xl md:text-2xl font-light font-display text-slate-900 tracking-tight mt-0.5">
                 Corporate Workspace &amp; Ledger Sync Desk
               </h1>
-              <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+              <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
                 Reconcile corporate expenditures, sign pending entry cards, and synchronize ledger journals to corporate Google Workspace (Gmail notifications, Google Agenda schedules, Tasks lists, and Google Drive docs) in a unified automated cockpit.
               </p>
             </div>
           </div>
 
           {/* OAUTH CONNECTION STATUS */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-4 rounded-xl flex items-center justify-between xl:justify-end gap-6 shrink-0 xl:min-w-[340px]">
+          <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between xl:justify-end gap-6 shrink-0 xl:min-w-[340px]">
             <div className="space-y-1.5">
-              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block font-mono">Google Account Link</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block font-mono">Google Account Link</span>
               {connected ? (
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-[#00B67A] animate-ping"></div>
-                  <span className="text-xs font-bold text-white font-sans">{googleUser ? googleUser.email : 'Connected Account'}</span>
+                  <span className="text-xs font-bold text-slate-900 font-sans">{googleUser ? googleUser.email : 'Connected Account'}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-zinc-600"></div>
-                  <span className="text-xs font-semibold text-zinc-400">Sandbox Trial Mode</span>
+                  <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+                  <span className="text-xs font-semibold text-slate-600">Sandbox Trial Mode</span>
                 </div>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function WorkspaceSyncCenter({
               ) : (
                 <button
                   onClick={handleConnectClick}
-                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border border-transparent rounded-xl text-xs font-bold font-mono transition-all cursor-pointer shadow-lg shadow-[#00B67A]/20 uppercase tracking-wider flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border border-transparent rounded-xl text-xs font-bold font-mono transition-all cursor-pointer shadow-lg shadow-[#00B67A]/20 uppercase tracking-wider flex items-center gap-1.5"
                 >
                   <span>Connect account</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -347,7 +347,7 @@ export default function WorkspaceSyncCenter({
         </div>
 
         {/* COMPACT SUB-NAVIGATION TABS */}
-        <div className="flex border-b border-[#24272C] mt-8 pt-1 overflow-x-auto whitespace-nowrap">
+        <div className="flex border-b border-slate-200 mt-8 pt-1 overflow-x-auto whitespace-nowrap">
           {[
             { id: 'approvals', label: `Pending Reviews (${queue.length})`, icon: FileSignature },
             { id: 'integrations', label: 'Google Workspace sync tools', icon: Cpu },
@@ -366,10 +366,10 @@ export default function WorkspaceSyncCenter({
                 className={`flex items-center gap-2 px-6 py-3 border-b-2 font-mono text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                   active 
                     ? 'border-[#00B67A] text-[#00B67A] bg-gradient-to-t from-[#00B67A]/5 to-transparent' 
-                    : 'border-transparent text-zinc-500 hover:text-white hover:bg-zinc-800/10'
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50/10'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${active ? 'text-[#00B67A]' : 'text-zinc-500'}`} />
+                <Icon className={`w-4 h-4 ${active ? 'text-[#00B67A]' : 'text-slate-500'}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -382,16 +382,16 @@ export default function WorkspaceSyncCenter({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
           {/* QUEUE OF JOURNAL ENTRIES */}
-          <div className="lg:col-span-2 bg-[#141618] border border-[#24272C] shadow-xl rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-[#24272C] flex items-center justify-between bg-[#181A1C]">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 font-mono">
+          <div className="lg:col-span-2 bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
                 <ListFilter className="w-4 h-4 text-[#00B67A]" />
                 <span>Pending reconciliation register queue</span>
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono uppercase">Ordered by Amount Desc</span>
+              <span className="text-[10px] text-slate-500 font-mono uppercase">Ordered by Amount Desc</span>
             </div>
 
-            <div className="divide-y divide-[#24272C]/50">
+            <div className="divide-y divide-slate-200/50">
               {queue.length > 0 ? (
                 queue.map((t) => {
                   const encoder = profiles.find(p => p.id === t.encodedBy);
@@ -410,14 +410,14 @@ export default function WorkspaceSyncCenter({
                       }}
                       className={`p-5 transition-all cursor-pointer select-none flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 ${
                         isSelected
-                          ? 'border-l-[#00B67A] bg-[#1a1c1f]/40'
-                          : 'border-l-transparent hover:bg-[#181A1C]/20'
+                          ? 'border-l-[#00B67A] bg-slate-50/40'
+                          : 'border-l-transparent hover:bg-slate-50/20'
                       }`}
                     >
                       <div className="space-y-1.5 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-[9px] text-zinc-500 font-bold uppercase">Txn ID: #{t.id}</span>
-                          <span className="px-2 py-0.5 bg-[#181A1C] text-zinc-400 font-bold font-mono text-[8px] border border-[#24272C] rounded-lg uppercase tracking-wider">
+                          <span className="font-mono text-[9px] text-slate-500 font-bold uppercase">Txn ID: #{t.id}</span>
+                          <span className="px-2 py-0.5 bg-white text-slate-600 font-bold font-mono text-[8px] border border-slate-200 rounded-lg uppercase tracking-wider">
                             {t.type.replace('_', ' ')}
                           </span>
                           {isOwn && (
@@ -437,17 +437,17 @@ export default function WorkspaceSyncCenter({
                             </span>
                           )}
                         </div>
-                        <h4 className="text-sm font-semibold text-white truncate max-w-md pr-4">{t.purpose}</h4>
-                        <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono uppercase">
-                          <span>Encoder: <b className="text-zinc-300">{encoder?.fullName || 'Finance Executive'}</b></span>
+                        <h4 className="text-sm font-semibold text-slate-900 truncate max-w-md pr-4">{t.purpose}</h4>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono uppercase">
+                          <span>Encoder: <b className="text-slate-700">{encoder?.fullName || 'Finance Executive'}</b></span>
                           <span>•</span>
-                          <span>Value Date: <b className="text-zinc-300">{t.txnDate}</b></span>
+                          <span>Value Date: <b className="text-slate-700">{t.txnDate}</b></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 border-t border-[#24272C]/40 sm:border-0 pt-3 sm:pt-0">
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 border-t border-slate-200/40 sm:border-0 pt-3 sm:pt-0">
                         <div className="text-base font-bold font-mono text-[#00B67A]">{formatPeso(t.amount)}</div>
-                        <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg text-[9px] font-bold bg-[#181A1C] text-amber-400 border border-amber-500/20 font-mono tracking-wider uppercase">
+                        <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg text-[9px] font-bold bg-white text-amber-400 border border-amber-500/20 font-mono tracking-wider uppercase">
                           Pending Sig
                         </span>
                       </div>
@@ -456,10 +456,10 @@ export default function WorkspaceSyncCenter({
                 })
               ) : (
                 <div className="p-16 text-center space-y-3">
-                  <div className="w-12 h-12 bg-[#181A1C] border border-[#24272C] rounded-xl flex items-center justify-center mx-auto text-[#00B67A]">
+                  <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center mx-auto text-[#00B67A]">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
-                  <div className="text-center text-zinc-400 text-xs font-mono uppercase tracking-wider max-w-sm mx-auto">
+                  <div className="text-center text-slate-600 text-xs font-mono uppercase tracking-wider max-w-sm mx-auto">
                     Excellent! All analytical journal transactions are fully authorized and reconciled with Workspace records.
                   </div>
                 </div>
@@ -468,8 +468,8 @@ export default function WorkspaceSyncCenter({
           </div>
 
           {/* RECONCILIATION DRUM WORKSPACE DRAWERS */}
-          <div className="bg-[#141618] border border-[#24272C] shadow-xl p-6 rounded-2xl space-y-5">
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest font-mono border-b border-[#24272C] pb-3 flex items-center gap-2">
+          <div className="bg-white border border-slate-200 shadow-xl p-6 rounded-2xl space-y-5">
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest font-mono border-b border-slate-200 pb-3 flex items-center gap-2">
               <FileSignature className="w-4.5 h-4.5 text-[#00B67A]" />
               <span>Review Workspace Controls</span>
             </h2>
@@ -477,32 +477,32 @@ export default function WorkspaceSyncCenter({
             {selectedTxn ? (
               <div className="space-y-5 animate-fadeIn">
                 {/* METADATA DESK CARD */}
-                <div className="p-4 bg-[#181A1C] border border-[#24272C] space-y-3 rounded-xl font-mono text-xs text-zinc-300">
-                  <div className="flex items-center justify-between text-[9px] text-zinc-500 uppercase tracking-widest font-bold border-b border-[#24272C] pb-2">
+                <div className="p-4 bg-white border border-slate-200 space-y-3 rounded-xl font-mono text-xs text-slate-700">
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 uppercase tracking-widest font-bold border-b border-slate-200 pb-2">
                     <span>Ledger Meta Envelope</span>
                     <span>#{selectedTxn.id}</span>
                   </div>
-                  <div className="text-sm font-semibold text-white tracking-tight leading-snug">{selectedTxn.purpose}</div>
+                  <div className="text-sm font-semibold text-slate-900 tracking-tight leading-snug">{selectedTxn.purpose}</div>
                   
                   <div className="space-y-1 pt-1.5 text-[11px]">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500 uppercase text-[9px]">Capital Flow Value:</span>
+                      <span className="text-slate-500 uppercase text-[9px]">Capital Flow Value:</span>
                       <span className="font-mono font-bold text-[#00B67A]">{formatPeso(selectedTxn.amount)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500 uppercase text-[9px]">Encoder Staff:</span>
-                      <span className="text-zinc-300 font-semibold">{profiles.find(p => p.id === selectedTxn.encodedBy)?.fullName || 'Finance Staff'}</span>
+                      <span className="text-slate-500 uppercase text-[9px]">Encoder Staff:</span>
+                      <span className="text-slate-700 font-semibold">{profiles.find(p => p.id === selectedTxn.encodedBy)?.fullName || 'Finance Staff'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500 uppercase text-[9px]">Accountable Staff:</span>
-                      <span className="text-zinc-300 font-semibold">{selectedTxn.responsiblePerson}</span>
+                      <span className="text-slate-500 uppercase text-[9px]">Accountable Staff:</span>
+                      <span className="text-slate-700 font-semibold">{selectedTxn.responsiblePerson}</span>
                     </div>
                   </div>
                   
                   {selectedTxn.receiptPath && (
-                    <div className="pt-3 border-t border-[#24272C]">
-                      <span className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold block mb-1.5">Reconciliation Bill Attachment:</span>
-                      <div className="border border-[#24272C] bg-[#141618] p-1.5 rounded-xl flex items-center justify-center overflow-hidden">
+                    <div className="pt-3 border-t border-slate-200">
+                      <span className="text-[8px] text-slate-500 uppercase tracking-widest font-bold block mb-1.5">Reconciliation Bill Attachment:</span>
+                      <div className="border border-slate-200 bg-white p-1.5 rounded-xl flex items-center justify-center overflow-hidden">
                         <img 
                           src={selectedTxn.receiptPath} 
                           alt="Journal ledger proof voucher" 
@@ -534,15 +534,15 @@ export default function WorkspaceSyncCenter({
                   <div className="space-y-4 pt-1">
                     {/* REMARKS INPUT */}
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                        <MessageSquare className="w-3.5 h-3.5 text-zinc-500" />
+                      <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5 font-mono">
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
                         <span>Signatures remarks / Sync metadata</span>
                       </label>
                       <textarea 
                         value={remarks}
                         onChange={(e) => setRemarks(e.target.value)}
                         placeholder="State reasonings, audit stamps, or remarks..."
-                        className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl h-20 font-mono transition-all"
+                        className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl h-20 font-mono transition-all"
                       />
                     </div>
 
@@ -551,7 +551,7 @@ export default function WorkspaceSyncCenter({
                       <button 
                         onClick={() => handleReviewExecute('rejected')}
                         disabled={remarks.trim() === ''}
-                        className="py-3 border border-[#24272C] hover:border-rose-500/30 text-rose-400 hover:text-rose-350 bg-[#181A1C] hover:bg-rose-950/20 font-bold font-mono uppercase tracking-wider text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
+                        className="py-3 border border-slate-200 hover:border-rose-500/30 text-rose-400 hover:text-rose-350 bg-white hover:bg-rose-950/20 font-bold font-mono uppercase tracking-wider text-[10px] rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed select-none"
                         title="Enter remarks first before denying items"
                       >
                         <X className="w-4 h-4" />
@@ -580,15 +580,15 @@ export default function WorkspaceSyncCenter({
                   </p>
                 )}
                 {gmailStatus && (
-                  <div className="p-3 bg-[#181A1C] border border-[#24272C] rounded-xl text-[10px] text-zinc-400 font-mono flex items-start gap-2 leading-relaxed">
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl text-[10px] text-slate-600 font-mono flex items-start gap-2 leading-relaxed">
                     <Mail className="w-3.5 h-3.5 text-[#00B67A] shrink-0 mt-0.5" />
                     <span>{gmailStatus}</span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-20 bg-[#181A1C]/20 border border-dashed border-[#24272C] rounded-2xl p-6">
-                <FileCheck2 className="w-8 h-8 text-zinc-650 mx-auto mb-2.5 animate-bounce" />
+              <div className="text-center py-20 bg-white/20 border border-dashed border-slate-200 rounded-2xl p-6">
+                <FileCheck2 className="w-8 h-8 text-slate-400 mx-auto mb-2.5 animate-bounce" />
                 <p className="text-xs text-zinc-550 font-mono uppercase tracking-wider">
                   Select a draft card on the left to review telemetry values &amp; trigger automated Workspace sync.
                 </p>
@@ -616,30 +616,30 @@ export default function WorkspaceSyncCenter({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* TOOL 01: GMAIL MESSAGING */}
-            <div className="bg-[#141618] border border-[#24272C] p-6 rounded-2xl space-y-4 shadow-lg ">
-              <h2 className="text-xs font-semibold text-white font-mono uppercase tracking-widest border-b border-[#24272C] pb-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-lg ">
+              <h2 className="text-xs font-semibold text-slate-900 font-mono uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center gap-2">
                 <Mail className="w-4.5 h-4.5 text-rose-500" />
                 <span>Integrated Gmail Dispatch Center</span>
               </h2>
 
               <form onSubmit={handleSendGmailTest} className="space-y-4">
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Recipient Email</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Recipient Email</span>
                   <input 
                     type="email" 
                     value={mailTo} 
                     onChange={(e) => setMailTo(e.target.value)} 
-                    className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                    className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Alert Subject Header</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Alert Subject Header</span>
                   <input 
                     type="text" 
                     value={mailSub} 
                     onChange={(e) => setMailSub(e.target.value)} 
-                    className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                    className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                     required
                   />
                 </div>
@@ -648,7 +648,7 @@ export default function WorkspaceSyncCenter({
                   <p className="text-[9px] text-zinc-550 font-mono uppercase tracking-tight">Auto-assembles transaction summaries with design tags.</p>
                   <button 
                     type="submit"
-                    className="px-5 py-3 bg-[#181A1C] hover:bg-[#1C1E22] border border-[#24272C] hover:border-[#00B67A] text-white font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all shrink-0 select-none"
+                    className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#00B67A] text-slate-900 font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all shrink-0 select-none"
                   >
                     Dispatch Gmail Alert
                   </button>
@@ -656,46 +656,46 @@ export default function WorkspaceSyncCenter({
               </form>
               
               {mailStatus && (
-                <p className="p-3 bg-[#181A1C] border border-[#24272C] text-[10px] text-zinc-400 rounded-xl font-mono leading-relaxed">
+                <p className="p-3 bg-white border border-slate-200 text-[10px] text-slate-600 rounded-xl font-mono leading-relaxed">
                   {mailStatus}
                 </p>
               )}
             </div>
 
             {/* TOOL 02: CALENDAR SCHEDULER */}
-            <div className="bg-[#141618] border border-[#24272C] p-6 rounded-2xl space-y-4 shadow-lg">
-              <h2 className="text-xs font-semibold text-white font-mono uppercase tracking-widest border-b border-[#24272C] pb-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-lg">
+              <h2 className="text-xs font-semibold text-slate-900 font-mono uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center gap-2">
                 <Calendar className="w-4.5 h-4.5 text-blue-400" />
                 <span>Google Calendar Scheduler</span>
               </h2>
 
               <div className="space-y-4 text-xs">
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Appointment Header Title</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Appointment Header Title</span>
                   <input 
                     type="text" 
                     value={calTitle} 
                     onChange={(e) => setCalTitle(e.target.value)} 
-                    className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                    className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Date Time Stamp</span>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Date Time Stamp</span>
                     <input 
                       type="datetime-local" 
                       value={calDate} 
                       onChange={(e) => setCalDate(e.target.value)} 
-                      className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
+                      className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Brief Agenda Description</span>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Brief Agenda Description</span>
                     <input 
                       type="text" 
                       value={calDesc} 
                       onChange={(e) => setCalDesc(e.target.value)} 
-                      className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                      className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                     />
                   </div>
                 </div>
@@ -703,7 +703,7 @@ export default function WorkspaceSyncCenter({
                 <div className="flex justify-end pt-2">
                   <button 
                     onClick={handleCreateCalendar}
-                    className="px-5 py-3 bg-[#181A1C] hover:bg-[#1C1E22] border border-[#24272C] hover:border-[#00B67A] text-white font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
+                    className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#00B67A] text-slate-900 font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
                   >
                     Sync Calendar slot
                   </button>
@@ -711,34 +711,34 @@ export default function WorkspaceSyncCenter({
               </div>
 
               {calStatus && (
-                <p className="p-3 bg-[#181A1C] border border-[#24272C] text-[10px] text-zinc-400 rounded-xl font-mono leading-relaxed">
+                <p className="p-3 bg-white border border-slate-200 text-[10px] text-slate-600 rounded-xl font-mono leading-relaxed">
                   {calStatus}
                 </p>
               )}
             </div>
 
             {/* TOOL 03: GOOGLE TASKS CHECKLISTS */}
-            <div className="bg-[#141618] border border-[#24272C] p-6 rounded-2xl space-y-4 shadow-lg">
-              <h2 className="text-xs font-semibold text-white font-mono uppercase tracking-widest border-b border-[#24272C] pb-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-lg">
+              <h2 className="text-xs font-semibold text-slate-900 font-mono uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center gap-2">
                 <CheckSquare className="w-4.5 h-4.5 text-[#00B67A]" />
                 <span>Google Tasks compliance checklist</span>
               </h2>
 
               <div className="space-y-4 text-xs">
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Compliance Task Detail</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Compliance Task Detail</span>
                   <input 
                     type="text" 
                     value={taskTitle} 
                     onChange={(e) => setTaskTitle(e.target.value)} 
-                    className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                    className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button 
                     onClick={handleCreateTask}
-                    className="px-5 py-3 bg-[#181A1C] hover:bg-[#1C1E22] border border-[#24272C] hover:border-[#00B67A] text-white font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
+                    className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#00B67A] text-slate-900 font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
                   >
                     Pin task item
                   </button>
@@ -746,34 +746,34 @@ export default function WorkspaceSyncCenter({
               </div>
 
               {taskStatus && (
-                <p className="p-3 bg-[#181A1C] border border-[#24272C] text-[10px] text-zinc-400 rounded-xl font-mono leading-relaxed">
+                <p className="p-3 bg-white border border-slate-200 text-[10px] text-slate-600 rounded-xl font-mono leading-relaxed">
                   {taskStatus}
                 </p>
               )}
             </div>
 
             {/* TOOL 04: GOOGLE DOCS EXPORTER */}
-            <div className="bg-[#141618] border border-[#24272C] p-6 rounded-2xl space-y-4 shadow-lg">
-              <h2 className="text-xs font-semibold text-white font-mono uppercase tracking-widest border-b border-[#24272C] pb-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-lg">
+              <h2 className="text-xs font-semibold text-slate-900 font-mono uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center gap-2">
                 <FileText className="w-4.5 h-4.5 text-emerald-400" />
                 <span>Google Docs Statement compiler</span>
               </h2>
 
               <div className="space-y-4 text-xs">
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block font-mono">Google Drive Document Title</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block font-mono">Google Drive Document Title</span>
                   <input 
                     type="text" 
                     value={docTitle} 
                     onChange={(e) => setDocTitle(e.target.value)} 
-                    className="w-full text-xs p-3 bg-[#181A1C] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-zinc-650 transition-all"
+                    className="w-full text-xs p-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl font-mono placeholder:text-slate-400 transition-all"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button 
                     onClick={handleExportDocAndDrive}
-                    className="px-5 py-3 bg-[#181A1C] hover:bg-[#1C1E22] border border-[#24272C] hover:border-[#00B67A] text-white font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
+                    className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#00B67A] text-slate-900 font-mono text-[10px] tracking-wider uppercase rounded-xl cursor-pointer transition-all select-none"
                   >
                     Compile document report
                   </button>
@@ -781,7 +781,7 @@ export default function WorkspaceSyncCenter({
               </div>
 
               {docStatus && (
-                <p className="p-3 bg-[#181A1C] border border-[#24272C] text-[10px] text-zinc-400 rounded-xl font-mono leading-relaxed">
+                <p className="p-3 bg-white border border-slate-200 text-[10px] text-slate-600 rounded-xl font-mono leading-relaxed">
                   {docStatus}
                 </p>
               )}
@@ -791,47 +791,47 @@ export default function WorkspaceSyncCenter({
       )}
 
       {activeTab === 'history' && (
-        <div className="bg-[#141618] border border-[#24272C] shadow-xl rounded-2xl overflow-hidden animate-fadeIn">
-          <div className="p-4 border-b border-[#24272C] bg-[#181A1C] flex items-center gap-2">
-            <Database className="w-4 h-4 text-zinc-400" />
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+        <div className="bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden animate-fadeIn">
+          <div className="p-4 border-b border-slate-200 bg-white flex items-center gap-2">
+            <Database className="w-4 h-4 text-slate-600" />
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest font-mono">
               Historical analytical signatures signoff ledger log
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#181A1C] text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+              <thead className="bg-white text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
                 <tr>
-                  <th className="p-4 border-b border-[#24272C]">Txn ID</th>
-                  <th className="p-4 border-b border-[#24272C]">Decision Date</th>
-                  <th className="p-4 border-b border-[#24272C]">Type</th>
-                  <th className="p-4 border-b border-[#24272C]">Original Value</th>
-                  <th className="p-4 border-b border-[#24272C]">Purpose Statement</th>
-                  <th className="p-4 border-b border-[#24272C]">Auditing Stamp</th>
-                  <th className="p-4 border-b border-[#24272C]">Signatures Remarks</th>
+                  <th className="p-4 border-b border-slate-200">Txn ID</th>
+                  <th className="p-4 border-b border-slate-200">Decision Date</th>
+                  <th className="p-4 border-b border-slate-200">Type</th>
+                  <th className="p-4 border-b border-slate-200">Original Value</th>
+                  <th className="p-4 border-b border-slate-200">Purpose Statement</th>
+                  <th className="p-4 border-b border-slate-200">Auditing Stamp</th>
+                  <th className="p-4 border-b border-slate-200">Signatures Remarks</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#24272C]/40 text-zinc-300 font-medium">
+              <tbody className="divide-y divide-slate-200/40 text-slate-700 font-medium">
                 {history.length > 0 ? (
                   history.map((t, idx) => {
                     return (
-                      <tr key={idx} className="hover:bg-[#181A1C]/20 transition-all font-mono text-[11px]">
+                      <tr key={idx} className="hover:bg-slate-50/20 transition-all font-mono text-[11px]">
                         <td className="p-4 text-zinc-550 font-bold">
                           #{t.id}
                         </td>
-                        <td className="p-4 whitespace-nowrap text-zinc-400">
+                        <td className="p-4 whitespace-nowrap text-slate-600">
                           {t.updatedAt.slice(0, 10)} {t.updatedAt.slice(11, 16)}
                         </td>
                         <td className="p-4">
-                          <span className="uppercase text-[9px] font-bold text-zinc-400 bg-[#181A1C] border border-[#24272C] px-1.5 py-0.5 rounded-lg">
+                          <span className="uppercase text-[9px] font-bold text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded-lg">
                             {t.type.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="p-4 font-bold text-white whitespace-nowrap">
+                        <td className="p-4 font-bold text-slate-900 whitespace-nowrap">
                           {formatPeso(t.amount)}
                         </td>
-                        <td className="p-4 max-w-xs truncate text-zinc-200">
+                        <td className="p-4 max-w-xs truncate text-slate-800">
                           {t.purpose}
                         </td>
                         <td className="p-4">
@@ -847,7 +847,7 @@ export default function WorkspaceSyncCenter({
                             </span>
                           )}
                         </td>
-                        <td className="p-4 max-w-xs truncate text-zinc-500 italic">
+                        <td className="p-4 max-w-xs truncate text-slate-500 italic">
                           {t.status === 'rejected' ? 'Returned to encoder: lack of formal invoice/receipt.' : 'Verified, balanced, and authorized.'}
                         </td>
                       </tr>

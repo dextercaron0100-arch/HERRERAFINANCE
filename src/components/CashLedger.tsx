@@ -51,9 +51,9 @@ export default function CashLedger({ userId, companyId }: Props) {
   };
 
   return (
-    <div className="bg-[#141618] border border-[#24272C] rounded-xl overflow-hidden">
-      <div className="p-4 border-b border-[#24272C] bg-[#181A1C] flex justify-between items-center">
-        <h3 className="text-sm font-bold text-white font-mono uppercase tracking-widest">Cash Ledger</h3>
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+        <h3 className="text-sm font-bold text-slate-900 font-mono uppercase tracking-widest">Cash Ledger</h3>
         <div className="flex gap-2">
           <button 
             onClick={handleNewEntry}
@@ -64,8 +64,8 @@ export default function CashLedger({ userId, companyId }: Props) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-zinc-400 font-mono">
-          <thead className="bg-[#181A1C] border-b border-[#24272C] text-[10px] uppercase tracking-widest">
+        <table className="w-full text-left text-xs text-slate-600 font-mono">
+          <thead className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-widest">
             <tr>
               <th className="p-3">Date</th>
               <th className="p-3">Account / Custodian</th>
@@ -78,26 +78,26 @@ export default function CashLedger({ userId, companyId }: Props) {
           <tbody>
             {entries.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-zinc-500 italic">No ledger entries found.</td>
+                <td colSpan={6} className="p-8 text-center text-slate-500 italic">No ledger entries found.</td>
               </tr>
             ) : (
               entries.map(e => {
                 const acc = allAccounts.find(a => a.id === e.cashAccountId);
                 const cust = allCustodians.find(c => c.id === e.custodianId);
                 return (
-                  <tr key={e.id} className="border-b border-[#24272C] hover:bg-[#1D2024]">
+                  <tr key={e.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="p-3">{e.date}</td>
                     <td className="p-3">
-                      <div className="font-bold text-white">{acc ? acc.accountName : "Unknown"}</div>
+                      <div className="font-bold text-slate-900">{acc ? acc.accountName : "Unknown"}</div>
                       <div className="text-[10px]">{cust ? cust.name : "Unassigned"}</div>
                     </td>
                     <td className="p-3">
-                      <div className="font-bold text-white">{e.transactionType}</div>
+                      <div className="font-bold text-slate-900">{e.transactionType}</div>
                       <div className="text-[10px]">{e.description} • {e.referenceNo}</div>
                     </td>
                     <td className="p-3 text-right text-emerald-400 font-bold">{e.cashIn > 0 ? formatPeso(e.cashIn) : "-"}</td>
                     <td className="p-3 text-right text-rose-400 font-bold">{e.cashOut > 0 ? formatPeso(e.cashOut) : "-"}</td>
-                    <td className="p-3 text-right font-bold text-white">{formatPeso(e.runningBalance)}</td>
+                    <td className="p-3 text-right font-bold text-slate-900">{formatPeso(e.runningBalance)}</td>
                   </tr>
                 );
               })

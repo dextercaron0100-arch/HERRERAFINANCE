@@ -117,7 +117,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
         <div className="space-y-2">
           <h2 className="text-lg font-bold text-gray-900 font-sans">Corporate Security Lockout</h2>
           <p className="text-xs text-rose-700 font-mono font-semibold">ROLE ENFORCEMENT AUDIT: ACCESS VIOLATION</p>
-          <p className="text-xs text-gray-400 leading-relaxed px-4">
+          <p className="text-xs text-slate-600 leading-relaxed px-4">
             Under strict RLS governance guidelines, employee wages, positions and payroll records are restricted exclusively to Group Admins and Company Admins. Your active role is <b className="uppercase text-amber-600">[{role || 'Viewer'}]</b>.
           </p>
         </div>
@@ -324,21 +324,21 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
   return (
     <div className="space-y-6">
       {/* TRACT DESIGN SEGMENT SUB-HEADERS */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl no-print">
-        <div className="flex gap-1.5 p-0.5 bg-[#141618] border border-[#24272C] rounded-2xl select-none">
+      <div className="bg-white border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl no-print">
+        <div className="flex gap-1.5 p-0.5 bg-white border border-slate-200 rounded-2xl select-none">
           <button 
             onClick={() => {
               setPayrollSegment('employees');
               setSelectedRun(null);
             }}
-            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${payrollSegment === 'employees' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}
+            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${payrollSegment === 'employees' ? 'bg-white text-black' : 'text-slate-500 hover:text-slate-900'}`}
           >
             <Users className="w-4 h-4 text-zinc-550" />
             <span>Employee register ({employees.length})</span>
           </button>
           <button 
             onClick={() => setPayrollSegment('runs')}
-            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${payrollSegment === 'runs' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}
+            className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-2xl cursor-pointer transition flex items-center gap-1.5 ${payrollSegment === 'runs' ? 'bg-white text-black' : 'text-slate-500 hover:text-slate-900'}`}
           >
             <Coins className="w-4 h-4 text-zinc-550" />
             <span>Outflow Payroll runs ({runs.length})</span>
@@ -348,7 +348,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
         <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={handlePrintPDF}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#181A1C] hover:bg-white hover:text-black text-zinc-300 border border-[#24272C] hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white hover:bg-slate-50 hover:text-black text-slate-700 border border-slate-200 hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
             title="Export view as PDF"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -357,7 +357,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
           
           <button 
             onClick={handleDownloadCSV}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white border border-[#24272C] text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
             title="Download currently active view as CSV"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -374,7 +374,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                 setEmpActive(true);
                 setShowEmpForm(true);
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent text-[10px] font-bold uppercase tracking-wider rounded-2xl cursor-pointer transition shadow-xs ml-2"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent text-[10px] font-bold uppercase tracking-wider rounded-2xl cursor-pointer transition shadow-xs ml-2"
             >
               <UserPlus className="w-3.5 h-3.5 text-[#333]" />
               <span>Register New Employee</span>
@@ -387,24 +387,24 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
       {payrollSegment === 'employees' ? (
         <div className="space-y-6">
           {showEmpForm && (
-            <div className="bg-[#181A1C] border border-[#24272C] p-6 shadow-md animate-fadeIn space-y-4 rounded-2xl no-print">
-              <h3 className="font-display text-base text-white tracking-tight border-b border-[#24272C]/50 pb-2.5">
+            <div className="bg-white border border-slate-200 p-6 shadow-md animate-fadeIn space-y-4 rounded-2xl no-print">
+              <h3 className="font-display text-base text-slate-900 tracking-tight border-b border-slate-200/50 pb-2.5">
                 {empId ? 'Edit Employee Wages Profile' : 'Register New Employee File'}
               </h3>
               
               <form onSubmit={handleSaveEmployee} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {companyId === "all" && (
                   <div className="md:col-span-4 space-y-1.5">
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Select Target Company</span>
+                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Select Target Company</span>
                     <select
                       value={empTargetCompany}
                       onChange={(e) => setEmpTargetCompany(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                       required
                     >
-                      <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this employee</option>
+                      <option value="" disabled className="bg-white text-slate-500">Select a company for this employee</option>
                       {companies.filter(c => c.id !== "all").map(c => (
-                        <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                        <option key={c.id} value={c.id} className="bg-white">
                           {c.name} ({c.code})
                         </option>
                       ))}
@@ -412,29 +412,29 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Employee Full Name</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Employee Full Name</span>
                   <input 
                     type="text" 
                     value={empName}
                     onChange={(e) => setEmpName(e.target.value)}
                     placeholder="e.g., Arthur Pendelton Jr."
                     required
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Organizational Position</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Organizational Position</span>
                   <input 
                     type="text" 
                     value={empPosition}
                     onChange={(e) => setEmpPosition(e.target.value)}
                     placeholder="e.g., Marketing Lead"
                     required
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Monthly Base Salary (PHP)</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Monthly Base Salary (PHP)</span>
                   <input 
                     type="number" 
                     value={empSalary}
@@ -442,7 +442,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                     placeholder="e.g., 35000.00"
                     step="0.01"
                     required
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-zinc-650"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-1.5 flex items-center gap-3 pt-5 justify-center">
@@ -451,24 +451,24 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                     checked={empActive}
                     onChange={(e) => setEmpActive(e.target.checked)}
                     id="chk-emp"
-                    className="w-4 h-4 bg-[#141618] border border-[#24272C] text-white rounded-2xl focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="chk-emp" className="text-xs font-semibold text-zinc-300 cursor-pointer select-none">
+                  <label htmlFor="chk-emp" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
                     Active on payroll
                   </label>
                 </div>
                 
-                <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-[#24272C]/50">
+                <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
                   <button 
                     type="button" 
                     onClick={() => setShowEmpForm(false)}
-                    className="px-4 py-2 border border-[#24272C] rounded-2xl text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-900 cursor-pointer"
+                    className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-mono uppercase tracking-wider text-slate-600 hover:bg-slate-50 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit" 
-                    className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
+                    className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
                   >
                     {empId ? 'Save Profile' : 'Enroll Employee'}
                   </button>
@@ -477,9 +477,9 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
             </div>
           )}
 
-          <div id="print-canvas" className="bg-[#181A1C] border border-[#24272C] shadow-md rounded-2xl overflow-hidden print:shadow-none print:border-none print:p-0">
-            <div className="p-4 border-b border-[#24272C] bg-[#141618] flex justify-between items-center">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+          <div id="print-canvas" className="bg-white border border-slate-200 shadow-md rounded-2xl overflow-hidden print:shadow-none print:border-none print:p-0">
+            <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
                 <Briefcase className="w-4 h-4 text-zinc-450" />
                 <span>Personnel Roster Registry (Audited Base Salaries)</span>
               </span>
@@ -487,21 +487,21 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+                <thead className="bg-slate-500 text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
                   <tr>
-                    <th className="p-3 border-b border-[#24272C]">Employee Name</th>
-                    <th className="p-3 border-b border-[#24272C]">Particular Position</th>
-                    <th className="p-3 border-b border-[#24272C] text-right">Base Wage (Monthly)</th>
-                    <th className="p-3 border-b border-[#24272C]">Payroll Status</th>
-                    <th className="p-3 border-b border-[#24272C] text-right no-print">Profile actions</th>
+                    <th className="p-3 border-b border-slate-200">Employee Name</th>
+                    <th className="p-3 border-b border-slate-200">Particular Position</th>
+                    <th className="p-3 border-b border-slate-200 text-right">Base Wage (Monthly)</th>
+                    <th className="p-3 border-b border-slate-200">Payroll Status</th>
+                    <th className="p-3 border-b border-slate-200 text-right no-print">Profile actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
                   {employees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-zinc-800/20 transition">
-                      <td className="p-3 text-white font-display text-sm font-semibold whitespace-nowrap">{emp.fullName}</td>
+                    <tr key={emp.id} className="hover:bg-slate-50/20 transition">
+                      <td className="p-3 text-slate-900 font-display text-sm font-semibold whitespace-nowrap">{emp.fullName}</td>
                       <td className="p-3 text-zinc-450 whitespace-nowrap">{emp.position}</td>
-                      <td className="p-3 text-right font-mono font-bold text-white text-sm whitespace-nowrap">
+                      <td className="p-3 text-right font-mono font-bold text-slate-900 text-sm whitespace-nowrap">
                         {formatPeso(emp.baseSalary)}
                       </td>
                       <td className="p-3 whitespace-nowrap">
@@ -510,7 +510,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                             ACTIVE PAYROLL
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 bg-zinc-900 text-zinc-500 border border-zinc-800 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
+                          <span className="px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
                             DELETION SUSPENDED
                           </span>
                         )}
@@ -525,7 +525,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                             setEmpActive(emp.active);
                             setShowEmpForm(true);
                           }}
-                          className="px-2.5 py-1.5 border border-[#24272C] hover:border-zinc-450 font-mono text-[9px] text-white bg-[#141618] hover:bg-zinc-950 transition cursor-pointer"
+                          className="px-2.5 py-1.5 border border-slate-200 hover:border-slate-400 font-mono text-[9px] text-slate-900 bg-white hover:bg-slate-50 transition cursor-pointer"
                         >
                           Modify Wages
                         </button>
@@ -541,24 +541,24 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
         /* SEGMENT 2: PAYROLL PROCESS RUNS */
         <div className="space-y-6">
           {/* RUN CREATION COMPRESS */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 shadow-sm space-y-4 rounded-2xl no-print">
+          <div className="bg-white border border-slate-200 p-5 shadow-sm space-y-4 rounded-2xl no-print">
             <div>
-              <h2 className="text-serif text-base text-white tracking-tight">Trigger Draft payroll schedule</h2>
+              <h2 className="text-serif text-base text-slate-900 tracking-tight">Trigger Draft payroll schedule</h2>
               <p className="text-[10px] text-zinc-450 font-mono uppercase tracking-wider mt-0.5 font-semibold">Instantiates salary items calculations for active roster.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               {companyId === "all" && (
                 <div className="md:col-span-4 space-y-1.5">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Target Company</span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Target Company</span>
                   <select
                     value={draftTargetCompany}
                     onChange={(e) => setDraftTargetCompany(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                   >
-                    <option value="" disabled className="bg-[#181A1C] text-zinc-500">Select a company for this payroll run</option>
+                    <option value="" disabled className="bg-white text-slate-500">Select a company for this payroll run</option>
                     {companies.filter(c => c.id !== "all").map(c => (
-                      <option key={c.id} value={c.id} className="bg-[#181A1C]">
+                      <option key={c.id} value={c.id} className="bg-white">
                         {c.name} ({c.code})
                       </option>
                     ))}
@@ -566,29 +566,29 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                 </div>
               )}
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Period Start Date</span>
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Period Start Date</span>
                 <input 
                   type="date" 
                   value={runStart}
                   onChange={(e) => setRunStart(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Period End Date</span>
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Period End Date</span>
                 <input 
                   type="date" 
                   value={runEnd}
                   onChange={(e) => setRunEnd(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden focus:border-white rounded-2xl font-mono"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-white rounded-2xl font-mono"
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Disbursement remitting mode</span>
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Disbursement remitting mode</span>
                 <select
                   value={payoutMode}
                   onChange={(e) => setPayoutMode(e.target.value as any)}
-                  className="w-full px-2.5 py-2.5 bg-[#141618] border border-[#24272C] text-white focus:outline-hidden font-mono uppercase cursor-pointer"
+                  className="w-full px-2.5 py-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden font-mono uppercase cursor-pointer"
                 >
                   <option value="batch">Consolidated Bank Batch (Sumned)</option>
                   <option value="per_employee">Per Employee lines items</option>
@@ -596,7 +596,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
               </div>
               <button 
                 onClick={handleCreateRun}
-                className="py-2.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent text-xs font-bold uppercase tracking-wider rounded-2xl cursor-pointer transition h-10 shadow-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
+                className="py-2.5 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent text-xs font-bold uppercase tracking-wider rounded-2xl cursor-pointer transition h-10 shadow-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <Calculator className="w-4 h-4 text-zinc-700" />
                 <span>Compile Draft Run</span>
@@ -606,8 +606,8 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* HISTORICAL WORKFLOW RUNS */}
-            <div className="bg-[#181A1C] border border-[#24272C] shadow-md p-4 space-y-3 rounded-2xl">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block border-b border-[#24272C] pb-2 font-mono">
+            <div className="bg-white border border-slate-200 shadow-md p-4 space-y-3 rounded-2xl">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block border-b border-slate-200 pb-2 font-mono">
                 Outbound payroll history
               </span>
               
@@ -620,9 +620,9 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                         setSelectedRun(r);
                         setEditingItem(null);
                       }}
-                      className={`p-3 rounded-2xl border transition cursor-pointer select-none text-xs space-y-1 ${selectedRun?.id === r.id ? 'border-white bg-[#141618]' : 'border-[#24272C]/65 bg-[#141618]/60 hover:bg-[#141618] hover:border-zinc-550'}`}
+                      className={`p-3 rounded-2xl border transition cursor-pointer select-none text-xs space-y-1 ${selectedRun?.id === r.id ? 'border-white bg-white' : 'border-slate-200/65 bg-white/60 hover:bg-slate-50 hover:border-zinc-550'}`}
                     >
-                      <div className="flex items-center justify-between font-mono text-[9px] text-zinc-500 font-bold">
+                      <div className="flex items-center justify-between font-mono text-[9px] text-slate-500 font-bold">
                         <span>#{r.id}</span>
                         {r.status === 'processed' ? (
                           <span className="px-1.5 py-0.2 bg-emerald-955/25 text-emerald-400 font-bold border border-emerald-950 rounded-2xl text-[8px] font-mono">
@@ -634,30 +634,30 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                           </span>
                         )}
                       </div>
-                      <div className="font-bold text-white font-mono">
+                      <div className="font-bold text-slate-900 font-mono">
                         {r.periodStart} to {r.periodEnd}
                       </div>
-                      <p className="text-[9px] text-zinc-500 font-mono">Created by admin staff.</p>
+                      <p className="text-[9px] text-slate-500 font-mono">Created by admin staff.</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-center text-zinc-500 font-mono uppercase tracking-wider text-xs py-12">No payroll runs produced yet.</p>
+                  <p className="text-center text-slate-500 font-mono uppercase tracking-wider text-xs py-12">No payroll runs produced yet.</p>
                 )}
               </div>
             </div>
 
             {/* DETAILED ITEMS SHEET AND CALC OVERRIDE */}
-            <div className="lg:col-span-2 bg-[#181A1C] border border-[#24272C] rounded-2xl p-5 shadow-sm space-y-4" id="print-canvas">
-              <div className="flex items-center justify-between border-b border-[#24272C] pb-3">
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4" id="print-canvas">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono text-white uppercase tracking-widest">Deductions and Net Compensation Registry</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Loads calculations from chosen active run file.</p>
+                  <h3 className="text-sm font-semibold font-mono text-slate-900 uppercase tracking-widest">Deductions and Net Compensation Registry</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Loads calculations from chosen active run file.</p>
                 </div>
 
                 {selectedRun && selectedRun.status === 'draft' && (
                   <button 
                     onClick={handleProcessPayout}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-slate-900 border-transparent rounded-2xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer shadow-xs"
                   >
                     <BookmarkCheck className="w-3.5 h-3.5 text-zinc-700" />
                     <span>Authorize & Process Payouts</span>
@@ -668,9 +668,9 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
               {selectedRun ? (
                 <div className="space-y-4 animate-fadeIn">
                   {/* METADATA RUN HEADER */}
-                  <div className="p-3 bg-[#141618] border border-[#24272C] rounded-2xl flex items-center justify-between text-xs font-medium text-zinc-300">
+                  <div className="p-3 bg-white border border-slate-200 rounded-2xl flex items-center justify-between text-xs font-medium text-slate-700">
                     <div className="flex items-center gap-2">
-                      <span>Active File: <b className="font-mono text-[10px] text-zinc-400">#{selectedRun.id}</b></span>
+                      <span>Active File: <b className="font-mono text-[10px] text-slate-600">#{selectedRun.id}</b></span>
                       <button
                         onClick={() => {
                           setActiveMetadataRun(selectedRun);
@@ -678,7 +678,7 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                           setMetaTimestamp(selectedRun.mockMetadata?.timestamp || '');
                         }}
                         className={`px-1.5 py-0.5 border rounded-lg cursor-pointer transition-all flex items-center gap-1 ${
-                          selectedRun.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-[#181A1C] text-zinc-400 border-[#24272C] hover:text-white hover:border-zinc-500'
+                          selectedRun.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
                         }`}
                         title="Attach or View Mock Reference Metadata"
                       >
@@ -687,14 +687,14 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                       </button>
                     </div>
                     <div>
-                      Remittance Plan: <span className="px-2 py-0.5 bg-zinc-900 text-zinc-450 rounded-2xl font-mono text-[10px] uppercase font-bold">{payoutMode} mode</span>
+                      Remittance Plan: <span className="px-2 py-0.5 bg-slate-50 text-zinc-450 rounded-2xl font-mono text-[10px] uppercase font-bold">{payoutMode} mode</span>
                     </div>
                   </div>
 
                   {/* ACTIVE ITEMS TABLE */}
-                  <div className="overflow-x-auto rounded-2xl border border-[#24272C]">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200">
                     <table className="w-full text-left text-[11px] border-collapse">
-                      <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium font-mono uppercase tracking-[1px]">
+                      <thead className="bg-slate-500 text-slate-600 font-medium font-mono uppercase tracking-[1px]">
                         <tr>
                           <th className="p-2.5">Employee Name</th>
                           <th className="p-2.5 text-right">Gross Wage</th>
@@ -703,26 +703,26 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
                           <th className="p-2.5 text-right no-print">Deduction console</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#24272C] font-medium text-zinc-350">
+                      <tbody className="divide-y divide-slate-200 font-medium text-zinc-350">
                         {selectedItems.map((item, idx) => {
                           const empObj = employees.find(e => e.id === item.employeeId);
                           const totalDeduct = item.deductions.sss + item.deductions.philhealth + item.deductions.pagibig + item.deductions.tax + item.deductions.other;
                           return (
-                            <tr key={idx} className="hover:bg-zinc-900/30">
-                              <td className="p-2.5 font-bold font-display text-white">{empObj?.fullName || 'Wages line'}</td>
-                              <td className="p-2.5 text-right font-mono text-zinc-300">{formatPeso(item.gross)}</td>
+                            <tr key={idx} className="hover:bg-slate-50/30">
+                              <td className="p-2.5 font-bold font-display text-slate-900">{empObj?.fullName || 'Wages line'}</td>
+                              <td className="p-2.5 text-right font-mono text-slate-700">{formatPeso(item.gross)}</td>
                               <td className="p-2.5 text-right font-mono text-rose-455">({formatPeso(totalDeduct)})</td>
                               <td className="p-2.5 text-right font-mono text-emerald-400 font-bold">{formatPeso(item.net)}</td>
                               <td className="p-2.5 text-right no-print">
                                 {selectedRun.status === 'draft' ? (
                                   <button 
                                     onClick={() => openEditDeduction(item)}
-                                    className="p-1 px-2 border border-[#24272C] hover:border-zinc-500 bg-[#141618] rounded-2xl text-[9px] font-bold font-mono text-zinc-350 hover:text-white cursor-pointer transition uppercase"
+                                    className="p-1 px-2 border border-slate-200 hover:border-slate-300 bg-white rounded-2xl text-[9px] font-bold font-mono text-zinc-350 hover:text-slate-900 cursor-pointer transition uppercase"
                                   >
                                     Edit Deducts
                                   </button>
                                 ) : (
-                                  <span className="text-zinc-650 font-mono text-[10px]">Locked</span>
+                                  <span className="text-slate-400 font-mono text-[10px]">Locked</span>
                                 )}
                               </td>
                             </tr>
@@ -734,15 +734,15 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
                   {/* MINI FORM: DEDUCTIONS OVERRIDE CONSOLE */}
                   {editingItem && (
-                    <div className="p-4 bg-[#141618] border border-zinc-800 rounded-2xl space-y-3 animate-fadeIn">
-                      <div className="flex items-center justify-between border-b border-[#24272C]/50 pb-2.5">
-                        <span className="text-[11px] font-bold text-white font-display uppercase flex items-center gap-1.5 select-none">
+                    <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between border-b border-slate-200/50 pb-2.5">
+                        <span className="text-[11px] font-bold text-slate-900 font-display uppercase flex items-center gap-1.5 select-none">
                           <Settings2 className="w-4 h-4 text-zinc-450" />
                           <span>Deductions Tuning: {employees.find(e => e.id === editingItem.employeeId)?.fullName}</span>
                         </span>
                         <button 
                           onClick={() => setEditingItem(null)}
-                          className="text-xs text-zinc-450 hover:text-white cursor-pointer font-mono uppercase tracking-wider"
+                          className="text-xs text-zinc-450 hover:text-slate-900 cursor-pointer font-mono uppercase tracking-wider"
                         >
                           Cancel
                         </button>
@@ -750,24 +750,24 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                         <div className="space-y-1">
-                          <span className="text-[9px] font-bold text-zinc-500 block uppercase font-mono">SSS (PHP)</span>
-                          <input type="number" step="0.01" value={dedSSS} onChange={(e) => setDedSSS(e.target.value)} className="w-full text-xs p-1.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl font-mono" />
+                          <span className="text-[9px] font-bold text-slate-500 block uppercase font-mono">SSS (PHP)</span>
+                          <input type="number" step="0.01" value={dedSSS} onChange={(e) => setDedSSS(e.target.value)} className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl font-mono" />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] font-bold text-zinc-500 block uppercase font-mono">PhilHealth (PHP)</span>
-                          <input type="number" step="0.01" value={dedPH} onChange={(e) => setDedPH(e.target.value)} className="w-full text-xs p-1.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl font-mono" />
+                          <span className="text-[9px] font-bold text-slate-500 block uppercase font-mono">PhilHealth (PHP)</span>
+                          <input type="number" step="0.01" value={dedPH} onChange={(e) => setDedPH(e.target.value)} className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl font-mono" />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] font-bold text-zinc-500 block uppercase font-mono">Pag-IBIG (PHP)</span>
-                          <input type="number" step="0.01" value={dedPI} onChange={(e) => setDedPI(e.target.value)} className="w-full text-xs p-1.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl font-mono" />
+                          <span className="text-[9px] font-bold text-slate-500 block uppercase font-mono">Pag-IBIG (PHP)</span>
+                          <input type="number" step="0.01" value={dedPI} onChange={(e) => setDedPI(e.target.value)} className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl font-mono" />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] font-bold text-zinc-500 block uppercase font-mono">Tax</span>
-                          <input type="number" step="0.01" value={dedTax} onChange={(e) => setDedTax(e.target.value)} className="w-full text-xs p-1.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl font-mono" />
+                          <span className="text-[9px] font-bold text-slate-500 block uppercase font-mono">Tax</span>
+                          <input type="number" step="0.01" value={dedTax} onChange={(e) => setDedTax(e.target.value)} className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl font-mono" />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] font-bold text-zinc-500 block uppercase font-mono">Other</span>
-                          <input type="number" step="0.01" value={dedOther} onChange={(e) => setDedOther(e.target.value)} className="w-full text-xs p-1.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl font-mono" />
+                          <span className="text-[9px] font-bold text-slate-500 block uppercase font-mono">Other</span>
+                          <input type="number" step="0.01" value={dedOther} onChange={(e) => setDedOther(e.target.value)} className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl font-mono" />
                         </div>
                       </div>
 
@@ -794,52 +794,52 @@ export default function Payroll({ userId, companyId, onAuditLogged }: PayrollPro
 
       {/* METADATA ATTACHMENT DRAWER/MODAL */}
       {activeMetadataRun && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
-          <div className="bg-[#181A1C] border border-[#24272C] p-6 max-w-md w-full relative space-y-5 rounded-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+          <div className="bg-white border border-slate-200 p-6 max-w-md w-full relative space-y-5 rounded-2xl">
             <button 
               onClick={() => setActiveMetadataRun(null)}
-              className="absolute right-4 top-4 p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E2124] rounded-lg cursor-pointer transition-all"
+              className="absolute right-4 top-4 p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg cursor-pointer transition-all"
             >
               <X className="w-4.5 h-4.5" />
             </button>
             <div>
-              <h3 className="font-mono text-base font-bold text-white uppercase tracking-wider">Payroll Documentation Metadata</h3>
+              <h3 className="font-mono text-base font-bold text-slate-900 uppercase tracking-wider">Payroll Documentation Metadata</h3>
               <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to run #{activeMetadataRun.id}.</p>
             </div>
             
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Archive Scan Reference Code</label>
+                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Archive Scan Reference Code</label>
                 <input 
                   type="text" 
                   value={metaScanRef}
                   onChange={(e) => setMetaScanRef(e.target.value)}
                   placeholder="e.g. DOC-RUN-9X"
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Attachment Processed Timestamp</label>
+                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Attachment Processed Timestamp</label>
                 <input 
                   type="text" 
                   value={metaTimestamp}
                   onChange={(e) => setMetaTimestamp(e.target.value)}
                   placeholder="ISO Date"
-                  className="w-full px-3 py-2 bg-[#141618] border border-[#24272C] text-white text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#24272C]">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
               <button 
                 onClick={() => setActiveMetadataRun(null)}
-                className="px-4 py-2 border border-[#24272C] text-zinc-400 bg-transparent hover:bg-[#1E2124] text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+                className="px-4 py-2 border border-slate-200 text-slate-600 bg-transparent hover:bg-slate-50 text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSaveMetadata}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-900 text-xs font-bold uppercase tracking-wider rounded-xl cursor-pointer font-mono transition-all"
               >
                 Save Metadata
               </button>

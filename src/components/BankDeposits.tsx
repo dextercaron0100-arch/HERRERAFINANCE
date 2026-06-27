@@ -53,9 +53,9 @@ export default function BankDeposits({ userId, companyId }: Props) {
   };
 
   return (
-    <div className="bg-[#141618] border border-[#24272C] rounded-xl overflow-hidden">
-      <div className="p-4 border-b border-[#24272C] bg-[#181A1C] flex justify-between items-center">
-        <h3 className="text-sm font-bold text-white font-mono uppercase tracking-widest">Bank Deposits</h3>
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+        <h3 className="text-sm font-bold text-slate-900 font-mono uppercase tracking-widest">Bank Deposits</h3>
         <div className="flex gap-2">
           <button 
             onClick={handleNewDeposit}
@@ -66,8 +66,8 @@ export default function BankDeposits({ userId, companyId }: Props) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-zinc-400 font-mono">
-          <thead className="bg-[#181A1C] border-b border-[#24272C] text-[10px] uppercase tracking-widest">
+        <table className="w-full text-left text-xs text-slate-600 font-mono">
+          <thead className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-widest">
             <tr>
               <th className="p-3">Date</th>
               <th className="p-3">From Cash / Custodian</th>
@@ -80,7 +80,7 @@ export default function BankDeposits({ userId, companyId }: Props) {
           <tbody>
             {deposits.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-zinc-500 italic">No bank deposits found.</td>
+                <td colSpan={6} className="p-8 text-center text-slate-500 italic">No bank deposits found.</td>
               </tr>
             ) : (
               deposits.map(d => {
@@ -88,18 +88,18 @@ export default function BankDeposits({ userId, companyId }: Props) {
                 const bankAcc = allAccounts.find(a => a.id === d.toBankAccountId);
                 const cust = allCustodians.find(u => u.id === d.fromCustodianId);
                 return (
-                  <tr key={d.id} className="border-b border-[#24272C] hover:bg-[#1D2024]">
-                    <td className="p-3 font-bold text-white">{d.depositDate}</td>
+                  <tr key={d.id} className="border-b border-slate-200 hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-900">{d.depositDate}</td>
                     <td className="p-3">
-                      <div className="font-bold text-white">{cashAcc ? cashAcc.accountName : "Unknown"}</div>
+                      <div className="font-bold text-slate-900">{cashAcc ? cashAcc.accountName : "Unknown"}</div>
                       <div className="text-[10px]">{cust ? cust.name : "Unknown Custodian"}</div>
                     </td>
                     <td className="p-3">
-                      <div className="font-bold text-white">{bankAcc ? bankAcc.accountName : "Unknown"}</div>
+                      <div className="font-bold text-slate-900">{bankAcc ? bankAcc.accountName : "Unknown"}</div>
                       <div className="text-[10px]">{bankAcc ? bankAcc.bankName : ""}</div>
                     </td>
                     <td className="p-3">
-                      <div className="text-zinc-300 font-bold">{d.depositSlipNumber}</div>
+                      <div className="text-slate-700 font-bold">{d.depositSlipNumber}</div>
                     </td>
                     <td className="p-3 text-right font-bold text-emerald-400">{formatPeso(d.depositAmount)}</td>
                     <td className="p-3 text-center">

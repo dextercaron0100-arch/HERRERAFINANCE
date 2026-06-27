@@ -111,22 +111,22 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
   return (
     <div className="space-y-6">
       {/* HEADER CONTROLS */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl">
+      <div className="bg-white border border-slate-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl">
         <div>
-          <h1 className="text-xl font-display text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-display text-slate-900 tracking-tight flex items-center gap-2">
             <PiggyBank className="w-5 h-5 text-zinc-450" />
             <span>Operational Budget Allocations Manager</span>
           </h1>
-          <p className="text-[10px] text-zinc-400 font-mono uppercase tracking-wider mt-0.5">Configure planned expense allocations per accounting category.</p>
+          <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mt-0.5">Configure planned expense allocations per accounting category.</p>
         </div>
 
         {/* MONTH PICKER */}
         <div className="flex items-center gap-3">
-          <Calendar className="w-4 h-4 text-zinc-500" />
+          <Calendar className="w-4 h-4 text-slate-500" />
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-1.5 border border-[#24272C] text-xs bg-[#141618] text-white focus:outline-hidden focus:border-zinc-550 font-mono font-semibold rounded-2xl cursor-pointer"
+            className="px-3 py-1.5 border border-slate-200 text-xs bg-white text-slate-900 focus:outline-hidden focus:border-zinc-550 font-mono font-semibold rounded-2xl cursor-pointer"
           >
             <option value="2026-05-01">May 2026</option>
             <option value="2026-06-01">June 2026</option>
@@ -138,37 +138,37 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
 
       {/* OVERALL STATISTICS BLOCK */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 border border-[#24272C] bg-[#181A1C] space-y-1 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Planned Allocations</span>
-          <div className="text-xl font-bold text-white font-mono">{formatPeso(aggregates.planned)}</div>
+        <div className="p-5 border border-slate-200 bg-white space-y-1 rounded-2xl shadow-sm">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Planned Allocations</span>
+          <div className="text-xl font-bold text-slate-900 font-mono">{formatPeso(aggregates.planned)}</div>
         </div>
-        <div className="p-5 border border-[#24272C] bg-[#181A1C] space-y-1 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Actual Expense Spent</span>
-          <div className="text-xl font-bold text-white font-mono">{formatPeso(aggregates.actual)}</div>
+        <div className="p-5 border border-slate-200 bg-white space-y-1 rounded-2xl shadow-sm">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Actual Expense Spent</span>
+          <div className="text-xl font-bold text-slate-900 font-mono">{formatPeso(aggregates.actual)}</div>
         </div>
-        <div className="p-5 border border-[#24272C] bg-[#181A1C] space-y-1 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Cushion Variance</span>
+        <div className="p-5 border border-slate-200 bg-white space-y-1 rounded-2xl shadow-sm">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Cushion Variance</span>
           <div className={`text-xl font-bold font-mono ${aggregates.variance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {formatPeso(aggregates.variance)}
           </div>
         </div>
-        <div className="p-5 border border-[#24272C] bg-[#181A1C] space-y-1 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Planned Burn Rate</span>
-          <div className="text-xl font-bold text-white font-mono flex items-center gap-1.5">
-            <Percent className="w-4 h-4 shrink-0 text-zinc-400" />
+        <div className="p-5 border border-slate-200 bg-white space-y-1 rounded-2xl shadow-sm">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Planned Burn Rate</span>
+          <div className="text-xl font-bold text-slate-900 font-mono flex items-center gap-1.5">
+            <Percent className="w-4 h-4 shrink-0 text-slate-600" />
             <span>{aggregates.usage.toFixed(1)}%</span>
           </div>
         </div>
       </div>
 
       {/* PROJECTED VS ACTUAL CHART */}
-      <div className="bg-[#181A1C] border border-[#24272C] shadow-md rounded-2xl overflow-hidden p-5">
+      <div className="bg-white border border-slate-200 shadow-md rounded-2xl overflow-hidden p-5">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold font-mono text-white uppercase tracking-widest flex items-center gap-2">
+            <h3 className="text-sm font-semibold font-mono text-slate-900 uppercase tracking-widest flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-[#00B67A]" /> Projected vs Actual Spending
             </h3>
-            <p className="text-xs text-zinc-400 mt-1 uppercase font-mono tracking-wider">Visual breakdown of budget cushion and total allocations</p>
+            <p className="text-xs text-slate-600 mt-1 uppercase font-mono tracking-wider">Visual breakdown of budget cushion and total allocations</p>
           </div>
         </div>
         <div className="h-72 w-full">
@@ -199,8 +199,8 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
                     return (
-                      <div className="bg-[#181A1C] border border-[#24272C] p-3 rounded-xl shadow-xl min-w-[200px]">
-                        <div className="text-white text-xs font-bold font-mono tracking-wider uppercase border-b border-[#24272C] pb-2 mb-2 flex items-center justify-between gap-4">
+                      <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-xl min-w-[200px]">
+                        <div className="text-slate-900 text-xs font-bold font-mono tracking-wider uppercase border-b border-slate-200 pb-2 mb-2 flex items-center justify-between gap-4">
                           <span>{String(label).replace('_', ' ')}</span>
                           <span className={`text-[9px] px-1.5 py-0.5 rounded ${data.status === 'over_budget' ? 'bg-rose-500/20 text-rose-400' : data.status === 'near_limit' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                             {data.status?.replace('_', ' ')}
@@ -210,20 +210,20 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                           {payload.map((entry: any, index: number) => (
                             <div key={index} className="flex justify-between items-center gap-4 text-[10px] font-mono">
                               <span style={{ color: entry.color }} className="uppercase">{entry.name}</span>
-                              <span className="font-bold text-white">{formatPeso(entry.value as number)}</span>
+                              <span className="font-bold text-slate-900">{formatPeso(entry.value as number)}</span>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-2 pt-2 border-t border-[#24272C] space-y-1.5">
+                        <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
                           <div className="flex justify-between items-center gap-4 text-[10px] font-mono">
-                            <span className="uppercase text-zinc-400">Variance</span>
+                            <span className="uppercase text-slate-600">Variance</span>
                             <span className={`font-bold ${data.variance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                               {formatPeso(data.variance)}
                             </span>
                           </div>
                           <div className="flex justify-between items-center gap-4 text-[10px] font-mono">
-                            <span className="uppercase text-zinc-400">Burn Rate</span>
-                            <span className="font-bold text-white">{data.usagePercent?.toFixed(1)}%</span>
+                            <span className="uppercase text-slate-600">Burn Rate</span>
+                            <span className="font-bold text-slate-900">{data.usagePercent?.toFixed(1)}%</span>
                           </div>
                         </div>
                       </div>
@@ -256,17 +256,17 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
       </div>
 
       {/* BUDGETS TABLE VIEW */}
-      <div className="bg-[#181A1C] border border-[#24272C] shadow-md rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-[#24272C] flex items-center justify-between bg-[#141618]">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-            <TrendingDown className="w-4 h-4 text-zinc-500" />
-            <span>Expense Category Budgets Monitor</span>
+      <div className="bg-white border border-slate-200 shadow-md rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+            <TrendingDown className="w-4 h-4 text-slate-500" />
+            <span>BUDGET MONITOR / DUE DATES</span>
           </span>
           {saveStatus && (
             <span className="text-xs text-emerald-450 font-semibold font-mono uppercase tracking-wider animate-pulse">{saveStatus}</span>
           )}
           {!isAdmin && (
-            <span className="inline-flex items-center gap-1 text-[9px] text-zinc-400 bg-zinc-900 px-2 py-1 rounded-2xl border border-[#24272C] font-mono font-bold tracking-wider uppercase">
+            <span className="inline-flex items-center gap-1 text-[9px] text-slate-600 bg-slate-50 px-2 py-1 rounded-2xl border border-slate-200 font-mono font-bold tracking-wider uppercase">
               <Lock className="w-3 h-3 text-zinc-550" />
               <span>Read-Only</span>
             </span>
@@ -275,23 +275,23 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium uppercase tracking-[1px] font-mono border-b border-[#24272C]">
+            <thead className="bg-slate-500 text-slate-600 font-medium uppercase tracking-[1px] font-mono border-b border-slate-200">
               <tr>
-                <th className="p-3 border-b border-[#24272C]">Disbursement Category</th>
-                <th className="p-3 border-b border-[#24272C] text-right">Planned Allocation</th>
-                <th className="p-3 border-b border-[#24272C] text-right">Actual Spent</th>
-                <th className="p-3 border-b border-[#24272C] text-right">Remaining Variance</th>
-                <th className="p-3 border-b border-[#24272C] text-center">Efficiency Rate</th>
-                <th className="p-3 border-b border-[#24272C] text-right">Status Badge</th>
+                <th className="p-3 border-b border-slate-200">Disbursement Category</th>
+                <th className="p-3 border-b border-slate-200 text-right">Planned Allocation</th>
+                <th className="p-3 border-b border-slate-200 text-right">Actual Spent</th>
+                <th className="p-3 border-b border-slate-200 text-right">Remaining Variance</th>
+                <th className="p-3 border-b border-slate-200 text-center">Efficiency Rate</th>
+                <th className="p-3 border-b border-slate-200 text-right">Status Badge</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+            <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
               {budgetActualList.map((item, idx) => {
                 const pct = Math.min(item.usagePercent, 100);
                 let barColor = 'bg-white';
                 let textColor = 'text-emerald-400';
                 let badgeBg = 'bg-emerald-955/20 border-emerald-900/50';
-                let rowBg = 'hover:bg-zinc-800/20 border-l-2 border-transparent';
+                let rowBg = 'hover:bg-slate-50/20 border-l-2 border-transparent';
 
                 if (item.status === 'over_budget') {
                   barColor = 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]';
@@ -311,7 +311,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                   <tr key={idx} className={`${rowBg} transition`}>
                     {/* NAME */}
                     <td className="p-3 whitespace-nowrap">
-                      <div className="font-display text-xs uppercase tracking-wider text-white font-medium">
+                      <div className="font-display text-xs uppercase tracking-wider text-slate-900 font-medium">
                         {item.categoryName.replaceAll('_', ' ')}
                       </div>
                     </td>
@@ -329,7 +329,7 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                                 handleSaveBudgetAmount(item.categoryId, item.companyId, (e.target as HTMLInputElement).value);
                               }
                             }}
-                            className="w-24 text-right p-1 bg-[#141618] border border-white text-xs font-mono text-white rounded-2xl"
+                            className="w-24 text-right p-1 bg-white border border-white text-xs font-mono text-slate-900 rounded-2xl"
                             autoFocus
                           />
                           <button 
@@ -344,11 +344,11 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2.5 group select-none">
-                          <span className="font-mono text-white font-bold">{formatPeso(item.plannedAmount)}</span>
+                          <span className="font-mono text-slate-900 font-bold">{formatPeso(item.plannedAmount)}</span>
                           {isAdmin && (
                             <button 
                               onClick={() => setEditingBudget({ categoryId: item.categoryId, val: String(item.plannedAmount) })}
-                              className="text-[10px] text-zinc-450 hover:text-white cursor-pointer hover:underline font-bold font-mono uppercase"
+                              className="text-[10px] text-zinc-450 hover:text-slate-900 cursor-pointer hover:underline font-bold font-mono uppercase"
                             >
                               Edit
                             </button>
@@ -370,11 +370,11 @@ export default function Budgets({ userId, companyId, onAuditLogged }: BudgetsPro
                     {/* EFFICIENCY BAR */}
                     <td className="p-3 max-w-[120px] select-none text-left">
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono uppercase">
+                        <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono uppercase">
                           <span>Burn pace:</span>
-                          <span className="font-bold text-zinc-300">{item.usagePercent.toFixed(0)}%</span>
+                          <span className="font-bold text-slate-700">{item.usagePercent.toFixed(0)}%</span>
                         </div>
-                        <div className="w-full bg-[#141618] border border-[#24272C] h-1.5 rounded-2xl overflow-hidden">
+                        <div className="w-full bg-white border border-slate-200 h-1.5 rounded-2xl overflow-hidden">
                           <div className={`h-full rounded-2xl ${barColor}`} style={{ width: `${pct}%` }} />
                         </div>
                       </div>

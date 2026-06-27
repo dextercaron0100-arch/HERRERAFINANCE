@@ -218,13 +218,13 @@ export default function Reports({ userId, companyId }: ReportsProps) {
   return (
     <div className="space-y-6">
       {/* HEADER SECTION PANEL */}
-      <div className="bg-[#181A1C] border border-[#24272C] p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl no-print">
+      <div className="bg-white border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 rounded-2xl no-print">
         <div>
-          <h1 className="text-white font-display text-lg tracking-tight flex items-center gap-1.5 font-bold">
-            <Layers className="w-5 h-5 text-zinc-400" />
+          <h1 className="text-slate-900 font-display text-lg tracking-tight flex items-center gap-1.5 font-bold">
+            <Layers className="w-5 h-5 text-slate-600" />
             <span>Executive Accounts Analytics & Analytics Desk</span>
           </h1>
-          <p className="text-xs text-zinc-500 font-mono uppercase tracking-wider mt-0.5">Validate audits outputs with direct Excel and printable PDF formats.</p>
+          <p className="text-xs text-slate-500 font-mono uppercase tracking-wider mt-0.5">Validate audits outputs with direct Excel and printable PDF formats.</p>
         </div>
 
         {/* CONTROLS BAR */}
@@ -234,7 +234,7 @@ export default function Reports({ userId, companyId }: ReportsProps) {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 border border-[#24272C] text-zinc-300 hover:text-white bg-[#141618] rounded-2xl text-xs focus:outline-hidden font-mono font-bold uppercase cursor-pointer"
+              className="px-3 py-1.5 border border-slate-200 text-slate-700 hover:text-slate-900 bg-white rounded-2xl text-xs focus:outline-hidden font-mono font-bold uppercase cursor-pointer"
             >
               <option value="2026-05-01">May 2026</option>
               <option value="2026-06-01">June 2026</option>
@@ -246,7 +246,7 @@ export default function Reports({ userId, companyId }: ReportsProps) {
           <div className="flex flex-wrap items-center gap-2">
             <button 
               onClick={handlePrintReport}
-              className="px-3 py-1.5 bg-[#1F1F1F] text-white hover:bg-white hover:text-black border border-[#24272C] hover:border-white rounded-2xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-xs cursor-pointer select-none"
+              className="px-3 py-1.5 bg-[#1F1F1F] text-slate-900 hover:bg-slate-50 hover:text-black border border-slate-200 hover:border-white rounded-2xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-xs cursor-pointer select-none"
               title="Export statement as high-fidelity PDF document"
             >
               <Printer className="w-4 h-4" />
@@ -267,64 +267,64 @@ export default function Reports({ userId, companyId }: ReportsProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 no-print">
         <button 
           onClick={() => setActiveReport('cashflow')}
-          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'cashflow' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-[#24272C] bg-[#181A1C] hover:border-[#444444]'}`}
+          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'cashflow' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-slate-200 bg-white hover:border-[#444444]'}`}
         >
-          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Audit 01</span>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Audit 01</span>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-tight">Cash Flow Statement</h4>
-            <p className="text-[10px] text-zinc-500 font-mono">Sources vs Disbursements</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Cash Flow Statement</h4>
+            <p className="text-[10px] text-slate-500 font-mono">Sources vs Disbursements</p>
           </div>
         </button>
 
         <button 
           onClick={() => setActiveReport('pl')}
-          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'pl' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-[#24272C] bg-[#181A1C] hover:border-[#444444]'}`}
+          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'pl' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-slate-200 bg-white hover:border-[#444444]'}`}
         >
-          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Audit 02</span>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Audit 02</span>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-tight">Profit & Loss (P&L)</h4>
-            <p className="text-[10px] text-zinc-500 font-mono">Revenue, COGS, Net surplus</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Profit & Loss (P&L)</h4>
+            <p className="text-[10px] text-slate-500 font-mono">Revenue, COGS, Net surplus</p>
           </div>
         </button>
 
         <button 
           onClick={() => setActiveReport('budget_actual')}
-          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'budget_actual' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-[#24272C] bg-[#181A1C] hover:border-[#444444]'}`}
+          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'budget_actual' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-slate-200 bg-white hover:border-[#444444]'}`}
         >
-          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Audit 03</span>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Audit 03</span>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-tight">Budget vs Actuals</h4>
-            <p className="text-[10px] text-zinc-500 font-mono">Variances & cushion</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Budget vs Actuals</h4>
+            <p className="text-[10px] text-slate-500 font-mono">Variances & cushion</p>
           </div>
         </button>
 
         <button 
           onClick={() => setActiveReport('daily_position')}
-          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'daily_position' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-[#24272C] bg-[#181A1C] hover:border-[#444444]'}`}
+          className={`p-4 rounded-2xl border text-left cursor-pointer transition select-none flex flex-col justify-between h-24 ${activeReport === 'daily_position' ? 'border-white bg-[#1A1A1A] shadow-xs' : 'border-slate-200 bg-white hover:border-[#444444]'}`}
         >
-          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">Audit 04</span>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Audit 04</span>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-tight">Daily Positions</h4>
-            <p className="text-[10px] text-zinc-500 font-mono">Closing treasury logs</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Daily Positions</h4>
+            <p className="text-[10px] text-slate-500 font-mono">Closing treasury logs</p>
           </div>
         </button>
       </div>
 
       {/* MAIN REPORT CANVAS */}
-      <div id="print-canvas" className="bg-[#181A1C] border border-[#24272C] shadow-md p-8 space-y-6 rounded-2xl printable-report">
+      <div id="print-canvas" className="bg-white border border-slate-200 shadow-md p-8 space-y-6 rounded-2xl printable-report">
         {/* PRINT BANNER LOGO HEADER */}
-        <div className="flex items-start justify-between border-b border-[#24272C] pb-5">
+        <div className="flex items-start justify-between border-b border-slate-200 pb-5">
           <div className="space-y-1">
-            <h2 className="text-xl font-bold font-display uppercase tracking-tight text-white">
+            <h2 className="text-xl font-bold font-display uppercase tracking-tight text-slate-900">
               {currentCompany?.name}
             </h2>
-            <div className="text-[9px] font-mono text-zinc-405 bg-[#141618] border border-[#24272C] px-2.5 py-1 rounded-2xl inline-block uppercase font-bold">
+            <div className="text-[9px] font-mono text-zinc-405 bg-white border border-slate-200 px-2.5 py-1 rounded-2xl inline-block uppercase font-bold">
               AUTHORIZED OUTFLOW JOURNAL REPORT · CODE: {currentCompany?.code}
             </div>
           </div>
-          <div className="text-right space-y-1 font-mono uppercase text-zinc-400 text-[10px] tracking-wider">
-            <h4 className="font-bold text-white">INTERNAL TREASURY DEPT</h4>
-            <p className="text-zinc-500">VAL DATE: {new Date().toISOString().substring(0, 10)}</p>
+          <div className="text-right space-y-1 font-mono uppercase text-slate-600 text-[10px] tracking-wider">
+            <h4 className="font-bold text-slate-900">INTERNAL TREASURY DEPT</h4>
+            <p className="text-slate-500">VAL DATE: {new Date().toISOString().substring(0, 10)}</p>
           </div>
         </div>
 
@@ -332,27 +332,27 @@ export default function Reports({ userId, companyId }: ReportsProps) {
         {activeReport === 'cashflow' && (
           <div className="space-y-6 animate-fadeIn">
             <div>
-              <h3 className="text-serif text-base text-white tracking-tight uppercase font-mono">Approved Cash Flows Statement</h3>
-              <p className="text-xs text-zinc-500 mt-1">Consolidated ledger entries with completed signature profiles.</p>
+              <h3 className="text-serif text-base text-slate-900 tracking-tight uppercase font-mono">Approved Cash Flows Statement</h3>
+              <p className="text-xs text-slate-500 mt-1">Consolidated ledger entries with completed signature profiles.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* SOURCES */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block border-b border-[#24272C] pb-1 font-mono">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block border-b border-slate-200 pb-1 font-mono">
                   Cash Inflows (Sources)
                 </span>
                 <div className="space-y-2 text-xs">
                   {Object.entries(cashFlowReport.inByCat).map(([catId, val]) => {
                     const catName = categories.find(c => c.id === catId)?.name || 'collections';
                     return (
-                      <div key={catId} className="flex justify-between font-mono text-zinc-300 font-semibold">
-                        <span className="uppercase text-[10px] text-zinc-500">{catName}</span>
+                      <div key={catId} className="flex justify-between font-mono text-slate-700 font-semibold">
+                        <span className="uppercase text-[10px] text-slate-500">{catName}</span>
                         <span>{formatPeso(val as number)}</span>
                       </div>
                     );
                   })}
-                  <div className="flex justify-between font-bold text-white border-t border-[#24272C]/60 pt-2 text-xs font-mono">
+                  <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200/60 pt-2 text-xs font-mono">
                     <span>TOTAL SOURCES</span>
                     <span>{formatPeso(cashFlowReport.totalIn)}</span>
                   </div>
@@ -361,7 +361,7 @@ export default function Reports({ userId, companyId }: ReportsProps) {
 
               {/* DISBURSEMENTS */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block border-b border-[#24272C] pb-1 font-mono">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block border-b border-slate-200 pb-1 font-mono">
                   Cash Outflows (Disbursements)
                 </span>
                 <div className="space-y-2 text-xs">
@@ -369,12 +369,12 @@ export default function Reports({ userId, companyId }: ReportsProps) {
                     const catName = categories.find(c => c.id === catId)?.name || 'operations';
                     return (
                       <div key={catId} className="flex justify-between font-mono text-zinc-350 font-medium">
-                        <span className="uppercase text-[10px] text-zinc-500">{catName}</span>
+                        <span className="uppercase text-[10px] text-slate-500">{catName}</span>
                         <span>{formatPeso(val as number)}</span>
                       </div>
                     );
                   })}
-                  <div className="flex justify-between font-bold text-white border-t border-[#24272C]/60 pt-2 text-xs font-mono">
+                  <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200/60 pt-2 text-xs font-mono">
                     <span>TOTAL DISBURSEMENTS</span>
                     <span>{formatPeso(cashFlowReport.totalOut)}</span>
                   </div>
@@ -383,8 +383,8 @@ export default function Reports({ userId, companyId }: ReportsProps) {
             </div>
 
             {/* NET SURPLUS SUMMARY BAR */}
-            <div className="p-4 bg-[#141618] border border-[#24272C] rounded-2xl flex items-center justify-between text-xs font-medium font-mono">
-              <span className="font-bold text-zinc-400 uppercase">Net Treasury Change (Surplus Accrual)</span>
+            <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between text-xs font-medium font-mono">
+              <span className="font-bold text-slate-600 uppercase">Net Treasury Change (Surplus Accrual)</span>
               <span className={`font-extrabold text-base ${cashFlowReport.netFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {formatPeso(cashFlowReport.netFlow)}
               </span>
@@ -396,32 +396,32 @@ export default function Reports({ userId, companyId }: ReportsProps) {
         {activeReport === 'pl' && (
           <div className="space-y-6 animate-fadeIn">
             <div>
-              <h3 className="text-serif text-white tracking-tight font-bold text-sm uppercase font-mono">Statement of Corporate Profit & Loss</h3>
-              <p className="text-xs text-zinc-500 mt-1">Summarizes operational revenue accruals less cost structure accounts.</p>
+              <h3 className="text-serif text-slate-900 tracking-tight font-bold text-sm uppercase font-mono">Statement of Corporate Profit & Loss</h3>
+              <p className="text-xs text-slate-500 mt-1">Summarizes operational revenue accruals less cost structure accounts.</p>
             </div>
 
-            <div className="space-y-4 max-w-xl mx-auto border border-[#24272C] p-6 text-xs bg-[#141618] rounded-2xl font-mono">
-              <div className="flex justify-between font-bold text-white pb-2 border-b border-[#24272C]">
+            <div className="space-y-4 max-w-xl mx-auto border border-slate-200 p-6 text-xs bg-white rounded-2xl font-mono">
+              <div className="flex justify-between font-bold text-slate-900 pb-2 border-b border-slate-200">
                 <span>REVENUE AND CLIENT SALES INFLOWS</span>
                 <span>{formatPeso(plReport.revenue)}</span>
               </div>
               
-              <div className="flex justify-between text-zinc-400">
+              <div className="flex justify-between text-slate-600">
                 <span>LESS: Cost of Goods Sold (COGS supplies)</span>
                 <span className="text-rose-400">({formatPeso(plReport.cogs)})</span>
               </div>
 
-              <div className="flex justify-between font-bold text-white py-2 border-b border-zinc-800">
+              <div className="flex justify-between font-bold text-slate-900 py-2 border-b border-slate-200">
                 <span>GROSS OPERATING SURPLUS</span>
                 <span>{formatPeso(plReport.grossProfit)}</span>
               </div>
 
-              <div className="flex justify-between text-zinc-400">
+              <div className="flex justify-between text-slate-600">
                 <span>LESS: Operational Administrative Expenditures (OPEX)</span>
                 <span className="text-rose-400">({formatPeso(plReport.totalOpex)})</span>
               </div>
 
-              <div className="flex justify-between font-extrabold text-white pt-3 border-t-2 border-dashed border-[#24272C] text-sm">
+              <div className="flex justify-between font-extrabold text-slate-900 pt-3 border-t-2 border-dashed border-slate-200 text-sm">
                 <span>NET ACCOUNTING INCOME SURPLUS</span>
                 <span className="text-emerald-400">{formatPeso(plReport.netOpIncome)}</span>
               </div>
@@ -433,13 +433,13 @@ export default function Reports({ userId, companyId }: ReportsProps) {
         {activeReport === 'budget_actual' && (
           <div className="space-y-4 animate-fadeIn">
             <div>
-              <h3 className="text-serif text-base text-white tracking-tight uppercase font-mono">Expenses Budget Variance Schedule</h3>
-              <p className="text-xs text-zinc-500 mt-1">Evaluates actual monthly expenditures against pre-registered planned values.</p>
+              <h3 className="text-serif text-base text-slate-900 tracking-tight uppercase font-mono">Expenses Budget Variance Schedule</h3>
+              <p className="text-xs text-slate-500 mt-1">Evaluates actual monthly expenditures against pre-registered planned values.</p>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-[#24272C] bg-[#141618]">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium font-mono uppercase tracking-[1px] border-b border-[#24272C]">
+                <thead className="bg-slate-500 text-slate-600 font-medium font-mono uppercase tracking-[1px] border-b border-slate-200">
                   <tr>
                     <th className="p-2.5">Category Class</th>
                     <th className="p-2.5 text-right">Planned Budget</th>
@@ -448,18 +448,18 @@ export default function Reports({ userId, companyId }: ReportsProps) {
                     <th className="p-2.5 text-center">Ratios %</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
                   {budgetVsActualData.map((item, idx) => {
                     return (
-                      <tr key={idx} className="hover:bg-zinc-900/30">
-                        <td className="p-2.5 uppercase font-display font-bold text-white">{item.categoryName}</td>
-                        <td className="p-2.5 text-right font-mono text-zinc-300">{formatPeso(item.plannedAmount)}</td>
-                        <td className="p-2.5 text-right font-mono text-white">{formatPeso(item.actualAmount)}</td>
+                      <tr key={idx} className="hover:bg-slate-50/30">
+                        <td className="p-2.5 uppercase font-display font-bold text-slate-900">{item.categoryName}</td>
+                        <td className="p-2.5 text-right font-mono text-slate-700">{formatPeso(item.plannedAmount)}</td>
+                        <td className="p-2.5 text-right font-mono text-slate-900">{formatPeso(item.actualAmount)}</td>
                         <td className={`p-2.5 text-right font-mono font-bold ${item.variance >= 0 ? 'text-emerald-400' : 'text-rose-455'}`}>
                           {formatPeso(item.variance)}
                         </td>
                         <td className="p-2.5 text-center font-mono">
-                          <span className={`px-2 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-2xl text-[9px] font-mono uppercase tracking-wider`}>
+                          <span className={`px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-2xl text-[9px] font-mono uppercase tracking-wider`}>
                             {item.usagePercent.toFixed(1)}%
                           </span>
                         </td>
@@ -476,13 +476,13 @@ export default function Reports({ userId, companyId }: ReportsProps) {
         {activeReport === 'daily_position' && (
           <div className="space-y-4 animate-fadeIn">
             <div>
-              <h3 className="text-serif text-base text-white tracking-tight uppercase font-mono">Treasury Ledger: Day-by-Day Balance Schedules</h3>
-              <p className="text-xs text-zinc-500 mt-1">Closing corporate ledger trails tracking physical treasury balances.</p>
+              <h3 className="text-serif text-base text-slate-900 tracking-tight uppercase font-mono">Treasury Ledger: Day-by-Day Balance Schedules</h3>
+              <p className="text-xs text-slate-500 mt-1">Closing corporate ledger trails tracking physical treasury balances.</p>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-[#24272C] bg-[#141618]">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#181A1C]/50 text-zinc-400 font-medium font-mono uppercase tracking-[1px] border-b border-[#24272C]">
+                <thead className="bg-slate-500 text-slate-600 font-medium font-mono uppercase tracking-[1px] border-b border-slate-200">
                   <tr>
                     <th className="p-2.5">Value Date</th>
                     <th className="p-2.5 text-right">Open Balance</th>
@@ -491,15 +491,15 @@ export default function Reports({ userId, companyId }: ReportsProps) {
                     <th className="p-2.5 text-right font-bold">Closing balance (=)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#24272C] font-medium text-zinc-300">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
                   {dailyBalancesData.map((item, idx) => {
                     return (
-                      <tr key={idx} className="hover:bg-zinc-900/30">
-                        <td className="p-2.5 font-mono text-zinc-400">{item.balanceDate}</td>
+                      <tr key={idx} className="hover:bg-slate-50/30">
+                        <td className="p-2.5 font-mono text-slate-600">{item.balanceDate}</td>
                         <td className="p-2.5 text-right font-mono text-zinc-405">{formatPeso(item.beginningBalance)}</td>
                         <td className="p-2.5 text-right font-mono text-emerald-400">+{formatPeso(item.totalCashIn)}</td>
                         <td className="p-2.5 text-right font-mono text-rose-455">-{formatPeso(item.totalCashOut)}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-white">{formatPeso(item.endingBalance)}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">{formatPeso(item.endingBalance)}</td>
                       </tr>
                     );
                   })}
@@ -510,7 +510,7 @@ export default function Reports({ userId, companyId }: ReportsProps) {
         )}
 
         {/* COMPLIANCE ATTACHMENT LEGEND CARDS FOOTER */}
-        <div className="pt-8 border-t border-[#24272C] flex flex-col sm:flex-row items-center justify-between text-[10px] text-zinc-500 font-mono gap-4 mt-8 uppercase tracking-widest">
+        <div className="pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-500 font-mono gap-4 mt-8 uppercase tracking-widest">
           <div>
             Certified Correct By: <b className="text-zinc-350">Finance Ledger Operations Dept</b>
           </div>

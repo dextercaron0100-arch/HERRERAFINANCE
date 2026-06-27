@@ -5,6 +5,7 @@ import {
   CheckCircle2, Clock, Bot, ArrowRight, Activity, Percent, ArrowDownRight, ArrowUpRight 
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+import { motion } from "motion/react";
 import AIAccountingAssistant from "./AIAccountingAssistant";
 
 export default function OwnerDashboard({ userId, companyId, isConsolidated, onNavigate }: any) {
@@ -156,74 +157,90 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
   const cogsSpike = prevCogs ? ((cogs - prevCogs) / prevCogs) * 100 : 0;
 
   return (
-    <div className="w-full min-h-screen bg-[#0D0D0D] text-white space-y-6 animate-fadeIn pb-20">
+    <div className="w-full min-h-screen bg-gray-100 text-slate-900 space-y-6 animate-fadeIn pb-20">
       
       {/* 1. OWNER ACTION SUMMARY */}
-      <div className="bg-[#181A1C] border border-[#24272C] rounded-2xl p-6 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-xl font-bold font-mono tracking-tight uppercase mb-4 text-[#00B67A] flex items-center gap-2">
           <Activity className="w-5 h-5" /> Owner Action Summary
         </h2>
         <div className="mb-6 space-y-2">
-          <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${cashStatus === 'Healthy' ? 'bg-[#00B67A]' : cashStatus === 'Watch' ? 'bg-amber-500' : 'bg-red-500'}`} /> Cash is <strong className="text-white">{cashStatus.toLowerCase()}</strong> for the next {runwayDays} days.
+          <p className="text-sm text-slate-700 font-mono flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${cashStatus === 'Healthy' ? 'bg-[#00B67A]' : cashStatus === 'Watch' ? 'bg-amber-500' : 'bg-red-500'}`} /> Cash is <strong className="text-slate-900">{cashStatus.toLowerCase()}</strong> for the next {runwayDays} days.
           </p>
-          <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${profitStatus === 'Profitable' ? 'bg-[#00B67A]' : profitStatus === 'Low Margin' ? 'bg-amber-500' : 'bg-red-500'}`} /> Profit margin is <strong className="text-white">{profitStatus.toLowerCase()}</strong> ({profitMargin.toFixed(1)}%).
+          <p className="text-sm text-slate-700 font-mono flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${profitStatus === 'Profitable' ? 'bg-[#00B67A]' : profitStatus === 'Low Margin' ? 'bg-amber-500' : 'bg-red-500'}`} /> Profit margin is <strong className="text-slate-900">{profitStatus.toLowerCase()}</strong> ({profitMargin.toFixed(1)}%).
           </p>
-          <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${overdueARAmount === 0 ? 'bg-zinc-600' : 'bg-amber-500'}`} /> Collect <strong className="text-white">{formatPeso(overdueARAmount)}</strong> from {overdueAR.length} overdue receivables.
+          <p className="text-sm text-slate-700 font-mono flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${overdueARAmount === 0 ? 'bg-slate-200' : 'bg-amber-500'}`} /> Collect <strong className="text-slate-900">{formatPeso(overdueARAmount)}</strong> from {overdueAR.length} overdue receivables.
           </p>
-          <p className="text-sm text-zinc-300 font-mono flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${pendingApprovalsCount === 0 ? 'bg-zinc-600' : 'bg-purple-500'}`} /> Approve <strong className="text-white">{pendingApprovalsCount}</strong> pending transactions before closing today.
+          <p className="text-sm text-slate-700 font-mono flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${pendingApprovalsCount === 0 ? 'bg-slate-200' : 'bg-purple-500'}`} /> Approve <strong className="text-slate-900">{pendingApprovalsCount}</strong> pending transactions before closing today.
           </p>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+          <motion.div 
+            whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,0,0,0.5)', y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="p-5 border border-slate-200 rounded-2xl bg-white transition-colors cursor-pointer group hover:border-slate-300"
+          >
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Cash Status</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono group-hover:text-slate-600 transition-colors">Cash Status</div>
               <div className={`p-1.5 rounded-lg border transition-colors ${cashStatus === 'Healthy' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30' : cashStatus === 'Watch' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30' : 'bg-red-500/10 border-red-500/20 text-red-400 group-hover:bg-red-500/20 group-hover:border-red-500/30'}`}>
                 {cashStatus === 'Healthy' ? <CheckCircle2 className="w-4 h-4" /> : cashStatus === 'Watch' ? <AlertTriangle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
               </div>
             </div>
             <div className={`text-2xl font-bold font-mono tracking-tight ${cashStatus === 'Healthy' ? 'text-[#00B67A]' : cashStatus === 'Watch' ? 'text-amber-400' : 'text-red-400'}`}>{cashStatus}</div>
-          </div>
+          </motion.div>
           
-          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+          <motion.div 
+            whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,0,0,0.5)', y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="p-5 border border-slate-200 rounded-2xl bg-white transition-colors cursor-pointer group hover:border-slate-300"
+          >
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Profit Status</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono group-hover:text-slate-600 transition-colors">Profit Status</div>
               <div className={`p-1.5 rounded-lg border transition-colors ${profitStatus === 'Profitable' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30' : profitStatus === 'Low Margin' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30' : 'bg-red-500/10 border-red-500/20 text-red-400 group-hover:bg-red-500/20 group-hover:border-red-500/30'}`}>
                 {profitStatus === 'Profitable' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
               </div>
             </div>
             <div className={`text-2xl font-bold font-mono tracking-tight ${profitStatus === 'Profitable' ? 'text-[#00B67A]' : profitStatus === 'Low Margin' ? 'text-amber-400' : 'text-red-400'}`}>{profitStatus}</div>
-          </div>
+          </motion.div>
 
-          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+          <motion.div 
+            whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,0,0,0.5)', y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="p-5 border border-slate-200 rounded-2xl bg-white transition-colors cursor-pointer group hover:border-slate-300"
+          >
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Collection Priority</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono group-hover:text-slate-600 transition-colors">Collection Priority</div>
               <div className="p-1.5 rounded-lg border bg-amber-500/10 border-amber-500/20 text-amber-400 group-hover:bg-amber-500/20 group-hover:border-amber-500/30 transition-colors">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
               <div className="text-2xl font-bold font-mono tracking-tight text-amber-400">{formatPeso(overdueARAmount)}</div>
-              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">overdue</div>
+              <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">overdue</div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="p-5 border border-[#24272C] rounded-2xl bg-[#141618] hover:border-white/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-white/5 transition-all duration-300 cursor-pointer group">
+          <motion.div 
+            whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,0,0,0.5)', y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="p-5 border border-slate-200 rounded-2xl bg-white transition-colors cursor-pointer group hover:border-slate-300"
+          >
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono group-hover:text-zinc-400 transition-colors">Approval Priority</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono group-hover:text-slate-600 transition-colors">Approval Priority</div>
               <div className="p-1.5 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 group-hover:bg-purple-500/20 group-hover:border-purple-500/30 transition-colors">
                 <CheckSquare className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
               <div className="text-2xl font-bold font-mono tracking-tight text-purple-400">{pendingApprovalsCount}</div>
-              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">pending</div>
+              <div className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">pending</div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -234,8 +251,8 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
           
           {/* 2. "WHAT CHANGED?" COMPARISON (Key Numbers) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#181A1C] border border-[#24272C] p-4 rounded-xl">
-              <div className="text-xs text-zinc-500 uppercase font-mono tracking-widest mb-2">Cash In (30d)</div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl">
+              <div className="text-xs text-slate-500 uppercase font-mono tracking-widest mb-2">Cash In (30d)</div>
               <div className="text-xl font-bold font-mono">{formatPeso(cashIn)}</div>
               <div className={`text-[10px] mt-2 flex items-center font-mono ${cashInChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {cashInChange >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
@@ -243,8 +260,8 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
               </div>
             </div>
             
-            <div className="bg-[#181A1C] border border-[#24272C] p-4 rounded-xl">
-              <div className="text-xs text-zinc-500 uppercase font-mono tracking-widest mb-2">Cash Out (30d)</div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl">
+              <div className="text-xs text-slate-500 uppercase font-mono tracking-widest mb-2">Cash Out (30d)</div>
               <div className="text-xl font-bold font-mono">{formatPeso(cashOut)}</div>
               <div className={`text-[10px] mt-2 flex items-center font-mono ${cashOutChange <= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {cashOutChange <= 0 ? <ArrowDownRight className="w-3 h-3 mr-1" /> : <ArrowUpRight className="w-3 h-3 mr-1" />}
@@ -252,8 +269,8 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
               </div>
             </div>
 
-            <div className="bg-[#181A1C] border border-[#24272C] p-4 rounded-xl">
-              <div className="text-xs text-zinc-500 uppercase font-mono tracking-widest mb-2">Net Profit (30d)</div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl">
+              <div className="text-xs text-slate-500 uppercase font-mono tracking-widest mb-2">Net Profit (30d)</div>
               <div className="text-xl font-bold font-mono">{formatPeso(netProfit)}</div>
               <div className={`text-[10px] mt-2 flex items-center font-mono ${netProfitChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {netProfitChange >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
@@ -261,8 +278,8 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
               </div>
             </div>
 
-            <div className="bg-[#181A1C] border border-[#24272C] p-4 rounded-xl">
-              <div className="text-xs text-zinc-500 uppercase font-mono tracking-widest mb-2">Profit Margin (30d)</div>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl">
+              <div className="text-xs text-slate-500 uppercase font-mono tracking-widest mb-2">Profit Margin (30d)</div>
               <div className="text-xl font-bold font-mono">{profitMargin.toFixed(1)}%</div>
               <div className={`text-[10px] mt-2 flex items-center font-mono ${marginChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {marginChange >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
@@ -272,8 +289,8 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
           </div>
 
           {/* 5. PROFIT WATERFALL */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
-            <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-zinc-400">Profit Waterfall (Last 30 Days)</h3>
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
+            <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-slate-600">Profit Waterfall (Last 30 Days)</h3>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={waterfallData} margin={{ top: 10, right: 10, left: 20, bottom: 20 }}>
@@ -297,18 +314,18 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
 
           {/* 7 & 8. ACTION PANELS: COLLECTION & PAYMENT PRIORITY */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+            <div className="bg-white border border-slate-200 p-5 rounded-xl">
               <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-amber-400 flex items-center gap-2">
                 Collect First
               </h3>
               <div className="space-y-3">
                 {collectionPriority.length === 0 ? (
-                  <div className="text-xs text-zinc-500 font-mono py-4 text-center">No overdue collections</div>
+                  <div className="text-xs text-slate-500 font-mono py-4 text-center">No overdue collections</div>
                 ) : collectionPriority.map(ar => (
-                  <div key={ar.id} className="flex justify-between items-center p-3 border border-[#24272C] rounded-lg bg-[#141618]">
+                  <div key={ar.id} className="flex justify-between items-center p-3 border border-slate-200 rounded-lg bg-white">
                     <div>
                       <div className="text-sm font-bold">{ar.customerName || ar.payeeId}</div>
-                      <div className="text-[10px] text-zinc-500 font-mono mt-1">Due: {ar.dueDate}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-1">Due: {ar.dueDate}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold font-mono text-amber-400">{formatPeso(ar.amount)}</div>
@@ -319,21 +336,21 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
               </div>
             </div>
 
-            <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+            <div className="bg-white border border-slate-200 p-5 rounded-xl">
               <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-red-400 flex items-center gap-2">
                 Pay First
               </h3>
               <div className="space-y-3">
                 {paymentPriority.length === 0 ? (
-                  <div className="text-xs text-zinc-500 font-mono py-4 text-center">No urgent payables</div>
+                  <div className="text-xs text-slate-500 font-mono py-4 text-center">No urgent payables</div>
                 ) : paymentPriority.map(ap => {
                   const isCritical = ap.dueDate <= todayStr;
                   return (
-                    <div key={ap.id} className="flex justify-between items-center p-3 border border-[#24272C] rounded-lg bg-[#141618]">
+                    <div key={ap.id} className="flex justify-between items-center p-3 border border-slate-200 rounded-lg bg-white">
                       <div>
                         <div className="text-sm font-bold">{ap.supplierName || ap.payeeId}</div>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className="text-[10px] text-zinc-500 font-mono">Due: {ap.dueDate}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">Due: {ap.dueDate}</div>
                           {isCritical && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">Critical</span>}
                         </div>
                       </div>
@@ -350,24 +367,24 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
 
           {/* 6. COMPANY RANKING */}
           {isConsolidated && (
-            <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
-              <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-zinc-400">Company Ranking (Last 30 Days)</h3>
+            <div className="bg-white border border-slate-200 p-5 rounded-xl">
+              <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-slate-600">Company Ranking (Last 30 Days)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#24272C]">
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Rank</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Company</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Revenue</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Expenses</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Profit</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Margin</th>
-                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-zinc-500">Status</th>
+                    <tr className="border-b border-slate-200">
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Rank</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Company</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Revenue</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Expenses</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Profit</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Margin</th>
+                      <th className="p-3 text-[10px] uppercase font-mono tracking-wider text-slate-500">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {companyRankings.map((c, idx) => (
-                      <tr key={c.name} className="border-b border-[#24272C]/50">
+                      <tr key={c.name} className="border-b border-slate-200/50">
                         <td className="p-3 text-xs font-mono">{idx + 1}</td>
                         <td className="p-3 text-xs font-bold">{c.name}</td>
                         <td className="p-3 text-xs font-mono">{formatPeso(c.rev)}</td>
@@ -396,40 +413,40 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
         <div className="space-y-6">
           
           {/* 3. OWNER TO-DO LIST */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
             <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-[#00B67A]">Today's Owner To-Do</h3>
             <div className="space-y-3">
               {pendingApprovalsCount > 0 && (
-                <div className="flex items-start justify-between p-3 border border-[#24272C] bg-[#141618] rounded-lg">
+                <div className="flex items-start justify-between p-3 border border-slate-200 bg-white rounded-lg">
                   <div className="text-xs">Approve {pendingApprovalsCount} pending transactions</div>
-                  <button onClick={() => onNavigate('approvals')} className="shrink-0 ml-3 text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded font-mono uppercase">Review</button>
+                  <button onClick={() => onNavigate('approvals')} className="shrink-0 ml-3 text-[10px] bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded font-mono uppercase">Review</button>
                 </div>
               )}
               {collectionPriority.length > 0 && (
-                <div className="flex items-start justify-between p-3 border border-[#24272C] bg-[#141618] rounded-lg">
+                <div className="flex items-start justify-between p-3 border border-slate-200 bg-white rounded-lg">
                   <div className="text-xs">Follow up {formatPeso(collectionPriority[0].amount)} receivable from {collectionPriority[0].customerName || collectionPriority[0].payeeId}</div>
-                  <button onClick={() => onNavigate('payables_receivables')} className="shrink-0 ml-3 text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded font-mono uppercase">Follow Up</button>
+                  <button onClick={() => onNavigate('payables_receivables')} className="shrink-0 ml-3 text-[10px] bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded font-mono uppercase">Follow Up</button>
                 </div>
               )}
-              <div className="flex items-start justify-between p-3 border border-[#24272C] bg-[#141618] rounded-lg">
+              <div className="flex items-start justify-between p-3 border border-slate-200 bg-white rounded-lg">
                 <div className="text-xs">Review expenses - Net profit changed {netProfitChange > 0 ? '+' : ''}{netProfitChange.toFixed(1)}%</div>
-                <button onClick={() => onNavigate('ledger')} className="shrink-0 ml-3 text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded font-mono uppercase">Details</button>
+                <button onClick={() => onNavigate('ledger')} className="shrink-0 ml-3 text-[10px] bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded font-mono uppercase">Details</button>
               </div>
             </div>
           </div>
 
           {/* 4. CASH RUNWAY */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
-            <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-2 text-zinc-400">Cash Runway</h3>
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
+            <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-2 text-slate-600">Cash Runway</h3>
             <div className="flex items-end gap-3 mb-2">
               <span className="text-4xl font-black font-mono tracking-tight">{runwayDays}</span>
-              <span className="text-sm text-zinc-500 font-mono uppercase pb-1">Days</span>
+              <span className="text-sm text-slate-500 font-mono uppercase pb-1">Days</span>
             </div>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-slate-600">
               At the current spending pace, available cash can cover about {runwayDays} days.
             </p>
-            <div className="mt-4 pt-4 border-t border-[#24272C] flex items-center justify-between">
-              <span className="text-xs font-mono uppercase text-zinc-500">Status</span>
+            <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs font-mono uppercase text-slate-500">Status</span>
               <span className={`text-xs font-bold font-mono uppercase px-2 py-1 rounded ${runwayStatus === 'Healthy' ? 'bg-emerald-500/20 text-emerald-400' : runwayStatus === 'Watch' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
                 {runwayStatus}
               </span>
@@ -437,19 +454,19 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
           </div>
 
           {/* 10. PENDING APPROVAL IMPACT */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
             <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-purple-400">Pending Approval Impact</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Pending Cash Out</span>
+                <span className="text-xs text-slate-600">Pending Cash Out</span>
                 <span className="text-sm font-mono text-red-400">-{formatPeso(pendingCashOut)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Pending Cash In</span>
+                <span className="text-xs text-slate-600">Pending Cash In</span>
                 <span className="text-sm font-mono text-emerald-400">+{formatPeso(pendingCashIn)}</span>
               </div>
-              <div className="pt-3 border-t border-[#24272C] flex justify-between items-center">
-                <span className="text-xs font-bold text-zinc-300">Net Effect if Approved</span>
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-700">Net Effect if Approved</span>
                 <span className={`text-sm font-bold font-mono ${netPendingEffect >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {netPendingEffect >= 0 ? '+' : ''}{formatPeso(netPendingEffect)}
                 </span>
@@ -458,55 +475,55 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
           </div>
 
           {/* 11. END OF MONTH FORECAST */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
             <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-blue-400">End-of-Month Forecast</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Current Cash</span>
+                <span className="text-xs text-slate-600">Current Cash</span>
                 <span className="text-sm font-mono">{formatPeso(currentCash)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Expected Collections</span>
+                <span className="text-xs text-slate-600">Expected Collections</span>
                 <span className="text-sm font-mono text-emerald-400">+{formatPeso(expectedCollections)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Upcoming Payables</span>
+                <span className="text-xs text-slate-600">Upcoming Payables</span>
                 <span className="text-sm font-mono text-red-400">-{formatPeso(upcomingPayables)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-zinc-400">Expected Payroll</span>
+                <span className="text-xs text-slate-600">Expected Payroll</span>
                 <span className="text-sm font-mono text-red-400">-{formatPeso(expectedPayroll)}</span>
               </div>
-              <div className="pt-3 border-t border-[#24272C] flex justify-between items-center">
-                <span className="text-xs font-bold text-zinc-300">Projected Ending Cash</span>
-                <span className="text-sm font-bold font-mono text-white">{formatPeso(projectedMonthEndCash)}</span>
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-700">Projected Ending Cash</span>
+                <span className="text-sm font-bold font-mono text-slate-900">{formatPeso(projectedMonthEndCash)}</span>
               </div>
             </div>
           </div>
 
           {/* 12. "ASK AI" QUICK BUTTONS & ASSISTANT PANEL */}
-          <div className="bg-[#181A1C] border border-[#24272C] p-5 rounded-xl">
+          <div className="bg-white border border-slate-200 p-5 rounded-xl">
             <h3 className="text-sm font-bold font-mono tracking-widest uppercase mb-4 text-indigo-400 flex items-center gap-2">
               <Bot className="w-4 h-4" /> Ask AI
             </h3>
             
             <div className="space-y-2 mb-4">
-              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-[#141618] hover:bg-[#24272C] border border-[#24272C] rounded-lg text-xs font-mono text-zinc-300 transition-colors">
+              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 transition-colors">
                 Why is profit down?
               </button>
-              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-[#141618] hover:bg-[#24272C] border border-[#24272C] rounded-lg text-xs font-mono text-zinc-300 transition-colors">
+              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 transition-colors">
                 Where is money leaking?
               </button>
-              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-[#141618] hover:bg-[#24272C] border border-[#24272C] rounded-lg text-xs font-mono text-zinc-300 transition-colors">
+              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 transition-colors">
                 What should I collect first?
               </button>
-              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-[#141618] hover:bg-[#24272C] border border-[#24272C] rounded-lg text-xs font-mono text-zinc-300 transition-colors">
+              <button onClick={() => setShowAI(true)} className="w-full text-left px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 transition-colors">
                 Summarize today for owner.
               </button>
             </div>
 
             {showAI && (
-              <div className="mt-4 border-t border-[#24272C] pt-4 animate-fadeIn">
+              <div className="mt-4 border-t border-slate-200 pt-4 animate-fadeIn">
                  <AIAccountingAssistant userId={userId} companyId={companyId} />
               </div>
             )}
