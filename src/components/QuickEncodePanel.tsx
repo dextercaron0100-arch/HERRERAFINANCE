@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Building2,
   Calendar,
-  DollarSign,
   FileText,
   User,
   Image as ImageIcon,
@@ -12,7 +11,8 @@ import {
   AlertTriangle,
   X,
   CheckCircle2,
-  ListTodo
+  ListTodo,
+  HelpCircle
 } from 'lucide-react';
 import { 
   getCompanies, 
@@ -21,6 +21,7 @@ import {
   insertTransaction,
   getTransactions
 } from '../data/mockDatabase';
+import { compressImage } from '../lib/imageUtils';
 import { toast } from 'sonner';
 import { Transaction } from '../types';
 
@@ -39,13 +40,20 @@ export default function QuickEncodePanel({
   const today = new Date().toISOString().split("T")[0];
 
   const [formCompanyId, setFormCompanyId] = useState(isConsolidated ? companies[0]?.id : companyId);
+  useEffect(() => {
+    setFormCompanyId(isConsolidated ? companies[0]?.id : companyId);
+  }, [companyId, isConsolidated]);
   const [txnDate, setTxnDate] = useState(today);
-  const [type, setType] = useState<"cash_in" | "cash_out">("cash_out");
-  const [amount, setAmount] = useState<number | "">("");
+  const [type, setType] = useState<"cash_in" | "cash_out">("cash_in");
+  const [amountStr, setAmountStr] = useState<string>("");
+  const amount = amountStr === "" ? "" : Number(amountStr.replace(/,/g, ''));
   const [purpose, setPurpose] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [responsiblePerson, setResponsiblePerson] = useState("");
-  const [cashAccountId, setCashAccountId] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [paymentAllocations, setPaymentAllocations] = useState<{ id: string, cashAccountId: string, amountStr: string }[]>([
+    { id: "initial", cashAccountId: "", amountStr: "" }
+  ]);
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
 
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
@@ -53,6 +61,18 @@ export default function QuickEncodePanel({
   const categories = useMemo(() => getCategories(formCompanyId).filter(c => c.type === type), [formCompanyId, type]);
   const cashAccounts = useMemo(() => getCashAccounts(formCompanyId), [formCompanyId]);
   const recentTransactions = useMemo(() => getTransactions(userId, formCompanyId), [userId, formCompanyId]);
+
+  const formatInput = (val: string) => {
+    let cleaned = val.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (parts[0]) {
+      parts[0] = Number(parts[0]).toLocaleString('en-US');
+    }
+    return parts.join('.');
+  };
 
   // AI Category Suggestion (Mock)
   useEffect(() => {
@@ -102,8 +122,10 @@ export default function QuickEncodePanel({
 
 
   const handleSave = (encodeAnother: boolean) => {
-    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || !cashAccountId || !receiptPath) {
-      toast.error("Please fill in all required fields, including Cash/Bank and Receipt.");
+    const validAllocations = [...paymentAllocations].filter(p => p.cashAccountId);
+
+    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || validAllocations.length === 0 || !receiptPath) {
+      toast.error("Please fill in all required fields, including Payment Method(s) and Receipt.");
       return;
     }
 
@@ -112,34 +134,64 @@ export default function QuickEncodePanel({
       return;
     }
 
-    const payload: Omit<Transaction, "id" | "status" | "encodedBy" | "createdAt" | "updatedAt"> = {
-      companyId: formCompanyId,
-      cashAccountId: cashAccountId || undefined,
-      txnDate,
-      type,
-      amount: Number(amount),
-      categoryId,
-      purpose,
-      responsiblePerson,
-      receiptPath,
-      mockMetadata: null,
-      paymentMethod: "",
-      reversalOf: null
-    };
+    // Auto-fill amount if only one payment method
+    if (validAllocations.length === 1 && !validAllocations[0].amountStr) {
+      validAllocations[0].amountStr = amountStr;
+    }
 
-    const res = insertTransaction(userId, payload);
-    if (res.error) {
-      toast.error(res.error);
-    } else {
-      toast.success("Transaction encoded successfully.");
+    let totalAllocated = 0;
+    for (const alloc of validAllocations) {
+      const allocAmt = alloc.amountStr === "" ? 0 : Number(alloc.amountStr.replace(/,/g, ''));
+      if (allocAmt <= 0) {
+        toast.error("Please specify a valid amount for each payment method.");
+        return;
+      }
+      totalAllocated += allocAmt;
+    }
+
+    if (totalAllocated !== Number(amount)) {
+      toast.error(`Payment methods total (₱${totalAllocated.toLocaleString()}) does not match the total amount (₱${Number(amount).toLocaleString()}).`);
+      return;
+    }
+
+    let hasError = false;
+    for (const alloc of validAllocations) {
+      const allocAmt = alloc.amountStr === "" ? 0 : Number(alloc.amountStr.replace(/,/g, ''));
+      const payload: Omit<Transaction, "id" | "status" | "encodedBy" | "createdAt" | "updatedAt"> = {
+        companyId: formCompanyId,
+        cashAccountId: alloc.cashAccountId,
+        txnDate,
+        type,
+        amount: allocAmt,
+        categoryId,
+        purpose,
+        responsiblePerson,
+        remarks: remarks.trim() || null,
+        receiptPath,
+        mockMetadata: null,
+        paymentMethod: "",
+        reversalOf: null
+      };
+
+      const res = insertTransaction(userId, payload);
+      if (res.error) {
+        toast.error(res.error);
+        hasError = true;
+        break;
+      }
+    }
+
+    if (!hasError) {
+      toast.success(validAllocations.length > 1 ? "Split transactions encoded successfully." : "Transaction encoded successfully.");
       
       // Reset fields to avoid duplication
-      setAmount("");
+      setAmountStr("");
       setPurpose("");
       setReceiptPath(null);
       setCategoryId("");
-      setCashAccountId("");
+      setPaymentAllocations([{ id: Date.now().toString(), cashAccountId: "", amountStr: "" }]);
       setResponsiblePerson("");
+      setRemarks("");
       setDuplicateWarning(null);
 
       if (!encodeAnother && onClose) {
@@ -153,11 +205,13 @@ export default function QuickEncodePanel({
     if (myTxns.length > 0) {
       const last = myTxns[0]; // assuming sorted by newest first
       setFormCompanyId(last.companyId);
-      setAmount(last.amount);
+      setAmountStr(formatInput(last.amount.toString()));
       setPurpose(last.purpose);
       setCategoryId(last.categoryId);
       setResponsiblePerson(last.responsiblePerson);
-      if (last.cashAccountId) setCashAccountId(last.cashAccountId);
+      if (last.cashAccountId) {
+        setPaymentAllocations([{ id: Date.now().toString(), cashAccountId: last.cashAccountId, amountStr: formatInput(last.amount.toString()) }]);
+      }
       toast.info("Filled with last encoded transaction.");
     }
   };
@@ -204,16 +258,16 @@ export default function QuickEncodePanel({
             <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 block">Type</label>
             <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
               <button 
-                onClick={() => setType('cash_out')}
-                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_out' ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Cash Out
-              </button>
-              <button 
                 onClick={() => setType('cash_in')}
                 className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_in' ? 'bg-emerald-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Cash In
+              </button>
+              <button 
+                onClick={() => setType('cash_out')}
+                className={`flex-1 text-xs font-mono py-1.5 rounded-md transition ${type === 'cash_out' ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Cash Out
               </button>
             </div>
           </div>
@@ -229,11 +283,11 @@ export default function QuickEncodePanel({
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Amount</label>
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><span className="font-sans font-bold text-xs leading-none">₱</span> Amount</label>
             <input 
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              type="text"
+              value={amountStr}
+              onChange={(e) => setAmountStr(formatInput(e.target.value))}
               placeholder="0.00"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
             />
@@ -275,16 +329,66 @@ export default function QuickEncodePanel({
             </select>
           </div>
 
-          <div className="col-span-2 sm:col-span-1">
-            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><Building2 className="w-3 h-3" /> Cash/Bank</label>
-            <select 
-              value={cashAccountId}
-              onChange={(e) => setCashAccountId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
-            >
-              <option value="">Select...</option>
-              {cashAccounts.map(c => <option key={c.id} value={c.id}>{c.bankName} - {c.accountNumber.slice(-4)}</option>)}
-            </select>
+          <div className="col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest flex items-center gap-1 group">
+                <Building2 className="w-3 h-3" /> Payment Method(s)
+                <div className="relative flex items-center">
+                  <HelpCircle className="w-3 h-3 text-slate-400 cursor-help hover:text-slate-600 transition-colors" />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-sans normal-case tracking-normal p-2 rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 text-center shadow-xl">
+                    Total split amount is automatically validated against the total transaction amount to ensure they match exactly.
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                  </div>
+                </div>
+              </label>
+              <button 
+                onClick={() => setPaymentAllocations([...paymentAllocations, { id: Date.now().toString() + Math.random(), cashAccountId: "", amountStr: "" }])}
+                className="text-[10px] uppercase font-mono tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded flex items-center gap-1 transition"
+              >
+                <PlusCircle className="w-3 h-3" /> Split
+              </button>
+            </div>
+            
+            <div className="space-y-2">
+              {paymentAllocations.map((alloc, idx) => (
+                <div key={alloc.id} className="flex gap-2 items-center bg-slate-50 border border-slate-200 rounded-lg p-2">
+                  <select 
+                    value={alloc.cashAccountId}
+                    onChange={(e) => {
+                      const newAlloc = paymentAllocations.map((a, i) => i === idx ? { ...a, cashAccountId: e.target.value } : a);
+                      setPaymentAllocations(newAlloc);
+                    }}
+                    className="flex-1 bg-white border border-slate-200 rounded-md px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
+                  >
+                    <option value="">Select Account...</option>
+                    {cashAccounts.map(c => <option key={c.id} value={c.id}>{c.bankName} - {c.accountNumber.slice(-4)}</option>)}
+                  </select>
+                  
+                  <div className="relative w-28 shrink-0">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₱</span>
+                    <input 
+                      type="text"
+                      value={alloc.amountStr}
+                      placeholder="Amount"
+                      onChange={(e) => {
+                        const newAlloc = paymentAllocations.map((a, i) => i === idx ? { ...a, amountStr: formatInput(e.target.value) } : a);
+                        setPaymentAllocations(newAlloc);
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-md pl-6 pr-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono"
+                    />
+                  </div>
+                  
+                  {paymentAllocations.length > 1 && (
+                    <button 
+                      onClick={() => setPaymentAllocations(paymentAllocations.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="col-span-2">
@@ -299,20 +403,54 @@ export default function QuickEncodePanel({
           </div>
 
           <div className="col-span-2">
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><FileText className="w-3 h-3" /> Remarks</label>
+            <input 
+              type="text"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Optional remarks"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
+            />
+          </div>
+
+          <div className="col-span-2">
             <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Receipt Upload</label>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => {
-                  setReceiptPath(receiptPath ? null : "/mock-receipt.jpg");
-                  if (!receiptPath) toast.success("Mock receipt attached");
+            <div className="flex gap-2 relative">
+              <input 
+                type="file" 
+                id="receipt-upload"
+                accept="image/*,.pdf"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type.startsWith('image/')) {
+                      try {
+                        const compressedBase64 = await compressImage(file);
+                        setReceiptPath(compressedBase64);
+                        toast.success("File attached");
+                      } catch (err) {
+                        toast.error("Failed to process image");
+                      }
+                    } else {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setReceiptPath(reader.result as string);
+                        toast.success("File attached");
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }
                 }}
-                className={`flex-1 border border-dashed rounded-lg py-3 flex items-center justify-center gap-2 transition ${receiptPath ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'}`}
+              />
+              <div 
+                className={`flex-1 border border-dashed rounded-lg py-3 flex items-center justify-center gap-2 transition pointer-events-none ${receiptPath ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'}`}
               >
                 {receiptPath ? <CheckCircle2 className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
                 <span className="text-xs font-mono uppercase tracking-widest">
                   {receiptPath ? "Attached" : "Attach File"}
                 </span>
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -323,7 +461,7 @@ export default function QuickEncodePanel({
           <div className="flex flex-wrap gap-2">
             <Badge done={Number(amount) > 0} label="Amount" />
             <Badge done={!!categoryId} label="Category" />
-            <Badge done={!!cashAccountId} label="Cash/Bank" />
+            <Badge done={paymentAllocations.some(p => p.cashAccountId)} label="Cash/Bank" />
             <Badge done={!!purpose} label="Purpose" />
             <Badge done={!!responsiblePerson} label="Person" />
             <Badge done={!!receiptPath} label="Receipt" />

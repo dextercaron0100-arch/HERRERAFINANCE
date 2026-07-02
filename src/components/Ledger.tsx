@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   Filter,
@@ -26,7 +26,9 @@ import {
   Sparkles,
   Camera
 } from 'lucide-react';
+import { motion, animate } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
+import * as XLSX from 'xlsx';
 import {
   getTransactions,
   getCategories,
@@ -43,9 +45,34 @@ import {
   saveAttachment,
   getCashAccounts
 } from '../data/mockDatabase';
+import { compressImage } from '../lib/imageUtils';
 import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '../types';
 import { toast } from 'sonner';
 
+function AnimatedCounter({ value, className }: { value: number, className?: string }) {
+  const nodeRef = useRef<HTMLSpanElement>(null);
+  const prevValue = useRef(0);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (node) {
+      const controls = animate(prevValue.current, value, {
+        duration: 0.8,
+        ease: "easeOut",
+        onUpdate: (latest) => {
+          node.textContent = new Intl.NumberFormat("en-PH", {
+            style: "currency",
+            currency: "PHP"
+          }).format(latest);
+        }
+      });
+      prevValue.current = value;
+      return () => controls.stop();
+    }
+  }, [value]);
+
+  return <span ref={nodeRef} className={className}>{new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value)}</span>;
+}
 
 interface LedgerProps {
   userId: string;
@@ -104,6 +131,19 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
   // Receipt modal State
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+
+  // CSV Import State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvData, setCsvData] = useState<any[]>([]);
+  const [csvMapping, setCsvMapping] = useState({
+    date: '',
+    amount: '',
+    description: '',
+    type: '',
+    category: ''
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Attachment/Metadata Drawer State
   const [activeMetadataTxn, setActiveMetadataTxn] = useState<Transaction | null>(null);
@@ -189,6 +229,119 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
   };
 
+  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet);
+      
+      if (json.length === 0) {
+        toast.error("File is empty");
+        return;
+      }
+      
+      const headers = Object.keys(json[0] as object);
+      setCsvHeaders(headers);
+      setCsvData(json);
+      setCsvMapping({
+        date: '',
+        amount: '',
+        description: '',
+        type: '',
+        category: ''
+      });
+      setIsImportModalOpen(true);
+    } catch (err: any) {
+      toast.error("Failed to parse file: " + err.message);
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDownloadCsvTemplate = () => {
+    const headers = ['date', 'amount', 'description', 'type', 'category'];
+    const sampleRow1 = ['2023-10-25', '1500.50', 'Office Supplies', 'cash_out', 'Supplies'];
+    const sampleRow2 = ['2023-10-26', '5000.00', 'Client Payment', 'cash_in', 'Revenue'];
+    const csvContent = [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'ledger_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Template Downloaded', { description: 'CSV template for ledger import has been downloaded.' });
+  };
+
+  const handleImportCsvData = () => {
+    const missing = ['date', 'amount', 'description', 'type', 'category'].filter(f => !(csvMapping as any)[f]);
+    if (missing.length > 0) {
+      toast.error(`Please map all required fields. Missing: ${missing.join(', ')}`);
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    csvData.forEach(row => {
+      try {
+        const rawDate = row[csvMapping.date];
+        const rawAmount = row[csvMapping.amount];
+        const rawDesc = row[csvMapping.description];
+        const rawType = row[csvMapping.type];
+        const rawCategory = row[csvMapping.category];
+
+        const dateObj = new Date(rawDate);
+        if (isNaN(dateObj.getTime())) throw new Error("Invalid date");
+        const date = dateObj.toISOString().split('T')[0];
+        
+        const amount = parseFloat(rawAmount);
+        if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
+        
+        let type: CashflowType = 'cash_out';
+        if (String(rawType).toLowerCase().includes('in') || String(rawType).toLowerCase().includes('income') || String(rawType).toLowerCase().includes('credit')) {
+          type = 'cash_in';
+        }
+
+        let categoryId = categories.find(c => c.type === type)?.id || '';
+        const foundCategory = categories.find(c => c.name.toLowerCase() === String(rawCategory).toLowerCase().trim() && c.type === type);
+        if (foundCategory) {
+          categoryId = foundCategory.id;
+        }
+
+        const { error } = insertTransaction(userId, {
+          companyId: companyId === 'all' ? companies[0]?.id || '' : companyId,
+          txnDate: date,
+          type,
+          amount,
+          categoryId,
+          purpose: String(rawDesc),
+          responsiblePerson: profiles.find(p => p.id === userId)?.email || 'Imported User',
+          reversalOf: null,
+          receiptPath: null
+        });
+
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        errorCount++;
+      }
+    });
+
+    toast.success(`Import complete! ${successCount} added, ${errorCount} failed.`);
+    setIsImportModalOpen(false);
+    onAuditLogged();
+  };
+
   // PESO FORMATTER
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -202,8 +355,11 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const balanceSummary = useMemo(() => {
     // Total cash in/out approved for selected period
     const approvedTxns = rawTxns.filter(t => t.status === 'approved');
-    const cashIn = approvedTxns.filter(t => t.type === 'cash_in').reduce((sum, t) => sum + t.amount, 0);
-    const cashOut = approvedTxns.filter(t => t.type === 'cash_out').reduce((sum, t) => sum + t.amount, 0);
+    const cashInTxns = approvedTxns.filter(t => t.type === 'cash_in');
+    const cashOutTxns = approvedTxns.filter(t => t.type === 'cash_out');
+    
+    const cashIn = cashInTxns.reduce((sum, t) => sum + t.amount, 0);
+    const cashOut = cashOutTxns.reduce((sum, t) => sum + t.amount, 0);
     
     // Find initial capital (first cash-in or specific category)
     // For simplicity, we can just say beginning is 0 for an all-time view, 
@@ -212,13 +368,44 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     const beginning = 0;
     const ending = cashIn - cashOut;
 
+    const breakdown = {
+      cashIn: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>,
+      cashOut: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>,
+      ending: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>
+    };
+
+    cashInTxns.forEach(t => {
+      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      if (acc && breakdown.cashIn[acc.accountType] !== undefined) {
+        breakdown.cashIn[acc.accountType] += t.amount;
+      } else {
+        breakdown.cashIn['Bank'] += t.amount;
+      }
+    });
+
+    cashOutTxns.forEach(t => {
+      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      if (acc && breakdown.cashOut[acc.accountType] !== undefined) {
+        breakdown.cashOut[acc.accountType] += t.amount;
+      } else {
+        breakdown.cashOut['Bank'] += t.amount;
+      }
+    });
+
+    allCashAccounts.forEach(acc => {
+      if (breakdown.ending[acc.accountType] !== undefined) {
+        breakdown.ending[acc.accountType] += acc.currentBalance;
+      }
+    });
+
     return {
       beginning,
       cashIn,
       cashOut,
-      ending
+      ending,
+      breakdown
     };
-  }, [rawTxns, companyId]);
+  }, [rawTxns, companyId, allCashAccounts]);
 
   // 2. FILTER TRANSACTIONS
   const filteredTransactions = useMemo(() => {
@@ -278,15 +465,24 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   }, [rawTxns]);
 
   // 4. FILE UPLOAD SIMULATOR (BASE64)
-  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setEncReceiptFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEncReceipt(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      if (file.type.startsWith('image/')) {
+        try {
+          const compressedBase64 = await compressImage(file);
+          setEncReceipt(compressedBase64);
+        } catch (err) {
+          toast.error("Failed to process image");
+        }
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEncReceipt(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -475,7 +671,20 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       ];
     });
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const netTotal = filteredTransactions.reduce((sum, t) => sum + (t.type === 'cash_in' ? t.amount : -t.amount), 0);
+    const totalRow = [
+      '""',
+      '""',
+      '""',
+      '"NET TOTAL"',
+      netTotal.toFixed(2),
+      '""',
+      '""',
+      '""',
+      '""'
+    ];
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(',')), totalRow.join(',')].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -525,56 +734,180 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+        <motion.div 
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1"
+        >
           {/* Box 1 */}
-          <div 
-            onClick={() => {
-              setSearchTerm('capital');
-              setSelectedType('cash_in');
-              setSelectedStatus('approved');
+          <motion.div 
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
             }}
-            className="p-4 bg-white border border-slate-200 border-l-2 border-l-amber-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+            className="uiverse-parent"
           >
-            <span className="text-[9px] font-bold text-slate-500 group-hover:text-amber-400 uppercase tracking-widest block font-mono transition-colors">Beginning Capital Asset</span>
-            <div className="text-lg font-bold text-slate-900 font-mono tracking-tight">{formatPeso(balanceSummary.beginning)}</div>
-          </div>
+            <div 
+              className="uiverse-card card-amber"
+              onClick={() => {
+                setSearchTerm('capital');
+                setSelectedType('cash_in');
+                setSelectedStatus('approved');
+              }}
+            >
+              <div className="uiverse-front">
+                <div className="uiverse-logo">
+                    <span className="uiverse-circle uiverse-circle1"></span>
+                    <span className="uiverse-circle uiverse-circle2"></span>
+                    <span className="uiverse-circle uiverse-circle3"></span>
+                    <span className="uiverse-circle uiverse-circle4"></span>
+                </div>
+                <div className="uiverse-glass"></div>
+                <div className="uiverse-content">
+                    <span className="uiverse-title text-amber-900">Beginning Capital Asset</span>
+                    <AnimatedCounter value={balanceSummary.beginning} className="uiverse-text text-amber-950" />
+                </div>
+              </div>
+              <div className="uiverse-back">
+                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold mb-2">Breakdown</span>
+                <div className="space-y-1 overflow-y-auto pr-1 custom-scrollbar text-xs font-mono">
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">₱0.00</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">₱0.00</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">₱0.00</span></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           {/* Box 2 */}
-          <div 
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedType('cash_in');
-              setSelectedStatus('approved');
+          <motion.div 
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
             }}
-            className="p-4 bg-white border border-slate-200 border-l-2 border-l-[#00B67A] space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+            className="uiverse-parent"
           >
-            <span className="text-[9px] font-bold text-[#00B67A] group-hover:text-emerald-400 uppercase tracking-widest block font-mono transition-colors">Approved Cash Inputs (+)</span>
-            <div className="text-lg font-bold text-[#00B67A] font-mono tracking-tight">{formatPeso(balanceSummary.cashIn)}</div>
-          </div>
+            <div 
+              className="uiverse-card card-emerald"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedType('cash_in');
+                setSelectedStatus('approved');
+              }}
+            >
+              <div className="uiverse-front">
+                <div className="uiverse-logo">
+                    <span className="uiverse-circle uiverse-circle1"></span>
+                    <span className="uiverse-circle uiverse-circle2"></span>
+                    <span className="uiverse-circle uiverse-circle3"></span>
+                    <span className="uiverse-circle uiverse-circle4"></span>
+                </div>
+                <div className="uiverse-glass"></div>
+                <div className="uiverse-content">
+                    <span className="uiverse-title text-emerald-900">Approved Cash Inputs (+)</span>
+                    <AnimatedCounter value={balanceSummary.cashIn} className="uiverse-text text-emerald-950" />
+                </div>
+              </div>
+              <div className="uiverse-back">
+                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold mb-2">Cash In By Account</span>
+                <div className="space-y-1 overflow-y-auto pr-1 custom-scrollbar text-xs font-mono">
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashIn['Bank'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashIn['Cash on Hand'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Vault:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashIn['Main Vault'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashIn['E-Wallet'] || 0)}</span></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           {/* Box 3 */}
-          <div 
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedType('cash_out');
-              setSelectedStatus('approved');
+          <motion.div 
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
             }}
-            className="p-4 bg-white border border-slate-200 border-l-2 border-l-rose-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+            className="uiverse-parent"
           >
-            <span className="text-[9px] font-bold text-rose-450 group-hover:text-rose-400 uppercase tracking-widest block font-mono transition-colors">Approved Disbursements (-)</span>
-            <div className="text-lg font-bold text-rose-450 font-mono tracking-tight">{formatPeso(balanceSummary.cashOut)}</div>
-          </div>
+            <div 
+              className="uiverse-card card-rose"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedType('cash_out');
+                setSelectedStatus('approved');
+              }}
+            >
+              <div className="uiverse-front">
+                <div className="uiverse-logo">
+                    <span className="uiverse-circle uiverse-circle1"></span>
+                    <span className="uiverse-circle uiverse-circle2"></span>
+                    <span className="uiverse-circle uiverse-circle3"></span>
+                    <span className="uiverse-circle uiverse-circle4"></span>
+                </div>
+                <div className="uiverse-glass"></div>
+                <div className="uiverse-content">
+                    <span className="uiverse-title text-rose-900">Approved Disbursements (-)</span>
+                    <AnimatedCounter value={balanceSummary.cashOut} className="uiverse-text text-rose-950" />
+                </div>
+              </div>
+              <div className="uiverse-back">
+                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold mb-2">Cash Out By Account</span>
+                <div className="space-y-1 overflow-y-auto pr-1 custom-scrollbar text-xs font-mono">
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashOut['Bank'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashOut['Cash on Hand'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Vault:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashOut['Main Vault'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.cashOut['E-Wallet'] || 0)}</span></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           {/* Box 4 */}
-          <div 
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedType('all');
-              setSelectedStatus('approved');
+          <motion.div 
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
             }}
-            className="p-4 bg-white border border-slate-200 border-l-2 border-l-sky-500 space-y-1 rounded-xl shadow-inner cursor-pointer hover:bg-slate-50 transition-colors group"
+            className="uiverse-parent"
           >
-            <span className="text-[9px] font-bold text-sky-400 group-hover:text-sky-300 uppercase tracking-widest block font-mono transition-colors">Ending Treasury Balance (=)</span>
-            <div className="text-lg font-bold text-slate-900 font-mono tracking-tight">{formatPeso(balanceSummary.ending)}</div>
-          </div>
-        </div>
+            <div 
+              className="uiverse-card card-sky"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedType('all');
+                setSelectedStatus('approved');
+              }}
+            >
+              <div className="uiverse-front">
+                <div className="uiverse-logo">
+                    <span className="uiverse-circle uiverse-circle1"></span>
+                    <span className="uiverse-circle uiverse-circle2"></span>
+                    <span className="uiverse-circle uiverse-circle3"></span>
+                    <span className="uiverse-circle uiverse-circle4"></span>
+                </div>
+                <div className="uiverse-glass"></div>
+                <div className="uiverse-content">
+                    <span className="uiverse-title text-sky-900">Ending Treasury Balance (=)</span>
+                    <AnimatedCounter value={balanceSummary.ending} className="uiverse-text text-sky-950" />
+                </div>
+              </div>
+              <div className="uiverse-back">
+                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold mb-2">Current Total Balances</span>
+                <div className="space-y-1 overflow-y-auto pr-1 custom-scrollbar text-xs font-mono">
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.ending['Bank'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.ending['Cash on Hand'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Vault:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.ending['Main Vault'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.ending['E-Wallet'] || 0)}</span></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* ACTION HEADER BAR */}
@@ -585,6 +918,23 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         </div>
 
         <div className="flex flex-wrap items-center gap-3 no-print">
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 hover:text-black text-slate-700 border border-slate-200 hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
+            title="Import CSV"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Import CSV</span>
+          </button>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleCsvFileChange} 
+            accept=".csv,.xlsx,.xls" 
+            className="hidden" 
+          />
+
           <button 
             onClick={handlePrintPDF}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 hover:text-black text-slate-700 border border-slate-200 hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
@@ -628,7 +978,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-8 gap-3">
           {/* SEARCH */}
           <div className="sm:col-span-2 space-y-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Keyword search</span>
@@ -653,7 +1003,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               className="w-full px-2.5 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl cursor-pointer font-mono transition-all"
             >
               <option value="all" className="bg-white">All Flows</option>
-              <option value="cash_in" className="bg-white">Inflows / Net Income</option>
+              <option value="cash_in" className="bg-white">Inflow / Gross Sales</option>
               <option value="cash_out" className="bg-white">Outflows / Expenses</option>
             </select>
           </div>
@@ -713,12 +1063,21 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </div>
 
           {/* DATES */}
-          <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+          <div className="space-y-1 sm:col-span-1 lg:col-span-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Start Date</span>
             <input 
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-1 lg:col-span-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">End Date</span>
+            <input 
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
             />
           </div>
@@ -1080,6 +1439,67 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* CSV IMPORT MAPPING MODAL */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200"
+          >
+            <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 uppercase tracking-widest font-mono text-sm">Map CSV Columns</h3>
+              <button onClick={() => setIsImportModalOpen(false)} className="text-slate-500 hover:text-slate-900 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 font-mono mb-4">Select the column from your file that matches each required field.</p>
+              
+              {['date', 'amount', 'description', 'type', 'category'].map((field) => (
+                <div key={field} className="flex flex-col space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                    {field}
+                  </label>
+                  <select
+                    value={(csvMapping as any)[field]}
+                    onChange={(e) => setCsvMapping({ ...csvMapping, [field]: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-[#00B67A] rounded-xl font-mono cursor-pointer"
+                  >
+                    <option value="">-- Select Column --</option>
+                    {csvHeaders.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+              <button
+                onClick={handleDownloadCsvTemplate}
+                className="px-4 py-2 text-xs font-bold text-sky-600 uppercase tracking-wider hover:bg-sky-50 rounded-xl transition cursor-pointer"
+              >
+                Download CSV Template
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 uppercase tracking-wider hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportCsvData}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#00B67A] hover:bg-[#009E6B] uppercase tracking-wider rounded-xl transition shadow-sm cursor-pointer"
+                >
+                  Import Data
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

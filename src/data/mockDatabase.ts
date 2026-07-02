@@ -26,6 +26,7 @@ import {
   PayrollStatus,
   Deductions,
   DailyBalance,
+  FundTransfer
 } from "../types";
 
 // Storage keys
@@ -53,6 +54,7 @@ const KEYS = {
   CASH_LEDGER_ENTRIES: `${DB_PREFIX}cash_ledger_entries`,
   CASH_COUNTS: `${DB_PREFIX}cash_counts`,
   BANK_DEPOSITS: `${DB_PREFIX}bank_deposits`,
+  FUND_TRANSFERS: `${DB_PREFIX}fund_transfers`,
   CURRENT_USER_ID: `${DB_PREFIX}current_user_id`,
   SELECTED_COMPANY_ID: `${DB_PREFIX}selected_company_id`,
   CONTROL_NUMBER: `${DB_PREFIX}control_numbers`,
@@ -170,7 +172,10 @@ export const DEFAULT_CASH_IN_CATEGORIES = [...SHARED_CATEGORIES];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot, disableNetwork } from "firebase/firestore";
+import { toast } from "sonner";
+
+let hasNotifiedQuota = false;
 
 export function useDBUpdate() {
   const [tick, setTick] = useState(0);
@@ -186,14 +191,88 @@ export function useDBUpdate() {
 let memoryDb: Record<string, any> | null = null;
 let dbInitialized = false;
 let isSeeding = false;
+let lastLocalWriteTime = 0;
+
+const safeSetDoc = async (docRef: any, data: any, options: any) => {
+  try {
+    await setDoc(docRef, data, options);
+    localStorage.removeItem("quota_exceeded");
+  } catch (error: any) {
+    if (error?.code === 'resource-exhausted') {
+      localStorage.setItem("quota_exceeded", "true");
+      if (!hasNotifiedQuota) {
+        hasNotifiedQuota = true;
+        toast.error("Database Quota Exceeded", {
+          description: "Firebase free tier limit reached. App will run in offline local mode."
+        });
+      }
+      if (db) {
+        disableNetwork(db).catch(() => {});
+      }
+    } else {
+      console.error("Firestore setDoc error:", error);
+    }
+    throw error;
+  }
+};
 
 const load = <T>(key: string, def: T): T => {
-  if (memoryDb && memoryDb[key]) return memoryDb[key];
+  if (!memoryDb) memoryDb = {};
+  if (key in memoryDb) return memoryDb[key];
   const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : def;
+  let val = data ? JSON.parse(data) : def;
+  
+  if (Array.isArray(val)) {
+    let changed = false;
+    val.forEach((item: any) => {
+      if (item && typeof item === 'object') {
+        if (item.receiptPath && typeof item.receiptPath === 'string' && item.receiptPath.length > 30000) { item.receiptPath = null; changed = true; }
+        if (item.fileUrl && typeof item.fileUrl === 'string' && item.fileUrl.length > 30000) { item.fileUrl = null; changed = true; }
+        if (item.proofOfDepositAttachment && typeof item.proofOfDepositAttachment === 'string' && item.proofOfDepositAttachment.length > 30000) { item.proofOfDepositAttachment = null; changed = true; }
+      }
+    });
+    if (changed) {
+      localStorage.setItem(key, JSON.stringify(val));
+    }
+  }
+
+  memoryDb[key] = val;
+  return val;
+};
+
+const sanitizeForFirestore = (data: any) => {
+  let cleaned = JSON.parse(JSON.stringify(data));
+  if (Array.isArray(cleaned)) {
+    // 1. Hard limit to drop ridiculously large files
+    cleaned.forEach((item: any) => {
+      if (item && typeof item === 'object') {
+        if (item.receiptPath && typeof item.receiptPath === 'string' && item.receiptPath.length > 50000) item.receiptPath = null;
+        if (item.fileUrl && typeof item.fileUrl === 'string' && item.fileUrl.length > 50000) item.fileUrl = null;
+        if (item.proofOfDepositAttachment && typeof item.proofOfDepositAttachment === 'string' && item.proofOfDepositAttachment.length > 50000) item.proofOfDepositAttachment = null;
+      }
+    });
+    
+    // 2. Iteratively drop attachments from oldest to newest if the total payload is too large for Firestore
+    let size = new Blob([JSON.stringify(cleaned)]).size;
+    let indexToClear = 0;
+    while (size > 900000 && indexToClear < cleaned.length) {
+      const item = cleaned[indexToClear];
+      if (item && typeof item === 'object') {
+        if (item.receiptPath) item.receiptPath = null;
+        if (item.fileUrl) item.fileUrl = null;
+        if (item.proofOfDepositAttachment) item.proofOfDepositAttachment = null;
+      }
+      indexToClear++;
+      size = new Blob([JSON.stringify(cleaned)]).size;
+    }
+  }
+  return cleaned;
 };
 
 const save = <T>(key: string, val: T): void => {
+  if (!isSeeding) {
+    lastLocalWriteTime = Date.now();
+  }
   localStorage.setItem(key, JSON.stringify(val));
   if (!memoryDb) memoryDb = {};
   memoryDb[key] = val;
@@ -204,21 +283,50 @@ const save = <T>(key: string, val: T): void => {
   }, 0);
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
-    const docRef = doc(db, "appData", "master");
-    const cleanVal = JSON.parse(JSON.stringify(val));
-    setDoc(docRef, { [key]: cleanVal }, { merge: true }).catch(console.error);
+    const docRef = doc(db, "appData", key);
+    
+    if (localStorage.getItem("quota_exceeded") === "true") {
+      // If we are recovering from a quota exceeded state, push the full local state to ensure consistency
+      Object.values(KEYS).forEach((k) => {
+        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
+        const v = localStorage.getItem(k);
+        if (v) {
+          const dRef = doc(db, "appData", k);
+          safeSetDoc(dRef, { data: sanitizeForFirestore(JSON.parse(v)) }, { merge: true });
+        }
+      });
+    } else {
+      const cleanVal = JSON.parse(JSON.stringify(val));
+      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true });
+    }
   }
 };
 
 const saveSilent = <T>(key: string, val: T): void => {
+  if (!isSeeding) {
+    lastLocalWriteTime = Date.now();
+  }
   localStorage.setItem(key, JSON.stringify(val));
   if (!memoryDb) memoryDb = {};
   memoryDb[key] = val;
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
-    const docRef = doc(db, "appData", "master");
-    const cleanVal = JSON.parse(JSON.stringify(val));
-    setDoc(docRef, { [key]: cleanVal }, { merge: true }).catch(console.error);
+    const docRef = doc(db, "appData", key);
+    
+    if (localStorage.getItem("quota_exceeded") === "true") {
+      // If we are recovering from a quota exceeded state, push the full local state to ensure consistency
+      Object.values(KEYS).forEach((k) => {
+        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
+        const v = localStorage.getItem(k);
+        if (v) {
+          const dRef = doc(db, "appData", k);
+          safeSetDoc(dRef, { data: sanitizeForFirestore(JSON.parse(v)) }, { merge: true });
+        }
+      });
+    } else {
+      const cleanVal = JSON.parse(JSON.stringify(val));
+      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true });
+    }
   }
 };
 
@@ -227,8 +335,10 @@ export function initDB() {
   if (dbInitialized) return;
   dbInitialized = true;
   isSeeding = true;
+  let justSeeded = false;
 
   if (!localStorage.getItem(KEYS.COMPANIES)) {
+    justSeeded = true;
     save(KEYS.COMPANIES, SEED_COMPANIES);
     save(KEYS.PROFILES, SEED_PROFILES);
     save(KEYS.ROLES, SEED_ROLES);
@@ -258,279 +368,28 @@ export function initDB() {
     });
     save(KEYS.CATEGORIES, categories);
 
-    // Initial Seed Transactions to make ledger and dashboards look spectacular right away
-    const transactions: Transaction[] = [
-      {
-        id: "txn-1",
-        companyId: "c-bls",
-        txnDate: "2026-06-01",
-        type: "cash_in",
-        amount: 250000.0,
-        categoryId: "cat-in-19", // sales
-        purpose: "Monthly Store Sales Retail",
-        responsiblePerson: "Ana Santos",
-        receiptPath: null,
-        status: "approved",
-        encodedBy: "u-blsfinance",
-        reversalOf: null,
-        createdAt: "2026-06-01T10:00:00Z",
-        updatedAt: "2026-06-01T10:00:00Z",
-      },
-      {
-        id: "txn-2",
-        companyId: "c-bls",
-        txnDate: "2026-06-02",
-        type: "cash_out",
-        amount: 45000.0,
-        categoryId: "cat-out-16", // rent
-        purpose: "Store Rent payment - June 2026",
-        responsiblePerson: "Landlord Corp",
-        receiptPath:
-          "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=300",
-        status: "approved",
-        encodedBy: "u-blsfinance",
-        reversalOf: null,
-        createdAt: "2026-06-02T11:00:00Z",
-        updatedAt: "2026-06-02T11:00:00Z",
-      },
-      {
-        id: "txn-3",
-        companyId: "c-bls",
-        txnDate: "2026-06-05",
-        type: "cash_out",
-        amount: 15320.5,
-        categoryId: "cat-out-11", // utilities
-        purpose: "Meralco Electric Bill Payment",
-        responsiblePerson: "Elena Rivera",
-        receiptPath: null,
-        status: "approved",
-        encodedBy: "u-blsfinance",
-        reversalOf: null,
-        createdAt: "2026-06-05T14:30:00Z",
-        updatedAt: "2026-06-05T14:30:00Z",
-      },
-      {
-        id: "txn-4",
-        companyId: "c-bls",
-        txnDate: "2026-06-10",
-        type: "cash_out",
-        amount: 8500.0,
-        categoryId: "cat-out-9", // marketing
-        purpose: "Facebook Ads campaign campaign launch",
-        responsiblePerson: "John Lim",
-        receiptPath: null,
-        status: "approved",
-        encodedBy: "u-blsfinance",
-        reversalOf: null,
-        createdAt: "2026-06-10T09:00:00Z",
-        updatedAt: "2026-06-10T09:00:00Z",
-      },
-      {
-        id: "txn-5",
-        companyId: "c-bls",
-        txnDate: "2026-06-11",
-        type: "cash_out",
-        amount: 12000.0,
-        categoryId: "cat-out-1", // operations
-        purpose: "Office supplies replenishment",
-        responsiblePerson: "Carlos Diaz",
-        receiptPath: null,
-        status: "pending",
-        encodedBy: "u-blsfinance",
-        reversalOf: null,
-        createdAt: "2026-06-11T16:00:00Z",
-        updatedAt: "2026-06-11T16:00:00Z",
-      },
-      {
-        id: "txn-6",
-        companyId: "c-bls",
-        txnDate: "2026-06-12",
-        type: "cash_in",
-        amount: 42000.0,
-        categoryId: "cat-in-18", // service_income
-        purpose: "Franchise setup consulting fees",
-        responsiblePerson: "Dexter Caron",
-        receiptPath: null,
-        status: "pending",
-        encodedBy: "u-blsadmin",
-        reversalOf: null,
-        createdAt: "2026-06-12T10:00:00Z",
-        updatedAt: "2026-06-12T10:00:00Z",
-      },
-      // Bigstop seed
-      {
-        id: "txn-bgs-1",
-        companyId: "c-bgs",
-        txnDate: "2026-06-03",
-        type: "cash_in",
-        amount: 320000.0,
-        categoryId: "cat-in-38", // sales for BGS
-        purpose: "Convenience store franchise bulk sales",
-        responsiblePerson: "Danica Cruz",
-        receiptPath: null,
-        status: "approved",
-        encodedBy: "u-mark",
-        reversalOf: null,
-        createdAt: "2026-06-03T10:00:00Z",
-        updatedAt: "2026-06-03T10:00:00Z",
-      },
-      {
-        id: "txn-bgs-2",
-        companyId: "c-bgs",
-        txnDate: "2026-06-08",
-        type: "cash_out",
-        amount: 14000.0,
-        categoryId: "cat-out-20", // operations for BGS
-        purpose: "POS terminals annual maintenance",
-        responsiblePerson: "Tech Solutions Inc",
-        receiptPath: null,
-        status: "approved",
-        encodedBy: "u-mark",
-        reversalOf: null,
-        createdAt: "2026-06-08T15:00:00Z",
-        updatedAt: "2026-06-08T15:00:00Z",
-      },
-    ];
+    // Initial Seed Transactions
+    const transactions: Transaction[] = [];
     save(KEYS.TRANSACTIONS, transactions);
 
     // Initial Budgets
-    const budgets: Budget[] = [
-      {
-        id: "b-1",
-        companyId: "c-bls",
-        categoryId: "cat-out-16",
-        month: "2026-06-01",
-        plannedAmount: 50000.0,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-      {
-        id: "b-2",
-        companyId: "c-bls",
-        categoryId: "cat-out-11",
-        month: "2026-06-01",
-        plannedAmount: 20000.0,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-      {
-        id: "b-3",
-        companyId: "c-bls",
-        categoryId: "cat-out-9",
-        month: "2026-06-01",
-        plannedAmount: 15000.0,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-      {
-        id: "b-4",
-        companyId: "c-bls",
-        categoryId: "cat-out-16",
-        month: "2026-06-01",
-        plannedAmount: 5000.0,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-    ];
+    const budgets: Budget[] = [];
     save(KEYS.BUDGETS, budgets);
 
     // Initial Payables
-    const payables: Payable[] = [
-      {
-        id: "p-1",
-        companyId: "c-bls",
-        payee: "PLDT Inc.",
-        description: "Fiber Internet Subscription May-June",
-        amount: 3500.0,
-        dueDate: "2026-06-18",
-        status: "unpaid",
-        paidTransactionId: null,
-        createdAt: "2026-06-01T11:00:00Z",
-        updatedAt: "2026-06-01T11:00:00Z",
-      },
-      {
-        id: "p-2",
-        companyId: "c-bls",
-        payee: "Prime Office Depot",
-        description: "Office supplies order invoice #104",
-        amount: 8900.0,
-        dueDate: "2026-06-25",
-        status: "unpaid",
-        paidTransactionId: null,
-        createdAt: "2026-06-01T11:00:00Z",
-        updatedAt: "2026-06-01T11:00:00Z",
-      },
-    ];
+    const payables: Payable[] = [];
     save(KEYS.PAYABLES, payables);
 
     // Initial Receivables
-    const receivables: Receivable[] = [
-      {
-        id: "rec-1",
-        companyId: "c-bls",
-        payer: "Robinson Mall Group",
-        description: "Consignment rental sales distribution",
-        amount: 165000.0,
-        dueDate: "2026-06-20",
-        status: "uncollected",
-        collectedTransactionId: null,
-        createdAt: "2026-06-01T11:00:00Z",
-        updatedAt: "2026-06-01T11:00:00Z",
-      },
-    ];
+    const receivables: Receivable[] = [];
     save(KEYS.RECEIVABLES, receivables);
 
     // Employees
-    const employees: Employee[] = [
-      {
-        id: "e-1",
-        companyId: "c-bls",
-        fullName: "Juana Dela Cruz",
-        position: "Store Supervisor",
-        baseSalary: 23500.0,
-        active: true,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-      {
-        id: "e-2",
-        companyId: "c-bls",
-        fullName: "Roberto Santos",
-        position: "Service Associate",
-        baseSalary: 18000.0,
-        active: true,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-      {
-        id: "e-3",
-        companyId: "c-bls",
-        fullName: "Maria Alona",
-        position: "Administrative Staff",
-        baseSalary: 20000.0,
-        active: true,
-        createdAt: "2026-01-01T08:00:00Z",
-        updatedAt: "2026-01-01T08:00:00Z",
-      },
-    ];
+    const employees: Employee[] = [];
     save(KEYS.EMPLOYEES, employees);
 
     // Audit logs
-    const auditLogs: AuditLog[] = [
-      {
-        id: "log-1",
-        companyId: null,
-        actorId: "u-mark",
-        action: "DB_INITIALIZATION",
-        entity: "system",
-        entityId: null,
-        details: {
-          message:
-            "Database initiated with complete seed structure & 4 companies",
-        },
-        createdAt: "2026-06-12T00:00:00Z",
-      },
-    ];
+    const auditLogs: AuditLog[] = [];
     save(KEYS.AUDIT_LOGS, auditLogs);
 
     // Default selectors
@@ -593,61 +452,149 @@ export function initDB() {
     rolesChanged = true;
   }
 
+  // Auto-fix Companies (add any missing SEED companies)
+  let currentCompanies = load<Company[]>(KEYS.COMPANIES, []);
+  let compsChanged = false;
+  SEED_COMPANIES.forEach(seed => {
+    if (!currentCompanies.find(c => c.id === seed.id)) {
+      currentCompanies.push(seed);
+      compsChanged = true;
+    }
+  });
+  // Remove hrp if it exists
+  const hasHrp = currentCompanies.some(c => c.id === "c-hrp" || c.name === "HERRERA PROPERTY");
+  if (hasHrp) {
+    currentCompanies = currentCompanies.filter(c => c.id !== "c-hrp" && c.name !== "HERRERA PROPERTY");
+    compsChanged = true;
+  }
+  if (compsChanged) {
+    save(KEYS.COMPANIES, currentCompanies);
+  }
+
+  // Auto-fix Categories
+  let allCats = load<Category[]>(KEYS.CATEGORIES, []);
+  let catsChanged = false;
+  currentCompanies.forEach((comp) => {
+    const compCats = allCats.filter((c) => c.companyId === comp.id);
+    DEFAULT_CASH_IN_CATEGORIES.forEach((name) => {
+      if (!compCats.find((c) => c.name === name && c.type === "cash_in")) {
+        allCats.push({ id: `cat-in-${Date.now()}-${Math.floor(Math.random() * 1000)}`, companyId: comp.id, name, type: "cash_in", createdAt: new Date().toISOString() });
+        catsChanged = true;
+      }
+    });
+    DEFAULT_CASH_OUT_CATEGORIES.forEach((name) => {
+      if (!compCats.find((c) => c.name === name && c.type === "cash_out")) {
+        allCats.push({ id: `cat-out-${Date.now()}-${Math.floor(Math.random() * 1000)}`, companyId: comp.id, name, type: "cash_out", createdAt: new Date().toISOString() });
+        catsChanged = true;
+      }
+    });
+  });
+  if (catsChanged) {
+    save(KEYS.CATEGORIES, allCats);
+  }
+
   isSeeding = false;
 
   // Push local seeding changes to firestore if needed
-  if (db && (profilesChanged || rolesChanged)) {
-    const docRef = doc(db, "appData", "master");
-    const state: Record<string, any> = {};
-    if (profilesChanged) state[KEYS.PROFILES] = JSON.parse(localStorage.getItem(KEYS.PROFILES) || '[]');
-    if (rolesChanged) state[KEYS.ROLES] = JSON.parse(localStorage.getItem(KEYS.ROLES) || '[]');
-    const cleanState = JSON.parse(JSON.stringify(state));
-    setDoc(docRef, cleanState, { merge: true }).catch(console.error);
+  if (db && (profilesChanged || rolesChanged || compsChanged || catsChanged)) {
+    if (profilesChanged) safeSetDoc(doc(db, "appData", KEYS.PROFILES), { data: JSON.parse(localStorage.getItem(KEYS.PROFILES) || '[]') }, { merge: true });
+    if (rolesChanged) safeSetDoc(doc(db, "appData", KEYS.ROLES), { data: JSON.parse(localStorage.getItem(KEYS.ROLES) || '[]') }, { merge: true });
+    if (compsChanged) safeSetDoc(doc(db, "appData", KEYS.COMPANIES), { data: JSON.parse(localStorage.getItem(KEYS.COMPANIES) || '[]') }, { merge: true });
+    if (catsChanged) safeSetDoc(doc(db, "appData", KEYS.CATEGORIES), { data: JSON.parse(localStorage.getItem(KEYS.CATEGORIES) || '[]') }, { merge: true });
   }
 
   // Hook Firebase Realtime Updates
   if (db) {
-    const docRef = doc(db, "appData", "master");
-    onSnapshot(
-      docRef,
-      (snap) => {
-        if (snap.exists()) {
-          const remoteData = snap.data();
+    import("firebase/firestore").then(({ collection, onSnapshot, getDocs, doc }) => {
+      const colRef = collection(db, "appData");
+      
+      // Do initial fetch to see if data exists
+      getDocs(colRef).then((snapshot) => {
+        if (snapshot.empty) {
+           if (justSeeded) {
+             // Push existing data up
+             Object.values(KEYS).forEach((k) => {
+               if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID)
+                 return;
+               const v = localStorage.getItem(k);
+               if (v) {
+                  const dRef = doc(db, "appData", k);
+                  safeSetDoc(dRef, { data: sanitizeForFirestore(JSON.parse(v)) }, { merge: true });
+               }
+             });
+           } else {
+             // If we didn't just seed, and Firebase is empty, it means Firebase was deleted by another client/reset.
+             // We should clear our local data and reload to match Firebase's empty state.
+             localStorage.clear();
+             memoryDb = null;
+             window.location.reload();
+           }
+        }
+      });
+
+      onSnapshot(
+        colRef,
+        (snap) => {
+          // Guard against overwriting local storage with older Firestore snapshot values during/after active local writes
+          if (Date.now() - lastLocalWriteTime < 2000) {
+            return;
+          }
+
+          if (localStorage.getItem("quota_exceeded") === "true") {
+            return;
+          }
+
           let changed = false;
 
-          Object.values(KEYS).forEach((k) => {
-            if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID)
-              return;
-            const rValStr = JSON.stringify(remoteData[k]);
-            const lValStr = localStorage.getItem(k);
-            if (remoteData[k] && rValStr !== lValStr) {
-              localStorage.setItem(k, rValStr);
-              if (!memoryDb) memoryDb = {};
-              memoryDb[k] = remoteData[k];
-              changed = true;
-            }
+          snap.docChanges().forEach((change) => {
+             const k = change.doc.id;
+             if (k === "master") return; // ignore legacy master document
+             if (Object.values(KEYS).includes(k)) {
+                if (change.type === "added" || change.type === "modified") {
+                   const remoteData = change.doc.data().data;
+                   if (remoteData) {
+                     const rValStr = JSON.stringify(remoteData);
+                     const lValStr = localStorage.getItem(k);
+                     if (rValStr !== lValStr) {
+                       localStorage.setItem(k, rValStr);
+                       if (!memoryDb) memoryDb = {};
+                       memoryDb[k] = remoteData;
+                       changed = true;
+                     }
+                   }
+                } else if (change.type === "removed") {
+                   if (localStorage.getItem(k) !== null) {
+                     localStorage.removeItem(k);
+                     if (memoryDb && memoryDb[k]) {
+                       delete memoryDb[k];
+                     }
+                     changed = true;
+                   }
+                }
+             }
           });
 
           if (changed) {
             window.dispatchEvent(new Event("db-update"));
           }
-        } else {
-          // Push existing data up
-          const state: Record<string, any> = {};
-          Object.values(KEYS).forEach((k) => {
-            if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID)
-              return;
-            const v = localStorage.getItem(k);
-            if (v) state[k] = JSON.parse(v);
-          });
-          const cleanState = JSON.parse(JSON.stringify(state));
-          setDoc(docRef, cleanState, { merge: true }).catch(console.error);
+        },
+        (error: any) => {
+          if (error?.code === 'resource-exhausted') {
+            if (!hasNotifiedQuota) {
+              hasNotifiedQuota = true;
+              toast.error("Database Quota Exceeded", {
+                description: "Firebase free tier limit reached. App will run in offline local mode."
+              });
+            }
+            if (db) {
+              disableNetwork(db).catch(() => {});
+            }
+          } else {
+            console.error("Firestore onSnapshot error:", error);
+          }
         }
-      },
-      (error) => {
-        console.error("Firestore onSnapshot error:", error);
-      }
-    );
+      );
+    });
   }
 }
 
@@ -682,45 +629,12 @@ export function setSelectedCompanyId(companyId: string): void {
 // REST GETTERS
 export function getCompanies(): Company[] {
   initDB();
-  let currentCompanies = load<Company[]>(KEYS.COMPANIES, []);
-  let modified = false;
-
-  // Remove c-hrp if it exists
-  const hasHrp = currentCompanies.some(c => c.id === "c-hrp" || c.name === "HERRERA PROPERTY");
-  if (hasHrp) {
-    currentCompanies = currentCompanies.filter(c => c.id !== "c-hrp" && c.name !== "HERRERA PROPERTY");
-    modified = true;
-  }
-
-  // If a new company is in SEED_COMPANIES but not in currentCompanies, add it
-  SEED_COMPANIES.forEach(seed => {
-    if (!currentCompanies.find(c => c.id === seed.id)) {
-      modified = true;
-      currentCompanies.push(seed);
-    }
-  });
-
-  if (modified) {
-    saveSilent(KEYS.COMPANIES, currentCompanies);
-  }
-  
-  return currentCompanies;
+  return load<Company[]>(KEYS.COMPANIES, []);
 }
 
 export function getProfiles(): Profile[] {
   initDB();
-  const profiles = load<Profile[]>(KEYS.PROFILES, []);
-  if (!profiles.find(p => p.id === 'u-it')) {
-    profiles.push({
-      id: "u-it",
-      fullName: "IT Support",
-      email: "it@herrera.com",
-      isGroupAdmin: true,
-      createdAt: new Date().toISOString(),
-    });
-    saveSilent(KEYS.PROFILES, profiles);
-  }
-  return profiles;
+  return load<Profile[]>(KEYS.PROFILES, []);
 }
 
 export function getRoles(): UserCompanyRole[] {
@@ -762,47 +676,6 @@ export function deleteRole(userId: string, companyId: string): void {
 export function getCategories(companyId: string): Category[] {
   initDB();
   const all = load<Category[]>(KEYS.CATEGORIES, []);
-  let changed = false;
-
-  const companies = load<Company[]>(KEYS.COMPANIES, []);
-  companies.forEach((comp) => {
-    const compCats = all.filter((c) => c.companyId === comp.id);
-
-    DEFAULT_CASH_IN_CATEGORIES.forEach((name) => {
-      if (!compCats.find((c) => c.name === name && c.type === "cash_in")) {
-        const newCat: Category = {
-          id: `cat-in-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          companyId: comp.id,
-          name,
-          type: "cash_in",
-          createdAt: new Date().toISOString(),
-        };
-        all.push(newCat);
-        compCats.push(newCat);
-        changed = true;
-      }
-    });
-
-    DEFAULT_CASH_OUT_CATEGORIES.forEach((name) => {
-      if (!compCats.find((c) => c.name === name && c.type === "cash_out")) {
-        const newCat: Category = {
-          id: `cat-out-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          companyId: comp.id,
-          name,
-          type: "cash_out",
-          createdAt: new Date().toISOString(),
-        };
-        all.push(newCat);
-        compCats.push(newCat);
-        changed = true;
-      }
-    });
-  });
-
-  if (changed) {
-    saveSilent(KEYS.CATEGORIES, all);
-  }
-
   if (companyId === "all") return all;
   return all.filter((c) => c.companyId === companyId);
 }
@@ -923,46 +796,63 @@ export async function resetAllData() {
   
   if (db) {
     try {
-      const { doc, deleteDoc } = await import("firebase/firestore");
-      const docRef = doc(db, "appData", "master");
-      await deleteDoc(docRef);
-    } catch (e) {
-      console.error("Failed to delete from Firestore:", e);
+      const { doc, writeBatch } = await import("firebase/firestore");
+      const batch = writeBatch(db);
+      Object.values(KEYS).forEach((k) => {
+        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
+        const docRef = doc(db, "appData", k);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+    } catch (e: any) {
+      if (e?.code === 'resource-exhausted') {
+        localStorage.setItem("quota_exceeded", "true");
+        if (!hasNotifiedQuota) {
+          hasNotifiedQuota = true;
+          toast.error("Database Quota Exceeded", {
+            description: "Firebase free tier limit reached. App will run in offline local mode."
+          });
+        }
+      } else {
+        console.error("Failed to delete from Firestore:", e);
+      }
+      throw e;
     }
   }
 }
 
 export async function emptyDashboardData() {
-  saveSilent(KEYS.TRANSACTIONS, []);
-  saveSilent(KEYS.PAYABLES, []);
-  saveSilent(KEYS.RECEIVABLES, []);
-  saveSilent(KEYS.EMPLOYEES, []);
-  saveSilent(KEYS.PAYROLL_RUNS, []);
-  saveSilent(KEYS.PAYROLL_ITEMS, []);
-  saveSilent(KEYS.CASH_ACCOUNTS, []);
-  saveSilent(KEYS.BANK_STATEMENT_LINES, []);
-  saveSilent(KEYS.BANK_RECONCILIATIONS, []);
-  saveSilent(KEYS.RECONCILIATION_MATCHES, []);
-  saveSilent(KEYS.CASH_CUSTODIANS, []);
-  saveSilent(KEYS.CASH_LEDGER_ENTRIES, []);
-  saveSilent(KEYS.CASH_COUNTS, []);
-  saveSilent(KEYS.BANK_DEPOSITS, []);
+  const keysToEmpty = [
+    KEYS.TRANSACTIONS, KEYS.APPROVALS, KEYS.BUDGETS, KEYS.PAYABLES,
+    KEYS.RECEIVABLES, KEYS.EMPLOYEES, KEYS.PAYROLL_RUNS, KEYS.PAYROLL_ITEMS,
+    KEYS.AUDIT_LOGS, KEYS.CASH_ACCOUNTS, KEYS.BANK_STATEMENT_LINES,
+    KEYS.BANK_RECONCILIATIONS, KEYS.RECONCILIATION_MATCHES, KEYS.CASH_CUSTODIANS,
+    KEYS.CASH_LEDGER_ENTRIES, KEYS.CASH_COUNTS, KEYS.BANK_DEPOSITS,
+    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS
+  ];
+
+  lastLocalWriteTime = Date.now();
+  if (!memoryDb) memoryDb = {};
   
+  keysToEmpty.forEach(k => {
+    localStorage.setItem(k, JSON.stringify([]));
+    memoryDb![k] = [];
+  });
+
   if (db) {
     try {
-      const { doc, setDoc } = await import("firebase/firestore");
-      const docRef = doc(db, "appData", "master");
-      
-      const state: Record<string, any> = {};
-      Object.values(KEYS).forEach((k) => {
-        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
-        const v = localStorage.getItem(k);
-        if (v) state[k] = JSON.parse(v);
+      const { doc, writeBatch } = await import("firebase/firestore");
+      const batch = writeBatch(db);
+      keysToEmpty.forEach((k) => {
+        const docRef = doc(db, "appData", k);
+        batch.set(docRef, { data: [] }, { merge: true });
       });
-      const cleanState = JSON.parse(JSON.stringify(state));
-      await setDoc(docRef, cleanState, { merge: true });
-    } catch (e) {
-      console.error("Failed to write to Firestore:", e);
+      await batch.commit();
+    } catch (e: any) {
+      if (e?.code !== 'resource-exhausted') {
+        console.error("Failed to write to Firestore:", e);
+      }
+      throw e;
     }
   }
 }
@@ -1021,6 +911,16 @@ export function insertTransaction(
     };
   }
 
+  if (data.type === "cash_out" && data.cashAccountId) {
+    const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+    const acc = accs.find(a => a.id === data.cashAccountId);
+    if (acc && data.amount > acc.currentBalance) {
+      return {
+        error: `Insufficient funds in ${acc.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(acc.currentBalance)}, Required: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(data.amount)}`,
+      };
+    }
+  }
+
   const userRole = getUserRole(userId, data.companyId);
   const userProfile = getProfiles().find((p) => p.id === userId);
   const isOwner = userRole === "company_admin" || userProfile?.isGroupAdmin;
@@ -1038,6 +938,22 @@ export function insertTransaction(
 
   allTxns.unshift(newTxn);
   save(KEYS.TRANSACTIONS, allTxns);
+
+  if (newTxn.status === "approved" && newTxn.cashAccountId) {
+    saveCashLedgerEntry({
+      date: newTxn.txnDate,
+      companyId: newTxn.companyId,
+      cashAccountId: newTxn.cashAccountId,
+      custodianId: null,
+      transactionType: newTxn.type === "cash_in" ? "Cash Collection" : "Cash Expense",
+      referenceNo: newTxn.id,
+      description: newTxn.purpose,
+      cashIn: newTxn.type === "cash_in" ? newTxn.amount : 0,
+      cashOut: newTxn.type === "cash_out" ? newTxn.amount : 0,
+      createdBy: newTxn.encodedBy,
+      approvedBy: newTxn.encodedBy
+    });
+  }
 
   // Write audit trail
   writeAuditLog(
@@ -1198,12 +1114,39 @@ export function reviewTransaction(
         "Action Blocked: This transaction has already been reviewed to a final state.",
     };
   }
+  
+  if (reviewAction === "approved" && txn.type === "cash_out" && txn.cashAccountId) {
+    const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+    const acc = accs.find(a => a.id === txn.cashAccountId);
+    if (acc && txn.amount > acc.currentBalance) {
+      return {
+        error: `Insufficient funds in ${acc.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(acc.currentBalance)}, Required: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(txn.amount)}`,
+      };
+    }
+  }
 
   // Update
   txn.status = reviewAction === "approved" ? "approved" : "rejected";
   txn.updatedAt = new Date().toISOString();
   allTxns[index] = txn;
   save(KEYS.TRANSACTIONS, allTxns);
+
+  // If approved and has cashAccountId, reflect it in CashLedger
+  if (txn.status === "approved" && txn.cashAccountId) {
+    saveCashLedgerEntry({
+      date: txn.txnDate,
+      companyId: txn.companyId,
+      cashAccountId: txn.cashAccountId,
+      custodianId: null,
+      transactionType: txn.type === "cash_in" ? "Cash Collection" : "Cash Expense",
+      referenceNo: txn.id,
+      description: txn.purpose,
+      cashIn: txn.type === "cash_in" ? txn.amount : 0,
+      cashOut: txn.type === "cash_out" ? txn.amount : 0,
+      createdBy: txn.encodedBy,
+      approvedBy: userId
+    });
+  }
 
   // Insert into approvals
   const approvals = load<Approval[]>(KEYS.APPROVALS, []);
@@ -1875,9 +1818,12 @@ export function getDailyBalances(
     ? [companyId]
     : getCompanies().map((c) => c.id);
   const result: DailyBalance[] = [];
+  const allAccounts = getAllCashAccounts();
 
   targetCompanies.forEach((compId) => {
     const comTxns = allTxns.filter((t) => t.companyId === compId);
+    const companyAccounts = allAccounts.filter(a => a.companyId === compId);
+    const startingCapital = companyAccounts.reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
 
     // Aggregate by date
     const dateMap: Record<string, { cashIn: number; cashOut: number }> = {};
@@ -1895,7 +1841,7 @@ export function getDailyBalances(
     // Sort dates
     const sortedDates = Object.keys(dateMap).sort();
 
-    let cumulativeBalance = 0; // Starting Capital Injection
+    let cumulativeBalance = startingCapital;
     sortedDates.forEach((date) => {
       const { cashIn, cashOut } = dateMap[date];
       result.push({
@@ -2042,6 +1988,54 @@ export function updateTransactionMetadata(
   return { transaction: txn };
 }
 
+export function addTransactionAnnotation(
+  userId: string,
+  txnId: string,
+  annotation: Omit<import("../types").Transaction["annotations"][0], "id" | "createdAt" | "authorId">
+): { error?: string; transaction?: import("../types").Transaction } {
+  const allTxns = load<import("../types").Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+  const txn = allTxns[idx];
+
+  const newAnnotation = {
+    ...annotation,
+    id: `ann-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    authorId: userId,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!txn.annotations) {
+    txn.annotations = [];
+  }
+  txn.annotations.push(newAnnotation);
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  return { transaction: txn };
+}
+
+export function removeTransactionAnnotation(
+  userId: string,
+  txnId: string,
+  annotationId: string
+): { error?: string; transaction?: import("../types").Transaction } {
+  const allTxns = load<import("../types").Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+  const txn = allTxns[idx];
+
+  if (!txn.annotations) return { error: "No annotations found." };
+
+  txn.annotations = txn.annotations.filter(a => a.id !== annotationId);
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  return { transaction: txn };
+}
+
 export function updatePayrollRunMetadata(
   userId: string,
   runId: string,
@@ -2116,26 +2110,45 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
   
   if (!localStorage.getItem(KEYS.CASH_ACCOUNTS)) {
-    const seedAccounts: CashAccount[] = [
-      { id: "A001", companyId: "c-bls", accountType: "Cash on Hand", bankName: "Cash", accountName: "BMC - Cash on Hand", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 50000, currentBalance: 50000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A002", companyId: "c-bls", accountType: "E-Wallet", bankName: "GCash", accountName: "BMC - GCash", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 125000, currentBalance: 125000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A003", companyId: "c-bls", accountType: "Bank", bankName: "Security Bank", accountName: "BMC - Security Bank", accountNumber: "N/A", accountHolder: "Blesscent", openingBalance: 450000, currentBalance: 450000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A004", companyId: "c-bgs", accountType: "Cash on Hand", bankName: "Cash", accountName: "BS - Cash on Hand", accountNumber: "N/A", accountHolder: "Bigstop", openingBalance: 25000, currentBalance: 25000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A005", companyId: "c-bgs", accountType: "E-Wallet", bankName: "GCash", accountName: "BS - GCash", accountNumber: "09687912017", accountHolder: "Anna Jane Herrera", openingBalance: 85000, currentBalance: 85000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A006", companyId: "c-bgs", accountType: "Bank", bankName: "Security Bank", accountName: "BS - Security Bank", accountNumber: "0000054663022", accountHolder: "Bigstop", openingBalance: 210000, currentBalance: 210000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A007", companyId: "c-frh", accountType: "Cash on Hand", bankName: "Cash", accountName: "HFH - Cash on Hand", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 15000, currentBalance: 15000, isActive: true, createdAt: "2026-01-01T08:00:00Z" },
-      { id: "A008", companyId: "c-frh", accountType: "Bank", bankName: "RCBC", accountName: "HFH - RCBC", accountNumber: "N/A", accountHolder: "Franchise Hub", openingBalance: 320000, currentBalance: 320000, isActive: true, createdAt: "2026-01-01T08:00:00Z" }
-    ];
+    const seedAccounts: CashAccount[] = [];
     all = seedAccounts;
     saveSilent(KEYS.CASH_ACCOUNTS, all);
   }
 
+  // Recalculate balances dynamically to fix state inconsistencies
+  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  all = all.map(acc => {
+    const accEntries = ledgerEntries.filter(e => e.cashAccountId === acc.id);
+    if (accEntries.length > 0) {
+      acc.currentBalance = Number(accEntries[accEntries.length - 1].runningBalance) || 0;
+    } else {
+      // If there are no ledger entries, currentBalance should equal openingBalance
+      acc.currentBalance = Number(acc.openingBalance) || 0;
+    }
+    return acc;
+  });
+
+  if (!companyId || companyId === 'all') return all;
   return all.filter((a) => a.companyId === companyId);
 }
 
 export function getAllCashAccounts(): CashAccount[] {
   initDB();
-  return load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+  let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+  
+  // Recalculate balances dynamically to fix state inconsistencies
+  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  all = all.map(acc => {
+    const accEntries = ledgerEntries.filter(e => e.cashAccountId === acc.id);
+    if (accEntries.length > 0) {
+      acc.currentBalance = Number(accEntries[accEntries.length - 1].runningBalance) || 0;
+    } else {
+      acc.currentBalance = Number(acc.openingBalance) || 0;
+    }
+    return acc;
+  });
+  
+  return all;
 }
 
 export function saveCashAccount(
@@ -2287,7 +2300,14 @@ export function saveCashCustodian(payload: Omit<CashCustodian, "id" | "createdAt
   if (id) {
     const idx = all.findIndex(a => a.id === id);
     if (idx > -1) {
-      all[idx] = { ...all[idx], ...payload };
+      all[idx] = { ...all[idx], ...payload } as CashCustodian;
+    } else {
+      all.push({
+        ...payload,
+        id,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      } as CashCustodian);
     }
   } else {
     all.push({
@@ -2295,7 +2315,7 @@ export function saveCashCustodian(payload: Omit<CashCustodian, "id" | "createdAt
       id: `CUST-${Date.now()}`,
       isActive: true,
       createdAt: new Date().toISOString()
-    });
+    } as CashCustodian);
   }
   save(KEYS.CASH_CUSTODIANS, all);
   return { success: true };
@@ -2304,6 +2324,7 @@ export function saveCashCustodian(payload: Omit<CashCustodian, "id" | "createdAt
 export function getCashLedgerEntries(companyId: string): CashLedgerEntry[] {
   initDB();
   const all = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  if (!companyId || companyId === 'all') return all;
   return all.filter(e => e.companyId === companyId);
 }
 
@@ -2327,7 +2348,7 @@ export function saveCashLedgerEntry(payload: Omit<CashLedgerEntry, "id" | "creat
   
   const newEntry: CashLedgerEntry = {
     ...payload,
-    id: `LEDG-${Date.now()}`,
+    id: `LEDG-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     runningBalance,
     createdAt: new Date().toISOString()
   };
@@ -2357,14 +2378,20 @@ export function saveCashCount(payload: Omit<CashCount, "id" | "createdAt">, id?:
   if (id) {
     const idx = all.findIndex(a => a.id === id);
     if (idx > -1) {
-      all[idx] = { ...all[idx], ...payload };
+      all[idx] = { ...all[idx], ...payload } as CashCount;
+    } else {
+      all.push({
+        ...payload,
+        id,
+        createdAt: new Date().toISOString()
+      } as CashCount);
     }
   } else {
     all.push({
       ...payload,
       id: `CC-${Date.now()}`,
       createdAt: new Date().toISOString()
-    });
+    } as CashCount);
   }
   save(KEYS.CASH_COUNTS, all);
   return { success: true };
@@ -2382,15 +2409,53 @@ export function saveBankDeposit(payload: Omit<BankDeposit, "id" | "createdAt">, 
   if (id) {
     const idx = all.findIndex(a => a.id === id);
     if (idx > -1) {
-      all[idx] = { ...all[idx], ...payload };
+      all[idx] = { ...all[idx], ...payload } as BankDeposit;
+    } else {
+      all.push({
+        ...payload,
+        id,
+        createdAt: new Date().toISOString()
+      } as BankDeposit);
     }
   } else {
     all.push({
       ...payload,
       id: `BD-${Date.now()}`,
       createdAt: new Date().toISOString()
-    });
+    } as BankDeposit);
   }
   save(KEYS.BANK_DEPOSITS, all);
+  return { success: true };
+}
+
+export function getFundTransfers(companyId: string): FundTransfer[] {
+  initDB();
+  const all = load<FundTransfer[]>(KEYS.FUND_TRANSFERS, []);
+  if (!companyId || companyId === 'all') return all;
+  return all.filter(t => t.fromCompanyId === companyId || t.toCompanyId === companyId);
+}
+
+export function saveFundTransfer(payload: Omit<FundTransfer, "id" | "createdAt">, id?: string) {
+  initDB();
+  const all = load<FundTransfer[]>(KEYS.FUND_TRANSFERS, []);
+  if (id) {
+    const idx = all.findIndex(a => a.id === id);
+    if (idx > -1) {
+      all[idx] = { ...all[idx], ...payload } as FundTransfer;
+    } else {
+      all.push({
+        ...payload,
+        id,
+        createdAt: new Date().toISOString()
+      } as FundTransfer);
+    }
+  } else {
+    all.push({
+      ...payload,
+      id: `FT-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    } as FundTransfer);
+  }
+  save(KEYS.FUND_TRANSFERS, all);
   return { success: true };
 }

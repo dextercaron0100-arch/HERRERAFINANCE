@@ -145,6 +145,24 @@ export interface BankDeposit {
   createdAt: string;
 }
 
+export interface FundTransfer {
+  id: string;
+  requestDate: string;
+  fromCompanyId: string;
+  fromAccountId: string;
+  toCompanyId: string;
+  toAccountId: string;
+  amount: number;
+  purpose: string;
+  requestedBy: string;
+  approvalRequired: boolean;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
+  approvedBy: string | null;
+  dateApproved: string | null;
+  transferReferenceNumber: string | null;
+  remarks: string;
+  createdAt: string;
+}
 
 export interface BankStatementLine {
   id: string;
@@ -193,7 +211,9 @@ export interface Transaction {
   categoryId: string;
   purpose: string;
   responsiblePerson: string;
+  remarks?: string | null;
   receiptPath: string | null;
+  annotations?: { id: string; x: number; y: number; text: string; authorId: string; createdAt: string }[];
   mockMetadata?: { scanRef: string; timestamp: string; controlNumber?: string } | null;
   status: TransactionStatus;
   paymentMethod?: string;

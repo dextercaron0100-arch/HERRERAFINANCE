@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getBankDeposits, getCashAccounts, getCashCustodians, saveBankDeposit } from "../data/mockDatabase";
+import { getBankDeposits, getCashAccounts, getCashCustodians, saveBankDeposit, useDBUpdate } from "../data/mockDatabase";
 import { BankDeposit } from "../types";
 import { Plus, Upload, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -10,12 +10,13 @@ interface Props {
 }
 
 export default function BankDeposits({ userId, companyId }: Props) {
+  const dbTick = useDBUpdate();
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   const [forceRender, setForceRender] = useState(0);
 
   useEffect(() => {
     setDeposits(getBankDeposits(companyId === "all" ? "" : companyId));
-  }, [companyId, forceRender]);
+  }, [companyId, forceRender, dbTick]);
 
   const allAccounts = getCashAccounts(companyId === "all" ? "" : companyId);
   const allCustodians = getCashCustodians(companyId === "all" ? "" : companyId);

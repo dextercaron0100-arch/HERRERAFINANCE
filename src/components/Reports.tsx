@@ -22,7 +22,8 @@ import {
   getBudgetVsActual,
   getDailyBalances,
   getCompanies,
-  getCategories
+  getCategories,
+  useDBUpdate
 } from '../data/mockDatabase';
 
 interface ReportsProps {
@@ -33,6 +34,7 @@ interface ReportsProps {
 type ReportType = 'cashflow' | 'pl' | 'budget_actual' | 'daily_position';
 
 export default function Reports({ userId, companyId }: ReportsProps) {
+  useDBUpdate();
   const [activeReport, setActiveReport] = useState<ReportType>('cashflow');
   const [selectedMonth, setSelectedMonth] = useState('2026-06-01');
 

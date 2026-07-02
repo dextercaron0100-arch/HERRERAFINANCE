@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import QuickEncodePanel from './QuickEncodePanel';
 import { getTransactions, useDBUpdate, getCategories, getCashAccounts, getCompanies, getProfiles } from '../data/mockDatabase';
 import { Transaction } from '../types';
-import { Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function AccountingOfficerWorkbench({ userId, companyId, isConsolidated }: { userId: string, companyId: string, isConsolidated: boolean }) {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
@@ -53,9 +53,8 @@ export default function AccountingOfficerWorkbench({ userId, companyId, isConsol
 
   return (
     <div className="w-full h-[calc(100vh-80px)] bg-slate-50 text-slate-900 p-4 md:p-6 lg:p-8 font-sans overflow-y-auto custom-scrollbar flex justify-center">
-      <div className="w-full flex flex-col lg:flex-row gap-6 pb-20 items-start">
-        {/* Fix container height so QuickEncodePanel is not squished */}
-        <div className="w-full lg:w-1/2 shrink-0 h-[calc(100vh-140px)] min-h-[700px] max-h-[850px]">
+      <div className="w-full max-w-4xl flex flex-col gap-6 pb-20 items-stretch mx-auto">
+        <div className="w-full shrink-0">
           <QuickEncodePanel 
             userId={userId} 
             companyId={companyId} 
@@ -64,7 +63,7 @@ export default function AccountingOfficerWorkbench({ userId, companyId, isConsol
         </div>
 
         {/* Recent Transactions Tracker */}
-        <div className="w-full lg:w-1/2 bg-white border border-slate-200 rounded-2xl p-6 shadow-inner shrink-0 lg:sticky lg:top-0 h-auto lg:max-h-[calc(100vh-140px)] flex flex-col">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-inner shrink-0 flex flex-col">
           <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-4 shrink-0">
             <Clock className="w-5 h-5 text-[#00B67A]" />
             <h3 className="text-base font-semibold text-slate-900 font-mono uppercase tracking-widest">
@@ -107,7 +106,19 @@ export default function AccountingOfficerWorkbench({ userId, companyId, isConsol
                       <p className={`text-sm font-bold font-mono ${txn.type === 'cash_in' ? 'text-[#00B67A]' : 'text-[#FB7185]'}`}>
                         {txn.type === 'cash_in' ? '+' : '-'}{formatPeso(txn.amount)}
                       </p>
-                      <p className="text-[10px] text-slate-500 uppercase mt-0.5 font-bold tracking-wide">{txn.status}</p>
+                      <div className="flex items-center justify-end gap-1 mt-0.5">
+                        {txn.status === 'pending' && <Clock className="w-3 h-3 text-amber-500" />}
+                        {txn.status === 'approved' && <CheckCircle2 className="w-3 h-3 text-[#00B67A]" />}
+                        {txn.status === 'rejected' && <XCircle className="w-3 h-3 text-rose-500" />}
+                        <p className={`text-[10px] uppercase font-bold tracking-wide ${
+                          txn.status === 'pending' ? 'text-amber-600' :
+                          txn.status === 'approved' ? 'text-[#00B67A]' :
+                          txn.status === 'rejected' ? 'text-rose-600' :
+                          'text-slate-500'
+                        }`}>
+                          {txn.status}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );

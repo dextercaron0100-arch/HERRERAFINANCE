@@ -15,6 +15,31 @@ const ai = new GoogleGenAI({
   }
 });
 
+function handleError(e: any, res: express.Response, defaultMsg: string) {
+  let errMsg = e.message || defaultMsg;
+  const isQuota = typeof e.message === 'string' && (e.message.includes('prepayment credits are depleted') || e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED'));
+  
+  if (isQuota) {
+    errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
+    console.warn(errMsg); // Warn instead of error to avoid crashing the environment's error detection
+  } else {
+    console.error(e);
+    if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+      try {
+        const jsonStr = e.message.substring(e.message.indexOf('{'));
+        const parsedErr = JSON.parse(jsonStr);
+        if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+      } catch (_) {}
+    } else if (typeof e.message === 'string' && e.message.startsWith('{"error"')) {
+      try {
+        const parsedErr = JSON.parse(e.message);
+        if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+      } catch (_) {}
+    }
+  }
+  res.status(500).json({ error: errMsg });
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -64,18 +89,7 @@ async function startServer() {
       const parsed = JSON.parse(textOutput);
       res.json(parsed);
     } catch (e: any) {
-      console.error(e);
-      let errMsg = e.message || "Failed to parse receipt";
-      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
-        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
-      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
-        try {
-          const jsonStr = e.message.substring(e.message.indexOf('{'));
-          const parsedErr = JSON.parse(jsonStr);
-          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-        } catch (_) {}
-      }
-      res.status(500).json({ error: errMsg });
+      handleError(e, res, "Failed to parse receipt");
     }
   });
 
@@ -102,18 +116,7 @@ ${JSON.stringify(transactions.slice(0, 50), null, 2)}
 
       res.json({ summary: response.text });
     } catch (e: any) {
-      console.error(e);
-      let errMsg = e.message || "Failed to assess risk";
-      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
-        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
-      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
-        try {
-          const jsonStr = e.message.substring(e.message.indexOf('{'));
-          const parsedErr = JSON.parse(jsonStr);
-          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-        } catch (_) {}
-      }
-      res.status(500).json({ error: errMsg });
+      handleError(e, res, "Failed to assess risk");
     }
   });
 
@@ -145,18 +148,7 @@ ${JSON.stringify(categories, null, 2)}
       res.json(parsed);
 
     } catch (e: any) {
-      console.error(e);
-      let errMsg = e.message || "Failed to suggest category";
-      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
-        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
-      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
-        try {
-          const jsonStr = e.message.substring(e.message.indexOf('{'));
-          const parsedErr = JSON.parse(jsonStr);
-          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-        } catch (_) {}
-      }
-      res.status(500).json({ error: errMsg });
+      handleError(e, res, "Failed to suggest category");
     }
   });
 
@@ -187,23 +179,7 @@ Provide a concise, insightful answer based ONLY on the provided context. Speak d
 
       res.json({ reply: response.text });
     } catch (e: any) {
-      console.error(e);
-      let errMsg = e.message || "Failed to get chat response";
-      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
-        errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
-      } else if (typeof e.message === 'string' && e.message.startsWith('{"error"')) {
-        try {
-          const parsedErr = JSON.parse(e.message);
-          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-        } catch (_) {}
-      } else if (typeof e.message === 'string' && e.message.includes('{"error"')) {
-        try {
-          const jsonStr = e.message.substring(e.message.indexOf('{'));
-          const parsedErr = JSON.parse(jsonStr);
-          if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-        } catch (_) {}
-      }
-      res.status(500).json({ error: errMsg });
+      handleError(e, res, "Failed to get chat response");
     }
   });
 
@@ -244,12 +220,116 @@ Do not use markdown headers (# or ##), but you can use bullet points. Speak in a
 
       res.json({ explanation: response.text });
     } catch (e: any) {
-      console.error(e);
-      let errMsg = e.message || "Failed to generate explanation";
-      if (typeof e.message === 'string' && e.message.includes('prepayment credits are depleted')) {
-        errMsg = "Gemini API Error: Your prepayment credits are depleted.";
+      handleError(e, res, "Failed to generate explanation");
+    }
+  });
+
+  app.post("/api/scan-account-document", async (req, res) => {
+    try {
+      const { documentBase64, mimeType } = req.body;
+      if (!documentBase64) {
+        return res.status(400).json({ error: "Missing documentBase64" });
       }
-      res.status(500).json({ error: errMsg });
+
+      const promptString = `Extract account details from this document (e.g. Bank statement, certification).
+Return ONLY a valid JSON array of objects with the following fields: 
+- accountType (string: "Bank" or "E-Wallet" or "Cash on Hand")
+- bankName (string)
+- accountName (string)
+- accountNumber (string)
+- accountHolder (string)
+If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: [
+          {
+            text: promptString
+          },
+          {
+            inlineData: {
+              data: documentBase64,
+              mimeType: mimeType || "application/pdf"
+            }
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
+                bankName: { type: Type.STRING },
+                accountName: { type: Type.STRING },
+                accountNumber: { type: Type.STRING },
+                accountHolder: { type: Type.STRING }
+              },
+              required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
+            }
+          }
+        }
+      });
+
+      const textOutput = response.text || "[]";
+      const parsed = JSON.parse(textOutput);
+      res.json(parsed);
+    } catch (e: any) {
+      handleError(e, res, "Failed to parse document");
+    }
+  });
+
+  app.post("/api/parse-accounts-text", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "Missing text" });
+      }
+
+      const promptString = `Extract account details from the following tabular data.
+Return ONLY a valid JSON array of objects with the following fields: 
+- accountType (string: "Bank" or "E-Wallet" or "Cash on Hand")
+- bankName (string)
+- accountName (string)
+- accountNumber (string)
+- accountHolder (string)
+If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else.
+
+DATA:
+${text}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: [
+          {
+            text: promptString
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
+                bankName: { type: Type.STRING },
+                accountName: { type: Type.STRING },
+                accountNumber: { type: Type.STRING },
+                accountHolder: { type: Type.STRING }
+              },
+              required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
+            }
+          }
+        }
+      });
+
+      const textOutput = response.text || "[]";
+      const parsed = JSON.parse(textOutput);
+      res.json(parsed);
+    } catch (e: any) {
+      handleError(e, res, "Failed to parse text");
     }
   });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData, emptyDashboardData } from '../data/mockDatabase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '../types';
+import { toast } from "sonner";
 
 interface SettingsProps {
   userId: string;
@@ -636,8 +637,15 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                     <div className="flex items-center gap-3">
                       <button
                         onClick={async () => {
-                          await emptyDashboardData();
-                          window.location.href = '/';
+                          try {
+                            await emptyDashboardData();
+                            toast.success("Dashboard Emptied Successfully");
+                            setTimeout(() => {
+                              window.location.href = '/';
+                            }, 1000);
+                          } catch (e: any) {
+                            toast.error("Failed to empty dashboard", { description: e.message });
+                          }
                         }}
                         className="text-xs font-mono uppercase font-bold text-slate-900 bg-orange-600 hover:bg-orange-500 px-4 py-2 rounded-lg transition-colors"
                       >
@@ -665,8 +673,15 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                     <div className="flex items-center gap-3">
                       <button
                         onClick={async () => {
-                          await resetAllData();
-                          window.location.href = '/';
+                          try {
+                            await resetAllData();
+                            toast.success("Database Reset Successfully");
+                            setTimeout(() => {
+                              window.location.href = '/';
+                            }, 1000);
+                          } catch (e: any) {
+                            toast.error("Failed to reset database", { description: e.message });
+                          }
                         }}
                         className="text-xs font-mono uppercase font-bold text-slate-900 bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg transition-colors"
                       >

@@ -40,6 +40,40 @@ const DEFAULT_LAYOUT = [
   { id: 'profit', title: 'Net Profit', visible: true }
 ];
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    let formattedDate = label;
+    if (label) {
+      const [y, m] = label.split('-');
+      const date = new Date(parseInt(y), parseInt(m) - 1);
+      formattedDate = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    }
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-4 font-sans min-w-[220px]">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">{formattedDate}</p>
+        <div className="space-y-2">
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex justify-between items-center text-sm">
+              <span className="flex items-center gap-2 text-slate-600">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                {entry.name}
+              </span>
+              <span className="font-mono font-medium text-slate-900">{formatPeso(entry.value)}</span>
+            </div>
+          ))}
+          <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between items-center text-sm">
+             <span className="text-slate-700 font-bold">Total Balance</span>
+             <span className="font-mono font-bold text-emerald-600">{formatPeso(data.totalFund)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Dashboard({
   userId,
   companyId,
@@ -47,7 +81,7 @@ export default function Dashboard({
   onNavigate,
   isSyncing,
 }: DashboardProps) {
-  useDBUpdate();
+  const dbTick = useDBUpdate();
 
   const [layout, setLayout] = useState(() => {
     const saved = localStorage.getItem('dashboard_layout');
@@ -123,9 +157,9 @@ export default function Dashboard({
       }
       return true;
     });
-  }, [userId, companyId, isConsolidated, dateRange, lastRefreshed, customStartDate, customEndDate]);
+  }, [userId, companyId, isConsolidated, dateRange, lastRefreshed, customStartDate, customEndDate, dbTick]);
 
-  const allCategories = useMemo(() => getAllCategories(), []);
+  const allCategories = useMemo(() => getAllCategories(), [dbTick]);
   const categoryMap = useMemo(() => Object.fromEntries(allCategories.map(c => [c.id, c.name])), [allCategories]);
 
   // Data for recent transactions table
@@ -168,7 +202,7 @@ export default function Dashboard({
     
     for (const txn of txns) {
       const date = new Date(txn.txnDate).toLocaleDateString();
-      const desc = `"${(txn.description || "").replace(/"/g, '""')}"`;
+      const desc = `"${(txn.purpose || "").replace(/"/g, '""')}"`;
       const cat = `"${(categoryMap[txn.categoryId] || "").replace(/"/g, '""')}"`;
       const amount = txn.amount;
       const type = txn.type;
@@ -199,7 +233,11 @@ export default function Dashboard({
           sales += t.amount;
         }
       } else if (t.type === "cash_out") {
-        expenses += t.amount;
+        if (catName.toLowerCase().includes("capital")) {
+          capital -= t.amount;
+        } else {
+          expenses += t.amount;
+        }
       }
     });
 
@@ -212,7 +250,9 @@ export default function Dashboard({
   const monthlyData = useMemo(() => {
     const monthMap: Record<string, { month: string; sales: number; expenses: number; profit: number; capital: number; totalFund: number }> = {};
     
-    txns.forEach(t => {
+    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "approved");
+
+    allHistoricalTxns.forEach(t => {
       const month = t.txnDate.slice(0, 7); // YYYY-MM
       if (!monthMap[month]) {
         monthMap[month] = { month, sales: 0, expenses: 0, profit: 0, capital: 0, totalFund: 0 };
@@ -226,7 +266,11 @@ export default function Dashboard({
           monthMap[month].sales += t.amount;
         }
       } else if (t.type === "cash_out") {
-        monthMap[month].expenses += t.amount;
+        if (catName.toLowerCase().includes("capital")) {
+          monthMap[month].capital -= t.amount;
+        } else {
+          monthMap[month].expenses += t.amount;
+        }
       }
     });
 
@@ -237,6 +281,21 @@ export default function Dashboard({
 
     const sorted = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month));
     
+    // If there's no data, add current month with zero values
+    if (sorted.length === 0) {
+       const now = new Date();
+       const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+       sorted.push({ month: currentMonthStr, sales: 0, expenses: 0, profit: 0, capital: 0, totalFund: 0 });
+    }
+
+    // If there's only one month, the area chart won't render the line/area. Add a previous empty month to make it visible.
+    if (sorted.length === 1) {
+       const [year, m] = sorted[0].month.split("-").map(Number);
+       const prevMonthDate = new Date(year, m - 2, 1); // m is 1-indexed in string, 0-indexed in Date, so m-2 gives previous month
+       const prevMonthStr = `${prevMonthDate.getFullYear()}-${(prevMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
+       sorted.unshift({ month: prevMonthStr, sales: 0, expenses: 0, profit: 0, capital: 0, totalFund: 0 });
+    }
+
     let runningFund = 0;
     sorted.forEach(d => {
        runningFund += d.capital + d.sales - d.expenses;
@@ -244,7 +303,7 @@ export default function Dashboard({
     });
 
     return sorted;
-  }, [txns, categoryMap]);
+  }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
 
   const generateSparkline = (currentValue: number) => {
     // Generate dummy historical points for a nice looking sparkline
@@ -428,7 +487,7 @@ export default function Dashboard({
                   if (item.id === 'sales') {
                     type = 'cash_in';
                   } else if (item.id === 'capital') {
-                    type = 'cash_in';
+                    type = 'all';
                     search = 'capital';
                   } else if (item.id === 'expenses') {
                     type = 'cash_out';
@@ -460,60 +519,59 @@ export default function Dashboard({
           <p className="text-xs text-slate-600">Monthly historical performance</p>
         </div>
         
-        <div className="flex-1 w-full h-full min-h-[300px]">
+        <div className="flex-1 w-full relative min-h-[350px]">
           {monthlyData.length === 0 ? (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center absolute inset-0">
               <p className="text-sm text-slate-500 font-mono">No financial data available to display.</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <div className="absolute inset-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#F43F5E" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#24272C" vertical={true} horizontal={true} />
+                <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" vertical={false} />
                 <XAxis 
                   dataKey="month" 
-                  stroke="#52525B" 
+                  stroke="#64748B" 
                   fontSize={12} 
                   tickLine={false} 
                   axisLine={false}
+                  dy={10}
                   tickFormatter={(val) => {
                     const [y, m] = val.split('-');
                     const date = new Date(parseInt(y), parseInt(m)-1);
-                    return date.toLocaleString('default', { month: 'short', year: '2-digit' });
+                    return date.toLocaleString('default', { month: 'short', year: 'numeric' });
                   }}
                 />
                 <YAxis 
-                  stroke="#52525B" 
+                  stroke="#64748B" 
                   fontSize={12}
                   tickLine={false} 
                   axisLine={false}
+                  dx={-10}
                   tickFormatter={(val) => `₱${(val / 1000)}k`}
                 />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1A1D20', borderColor: '#2A2E33', borderRadius: '8px' }}
-                  itemStyle={{ fontFamily: 'monospace', fontSize: '12px' }}
-                  labelStyle={{ color: '#A1A1AA', fontSize: '12px', marginBottom: '8px' }}
-                  formatter={(value: number) => [formatPeso(value), ""]}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '16px' }} />
-                <Area type="natural" dataKey="sales" name="Sales" stroke="#6366F1" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
-                <Area type="natural" dataKey="expenses" name="Expenses" stroke="#F43F5E" strokeWidth={2} fillOpacity={1} fill="url(#colorExpenses)" />
-                <Area type="natural" dataKey="profit" name="Net Profit" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '24px' }} />
+                <Area type="monotone" dataKey="sales" name="Sales" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpenses)" />
+                <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       </div>

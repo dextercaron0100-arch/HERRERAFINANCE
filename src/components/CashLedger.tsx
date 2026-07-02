@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getCashLedgerEntries, getCashAccounts, getCompanies, getCashCustodians, saveCashLedgerEntry } from "../data/mockDatabase";
+import { getCashLedgerEntries, getCashAccounts, getCompanies, getCashCustodians, saveCashLedgerEntry, useDBUpdate } from "../data/mockDatabase";
 import { CashLedgerEntry } from "../types";
 import { Plus, Filter, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -10,12 +10,13 @@ interface Props {
 }
 
 export default function CashLedger({ userId, companyId }: Props) {
+  const dbTick = useDBUpdate();
   const [entries, setEntries] = useState<CashLedgerEntry[]>([]);
   const [forceRender, setForceRender] = useState(0);
 
   useEffect(() => {
     setEntries(getCashLedgerEntries(companyId === "all" ? "" : companyId));
-  }, [companyId, forceRender]);
+  }, [companyId, forceRender, dbTick]);
 
   const allAccounts = getCashAccounts(companyId === "all" ? "" : companyId);
   const allCustodians = getCashCustodians(companyId === "all" ? "" : companyId);

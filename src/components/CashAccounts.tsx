@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, CheckCircle2, ShieldCheck, BookOpen, Search, ArrowRight } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Plus, Edit2, Trash2, CheckCircle2, ShieldCheck, BookOpen, Search, ArrowRight, UploadCloud, Loader2 } from "lucide-react";
 import { CashAccount, Company } from "../types";
 import { motion, AnimatePresence } from "motion/react";
+import * as XLSX from 'xlsx';
 import {
   getCashAccounts,
   saveCashAccount,
   deleteCashAccount,
   getCompanies,
+  useDBUpdate,
 } from "../data/mockDatabase";
 import { toast } from "sonner";
 
@@ -16,12 +18,15 @@ interface CashAccountsProps {
 }
 
 export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
+  const dbTick = useDBUpdate();
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Selected Company Filter (defaults to ALL if companyId is 'all')
   const [filterCompany, setFilterCompany] = useState<string>(companyId === 'all' ? "" : companyId);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,7 +45,7 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
   useEffect(() => {
     setCompanies(getCompanies());
     loadAccounts();
-  }, [filterCompany, companyId]);
+  }, [filterCompany, companyId, dbTick]);
 
   const loadAccounts = () => {
     let allAccounts: CashAccount[] = [];
@@ -63,7 +68,14 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
       toast.error("Please select a company.");
       return;
     }
-    const res = saveCashAccount(userId, formData.companyId, formData, editingId || undefined);
+    
+    // For new accounts, default currentBalance to openingBalance
+    const payloadToSave = {
+      ...formData,
+      currentBalance: editingId ? formData.currentBalance : formData.openingBalance
+    };
+
+    const res = saveCashAccount(userId, formData.companyId, payloadToSave, editingId || undefined);
     if (res.error) {
       toast.error(res.error);
     } else {
@@ -113,6 +125,91 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
     }
   };
 
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input
+    e.target.value = '';
+
+    const targetCompanyId = filterCompany || (companyId !== 'all' ? companyId : null);
+    if (!targetCompanyId) {
+      toast.error("Please select a company first to import accounts.");
+      return;
+    }
+
+    setIsImporting(true);
+    const toastId = toast.loading("Extracting accounts from document...");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result;
+          if (!data) throw new Error("No data in file");
+          
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const csvText = XLSX.utils.sheet_to_csv(worksheet);
+
+          const response = await fetch('/api/parse-accounts-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: csvText }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to scan document');
+          }
+
+          const parsedAccounts = await response.json();
+
+          if (!Array.isArray(parsedAccounts) || parsedAccounts.length === 0) {
+            throw new Error("No accounts could be found in this document.");
+          }
+
+          let addedCount = 0;
+          for (const acc of parsedAccounts) {
+            // basic defaults
+            const newAcc = {
+              companyId: targetCompanyId,
+              accountType: acc.accountType === "Bank" || acc.accountType === "E-Wallet" || acc.accountType === "Cash on Hand" ? acc.accountType : "Bank",
+              bankName: acc.bankName || "Unknown Bank",
+              accountName: acc.accountName || "Imported Account",
+              accountNumber: acc.accountNumber || "",
+              accountHolder: acc.accountHolder || "",
+              openingBalance: 0,
+              currentBalance: 0,
+              isActive: true,
+            };
+            
+            const res = saveCashAccount(userId, targetCompanyId, newAcc);
+            if (!res.error) {
+              addedCount++;
+            }
+          }
+
+          toast.success(`Successfully imported ${addedCount} account(s)!`, { id: toastId });
+          loadAccounts();
+        } catch (error: any) {
+          toast.error(error.message, { id: toastId });
+        } finally {
+          setIsImporting(false);
+        }
+      };
+      reader.onerror = () => {
+        toast.error("Failed to read file.", { id: toastId });
+        setIsImporting(false);
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -135,6 +232,23 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm border border-slate-200 shrink-0"
+          >
+            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+            Auto Import via Excel
+          </button>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleImportExcel} 
+            accept=".xlsx,.xls,.csv" 
+            className="hidden" 
+          />
 
           <button
             onClick={() => {
@@ -311,6 +425,11 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                   <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Holder Name</label>
                   <input required type="text" placeholder="Anna Jane Herrera" value={formData.accountHolder} onChange={e => setFormData({...formData, accountHolder: e.target.value})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1 ml-1">Opening Balance (₱)</label>
+                <input required type="number" step="0.01" min="0" placeholder="0.00" value={formData.openingBalance} onChange={e => setFormData({...formData, openingBalance: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs rounded-xl font-mono focus:border-emerald-500 focus:outline-none" />
               </div>
 
               <div>

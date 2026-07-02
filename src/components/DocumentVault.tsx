@@ -6,6 +6,8 @@ import { FileText, UploadCloud, Search, Eye, Download, Image as ImageIcon, File 
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 
+import { compressImage } from '../lib/imageUtils';
+
 interface DocumentVaultProps {
   userId: string;
   companyId: string;
@@ -28,29 +30,35 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
     setIsUploading(true);
     
     try {
-      // 2. Save locally as base64 for preview
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        const { error, attachment } = saveAttachment(userId, companyId, {
-          fileName: file.name,
-          fileType: file.type,
-          fileUrl: base64,
-          entityType: "other",
-          entityId: null
+      let finalBase64 = "";
+      if (file.type.startsWith('image/')) {
+        finalBase64 = await compressImage(file);
+      } else {
+        finalBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target?.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
         });
+      }
 
-        if (error) {
-          toast.error("Local Save Failed", { description: error });
-        } else if (attachment) {
-          setAttachments(prev => [attachment, ...prev]);
-        }
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      };
-      reader.readAsDataURL(file);
+      const { error, attachment } = saveAttachment(userId, companyId, {
+        fileName: file.name,
+        fileType: file.type,
+        fileUrl: finalBase64,
+        entityType: "other",
+        entityId: null
+      });
+
+      if (error) {
+        toast.error("Local Save Failed", { description: error });
+      } else if (attachment) {
+        setAttachments(prev => [attachment, ...prev]);
+      }
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: any) {
-      toast.error("Upload Failed", { id: "drive-upload", description: err.message });
+      toast.error("Upload Failed", { description: err.message || "Unknown error" });
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

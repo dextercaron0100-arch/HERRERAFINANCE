@@ -18,6 +18,7 @@ import {
   FolderMinus,
   Settings,
   ChevronDown,
+  Calendar,
   LogOut,
   Menu,
   X,
@@ -57,6 +58,7 @@ import WorkspaceSyncCenter from "./components/WorkspaceSyncCenter";
 import Budgets from "./components/Budgets";
 import PayablesReceivables from "./components/PayablesReceivables";
 import Payroll from "./components/Payroll";
+import DueDates from "./components/DueDates";
 import Reports from "./components/Reports";
 import BankReconciliation from "./components/BankReconciliation";
 import CashBankModule from "./components/CashBankModule";
@@ -95,6 +97,7 @@ type ActivePage =
   | "budgets"
   | "pay_rec"
   | "payroll"
+  | "due_dates"
   | "reports"
   | "cash_acc"
   | "bank_rec"
@@ -126,6 +129,7 @@ export default function App() {
     "approvals",
     "pay_rec",
     "payroll",
+    "due_dates",
     "reports",
     "cash_acc",
     "bank_rec",
@@ -162,6 +166,7 @@ export default function App() {
     setIsSyncing(true);
     try {
       await new Promise((r) => setTimeout(r, 1200));
+      window.dispatchEvent(new Event("db-update"));
       setLastSyncTime(new Date());
       toast.success("Database Synced", {
         description: "Data successfully refreshed from treasury group ledger.",
@@ -217,6 +222,7 @@ export default function App() {
         "budgets",
         "pay_rec",
         "payroll",
+        "due_dates",
         "reports",
         "cash_acc",
         "bank_rec",
@@ -247,6 +253,7 @@ export default function App() {
         "budgets",
         "pay_rec",
         "payroll",
+        "due_dates",
         "reports",
         "cash_acc",
         "bank_rec",
@@ -333,7 +340,7 @@ export default function App() {
     setActiveUserId(userId);
     if (
       isAccountingUser(userId) &&
-      ["audit_log", "workspace", "approvals"].includes(activePage)
+      ["audit_log", "workspace"].includes(activePage)
     ) {
       setActivePage("dashboard");
     }
@@ -442,11 +449,23 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
           {/* SYNC CONTROLS */}
           <div className="hidden xl:flex items-center gap-3 bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl shadow-inner shrink-0">
-            <div className="flex flex-col">
-              <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest leading-none">
-                Last Sync
-              </span>
-              <span className="text-[10px] font-mono text-slate-700">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest leading-none">
+                  Last Sync
+                </span>
+                <div className="relative flex h-1.5 w-1.5">
+                  <motion.span
+                    key={lastSyncTime.getTime()}
+                    initial={{ scale: 0.5, opacity: 1 }}
+                    animate={{ scale: 3.5, opacity: 0 }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                    className="absolute inline-flex h-full w-full rounded-full bg-[#00B67A]"
+                  />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00B67A]"></span>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-slate-700 leading-none">
                 {lastSyncTime.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -548,10 +567,10 @@ export default function App() {
         <aside
           className={`bg-white/80 backdrop-blur-xl text-slate-700 border-r border-slate-200/60 shrink-0 select-none flex flex-col justify-between z-30 overflow-y-auto custom-scrollbar transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             mobileSidebarOpen 
-              ? "fixed inset-y-0 left-0 translate-x-0 w-72 pt-16 pb-4 shadow-[10px_0_40px_rgba(0,0,0,0.08)]" 
+              ? "fixed inset-y-0 left-0 translate-x-0 w-80 pt-16 pb-4 shadow-[10px_0_40px_rgba(0,0,0,0.08)]" 
               : "fixed inset-y-0 -translate-x-full md:relative md:translate-x-0 md:flex h-full"
           } ${
-            sidebarMinimized && !mobileSidebarOpen ? "md:w-[88px]" : "md:w-72"
+            sidebarMinimized && !mobileSidebarOpen ? "md:w-[88px]" : "md:w-80"
           }`}
         >
           <div
@@ -720,7 +739,7 @@ export default function App() {
                       label: "Accounting Workbench",
                       icon: CheckSquare,
                     },
-                    { id: "ledger", label: "Transaction", icon: Coins },
+                    { id: "ledger", label: "Transaction History", icon: Coins },
                     {
                       id: "money_flow",
                       label: "Cash Flow",
@@ -750,6 +769,7 @@ export default function App() {
                       icon: FolderMinus,
                     },
                     { id: "payroll", label: "Wages & Payroll", icon: Users },
+                    { id: "due_dates", label: "Due Dates", icon: Calendar },
                     {
                       id: "reports",
                       label: "Executive Sheets",
@@ -801,19 +821,20 @@ export default function App() {
                     .filter((item) => {
                       if (activeUserId === "u-it") return true; // IT sees everything
 
-                      if (isGroupAdmin(activeUserId)) {
-                        // The owner should ONLY see these items.
+                      const isOwnerUser = isGroupAdmin(activeUserId) || (currentRole as string) === "owner";
+
+                      if (isOwnerUser) {
+                        // The owner should ONLY see these items (excluding budgets and owner_dashboard per request).
                         const ownerAllowed = [
                           "dashboard",
                           "accounting_workbench",
                           "ledger",
                           "money_flow",
-                          "budgets",
                           "approvals",
                           "assistant",
-                          "owner_dashboard",
                           "pay_rec",
                           "payroll",
+                          "due_dates",
                           "settings",
                         ];
                         return ownerAllowed.includes(item.id);
@@ -832,7 +853,7 @@ export default function App() {
                       if (item.id === "owner_dashboard") {
                         return (
                           currentRole === "company_admin" ||
-                          currentRole === "owner"
+                          (currentRole as string) === "owner"
                         );
                       }
                       if (item.id === "payroll") {
@@ -844,7 +865,6 @@ export default function App() {
                         if (
                           item.id === "audit_log" ||
                           item.id === "workspace" ||
-                          item.id === "approvals" ||
                           item.id === "settings"
                         ) {
                           return false;
@@ -1096,6 +1116,14 @@ export default function App() {
                 />
               )}
 
+              {activePage === "due_dates" && (
+                <DueDates
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                  onAuditLogged={forceTriggerAuditTrail}
+                />
+              )}
+
               {activePage === "reports" && (
                 <Reports userId={activeUserId} companyId={activeCompanyId} />
               )}
@@ -1208,7 +1236,7 @@ export default function App() {
                       label: "ACCOUNTING WORKBENCH",
                       icon: CheckSquare,
                     },
-                    { id: "ledger", label: "TRANSACTION", icon: Coins },
+                    { id: "ledger", label: "TRANSACTION HISTORY", icon: Coins },
                     {
                       id: "money_flow",
                       label: "CASH FLOW",
@@ -1242,6 +1270,7 @@ export default function App() {
                       icon: FolderMinus,
                     },
                     { id: "payroll", label: "WAGES & PAYROLL", icon: Users },
+                    { id: "due_dates", label: "DUE DATES", icon: Calendar },
                     {
                       id: "settings",
                       label: "SETTINGS",
@@ -1249,7 +1278,22 @@ export default function App() {
                     },
                   ]
                     .filter((item) => {
-                      if (isGroupAdmin(activeUserId)) return true;
+                      const isOwnerUser = isGroupAdmin(activeUserId) || (currentRole as string) === "owner";
+                      if (isOwnerUser) {
+                        const ownerAllowed = [
+                          "dashboard",
+                          "accounting_workbench",
+                          "ledger",
+                          "money_flow",
+                          "approvals",
+                          "assistant",
+                          "pay_rec",
+                          "payroll",
+                          "due_dates",
+                          "settings",
+                        ];
+                        return ownerAllowed.includes(item.id);
+                      }
                       if (
                         currentUserRoleData &&
                         currentUserRoleData.allowedSections &&
@@ -1271,7 +1315,7 @@ export default function App() {
                           : canManagePayroll(activeUserId, activeCompanyId);
                       }
                       if (isAccountingUser(activeUserId)) {
-                        if (item.id === "approvals" || item.id === "settings") {
+                        if (item.id === "settings") {
                           return false;
                         }
                       }

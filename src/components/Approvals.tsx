@@ -9,6 +9,7 @@ import {
   FileCheck2,
   Clock,
   User,
+  Filter,
 } from "lucide-react";
 import {
   getTransactions,
@@ -20,9 +21,13 @@ import {
   getProfiles,
   getCompanies,
   getAllCashAccounts,
+  getRoles,
+  useDBUpdate,
 } from "../data/mockDatabase";
 import { Transaction } from "../types";
 import { toast } from "sonner";
+
+import AttachmentViewer from "./AttachmentViewer";
 
 interface ApprovalsProps {
   userId: string;
@@ -35,10 +40,20 @@ export default function Approvals({
   companyId,
   onAuditLogged,
 }: ApprovalsProps) {
+  useDBUpdate();
+
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "cash_in" | "cash_out">("all");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"pending" | "history">("pending");
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  const [selectedTxns, setSelectedTxns] = useState<Set<string>>(new Set());
   const [reviewRemarks, setReviewRemarks] = useState("");
+  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
 
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
@@ -58,21 +73,68 @@ export default function Approvals({
   }, [transactions]);
 
   const filteredTxns = useMemo(() => {
-    const list = viewMode === "pending" ? pendingTxns : historyTxns;
+    let list = viewMode === "pending" ? pendingTxns : historyTxns;
+
+    if (filterType !== "all") {
+      list = list.filter((t) => t.type === filterType);
+    }
+    if (filterStartDate) {
+      list = list.filter((t) => t.txnDate >= filterStartDate);
+    }
+    if (filterEndDate) {
+      list = list.filter((t) => t.txnDate <= filterEndDate);
+    }
+    if (filterMinAmount) {
+      const min = parseFloat(filterMinAmount);
+      if (!isNaN(min)) list = list.filter((t) => t.amount >= min);
+    }
+    if (filterMaxAmount) {
+      const max = parseFloat(filterMaxAmount);
+      if (!isNaN(max)) list = list.filter((t) => t.amount <= max);
+    }
+
     if (!searchTerm) return list;
     const lower = searchTerm.toLowerCase();
     return list.filter(
       (t) =>
-        t.purpose.toLowerCase().includes(lower) ||
-        t.amount.toString().includes(lower),
+         t.purpose.toLowerCase().includes(lower) ||
+         t.amount.toString().includes(lower),
     );
-  }, [pendingTxns, historyTxns, viewMode, searchTerm]);
+  }, [pendingTxns, historyTxns, viewMode, searchTerm, filterType, filterStartDate, filterEndDate, filterMinAmount, filterMaxAmount]);
 
   const userRole = getUserRole(userId, companyId);
-  const isAuthorizedApprover =
-    userRole === "approver" ||
-    userRole === "company_admin" ||
-    isGroupAdmin(userId);
+  
+  // Checks if the user is authorized as an approver for the active company or ANY company in the system if in consolidated view
+  const isAuthorizedApprover = useMemo(() => {
+    if (isGroupAdmin(userId)) return true;
+    if (companyId && companyId !== "all") {
+      const role = getUserRole(userId, companyId);
+      return role === "approver" || role === "company_admin";
+    }
+    const roles = getRoles().filter((r) => r.userId === userId);
+    return roles.some((r) => r.role === "approver" || r.role === "company_admin");
+  }, [userId, companyId]);
+
+  // Evaluates precise permission criteria for a specific transaction record
+  const getTxnPermissions = (txn: Transaction) => {
+    const txnRole = getUserRole(userId, txn.companyId);
+    const txnIsAuthorized =
+      txnRole === "approver" ||
+      txnRole === "company_admin" ||
+      isGroupAdmin(userId);
+      
+    const canApprove =
+      txnIsAuthorized &&
+      !((txn.encodedBy === userId && !isOwner) ||
+        (txn.amount > 50000 && txnRole !== "company_admin" && !isGroupAdmin(userId)) ||
+        (txn.amount > 10000 && txnRole === "approver" && !isGroupAdmin(userId)));
+
+    return {
+      txnRole,
+      txnIsAuthorized,
+      canApprove,
+    };
+  };
 
   const handleAction = (action: "approved" | "rejected") => {
     if (!selectedTxn) return;
@@ -104,8 +166,94 @@ export default function Approvals({
         },
       );
       setSelectedTxn(null);
+      setSelectedTxns(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedTxn.id);
+        return newSet;
+      });
       setReviewRemarks("");
       if (onAuditLogged) onAuditLogged();
+    }
+  };
+
+  const handleBulkAction = (action: "approved" | "rejected") => {
+    if (selectedTxns.size === 0) return;
+
+    if (
+      action === "rejected" &&
+      (!reviewRemarks || reviewRemarks.trim() === "")
+    ) {
+      toast.error("Remarks required", {
+        description: "You must provide remarks when rejecting transactions.",
+      });
+      setShowBulkRejectModal(true);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    Array.from(selectedTxns).forEach(txnId => {
+      const { error } = reviewTransaction(
+        userId,
+        txnId,
+        action,
+        action === "rejected" ? reviewRemarks : reviewRemarks || null,
+      );
+      if (error) {
+        failCount++;
+      } else {
+        successCount++;
+      }
+    });
+
+    if (successCount > 0) {
+      toast.success(
+        `Bulk Action Complete`,
+        {
+          description: `Successfully ${action} ${successCount} transactions.`,
+        },
+      );
+      setSelectedTxns(new Set());
+      setReviewRemarks("");
+      setShowBulkRejectModal(false);
+      if (onAuditLogged) onAuditLogged();
+    }
+    
+    if (failCount > 0) {
+      toast.error("Bulk Action Errors", { description: `Failed to process ${failCount} transactions.` });
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedTxns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTxns.size === filteredTxns.length) {
+      setSelectedTxns(new Set());
+    } else {
+      const newSet = new Set<string>();
+      filteredTxns.forEach(t => {
+        // Only allow selection of items we can approve
+        const canApprove = viewMode === "pending" && isAuthorizedApprover && 
+            !((t.encodedBy === userId && !isOwner) || 
+              (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || 
+              (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)));
+              
+        if (canApprove) {
+          newSet.add(t.id);
+        }
+      });
+      setSelectedTxns(newSet);
     }
   };
 
@@ -182,6 +330,18 @@ export default function Approvals({
           <h2 className="text-2xl font-bold font-display tracking-tight text-slate-900 flex items-center gap-2">
             <FileSignature className="w-6 h-6 text-amber-500" />
             Approvals Queue
+            <AnimatePresence>
+              {selectedTxns.size > 0 && viewMode === "pending" && (
+                <motion.span 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="ml-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold border border-amber-500/20 shadow-sm"
+                >
+                  {selectedTxns.size} Selected
+                </motion.span>
+              )}
+            </AnimatePresence>
           </h2>
           <p className="text-slate-500 text-sm font-mono mt-1">
             Review and clear pending transactions for general ledger
@@ -216,51 +376,164 @@ export default function Approvals({
       </div>
 
       {/* SEARCH AND FILTER */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-white border border-slate-200 p-4 rounded-2xl">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+      <div className="flex flex-col gap-4 bg-white border border-slate-200 p-4 rounded-2xl">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setViewMode("pending")}
+              className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
+                viewMode === "pending"
+                  ? "bg-slate-50 text-slate-900 shadow"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Pending
+            </button>
+            <button
+              onClick={() => setViewMode("history")}
+              className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
+                viewMode === "history"
+                  ? "bg-slate-50 text-slate-900 shadow"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              History
+            </button>
+          </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search by purpose or amount..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500 focus:outline-hidden rounded-xl transition hover:bg-slate-50"
+            />
+          </div>
           <button
-            onClick={() => setViewMode("pending")}
-            className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
-              viewMode === "pending"
-                ? "bg-slate-50 text-slate-900 shadow"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 py-2 border rounded-xl flex items-center justify-center gap-2 transition-colors ${showFilters ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
-            Pending
-          </button>
-          <button
-            onClick={() => setViewMode("history")}
-            className={`flex-1 px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${
-              viewMode === "history"
-                ? "bg-slate-50 text-slate-900 shadow"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            History
+            <Filter className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-widest">Filters</span>
           </button>
         </div>
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search by purpose or amount..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500 focus:outline-hidden rounded-xl transition hover:bg-slate-50"
-          />
-        </div>
+
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Type</label>
+                  <select 
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as any)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="cash_in">Inflow / Gross Sales</option>
+                    <option value="cash_out">Outflow (Cash Out)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Start Date</label>
+                  <input 
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">End Date</label>
+                  <input 
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Min Amount</label>
+                  <input 
+                    type="number"
+                    placeholder="0.00"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Max Amount</label>
+                  <input 
+                    type="number"
+                    placeholder="99999.00"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* PENDING LIST */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
-        {filteredTxns.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <FileCheck2 className="w-12 h-12 mx-auto text-zinc-700 mb-3" />
-            <p className="font-mono text-sm">
-              {viewMode === "pending" ? "Queue is empty. No pending transactions." : "No approval history found for this company."}
-            </p>
-          </div>
-        ) : (
+      <div className="space-y-4">
+        {selectedTxns.size > 0 && viewMode === "pending" && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="text-amber-900 text-sm font-medium">
+              <span className="font-bold text-amber-700">{selectedTxns.size}</span> transaction(s) selected
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => handleBulkAction("approved")}
+                className="flex-1 sm:flex-none px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-all uppercase tracking-wider shadow-sm"
+              >
+                Approve Selected
+              </button>
+              <button
+                onClick={() => setShowBulkRejectModal(true)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all uppercase tracking-wider shadow-sm"
+              >
+                Reject Selected
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
+          {viewMode === "pending" && filteredTxns.length > 0 && isAuthorizedApprover && (
+            <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedTxns.size > 0 && selectedTxns.size === filteredTxns.filter(t => !((t.encodedBy === userId && !isOwner) || (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)))).length}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Select All Valid</span>
+              </label>
+            </div>
+          )}
+          {filteredTxns.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              <FileCheck2 className="w-12 h-12 mx-auto text-zinc-700 mb-3" />
+              <p className="font-mono text-sm">
+                {viewMode === "pending" ? "Queue is empty. No pending transactions." : "No approval history found for this company."}
+              </p>
+            </div>
+          ) : (
           <div className="divide-y divide-slate-200">
             <AnimatePresence initial={false}>
               {filteredTxns.map((txn, idx) => {
@@ -268,7 +541,7 @@ export default function Approvals({
                   (c) => c.id === txn.categoryId,
                 );
                 const company = allCompanies.find((c) => c.id === txn.companyId);
-                const account = allAccounts.find((a) => a.id === txn.accountId);
+                const account = allAccounts.find((a) => a.id === txn.cashAccountId);
 
                 return (
                   <motion.div
@@ -277,10 +550,26 @@ export default function Approvals({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                     transition={{ delay: idx * 0.05, duration: 0.2 }}
-                    className="p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 hover:bg-slate-50 transition"
+                    className={`p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 transition ${selectedTxns.has(txn.id) ? 'bg-amber-50/50' : 'hover:bg-slate-50'}`}
                   >
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex-1 flex items-start gap-4">
+                      {viewMode === "pending" && isAuthorizedApprover && (
+                        <div className="pt-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedTxns.has(txn.id)}
+                            onChange={() => toggleSelection(txn.id)}
+                            className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={
+                              (txn.encodedBy === userId && !isOwner) ||
+                              (txn.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) ||
+                              (txn.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId))
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
                           {txn.txnDate}
                         </span>
@@ -301,8 +590,8 @@ export default function Approvals({
                         <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
                           {company?.name || company?.code || txn.companyId}
                         </span>
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-sky-400 bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20 truncate max-w-[200px]" title={`${account?.accountType || 'Wallet'} • ${account?.bankName || 'Unknown'} - ${account?.accountName || txn.accountId}`}>
-                          {account?.accountType || 'Wallet'} • {account?.bankName || 'Unknown'} - {account?.accountName || txn.accountId}
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-sky-400 bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20 truncate max-w-[200px]" title={`${account?.accountType || 'Wallet'} • ${account?.bankName || 'Unknown'} - ${account?.accountName || txn.cashAccountId}`}>
+                          {account?.accountType || 'Wallet'} • {account?.bankName || 'Unknown'} - {account?.accountName || txn.cashAccountId}
                         </span>
                       </div>
                       <div>
@@ -315,6 +604,7 @@ export default function Approvals({
                           <span>By: {txn.encodedBy}</span>
                         </p>
                       </div>
+                    </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 lg:gap-8 w-full lg:w-auto">
@@ -380,6 +670,66 @@ export default function Approvals({
           </div>
         )}
       </div>
+      </div>
+
+      {/* BULK REJECT MODAL */}
+      <AnimatePresence>
+        {showBulkRejectModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+              className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative"
+            >
+              <h3 className="text-xl font-bold font-display text-slate-900 mb-2">
+                Reject Multiple Transactions
+              </h3>
+              <p className="text-sm font-mono text-slate-500 mb-6">
+                You are about to reject <span className="font-bold text-slate-700">{selectedTxns.size}</span> transaction(s). This action requires a reason.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-2">
+                    Rejection Remarks (Required)
+                  </label>
+                  <textarea
+                    value={reviewRemarks}
+                    onChange={(e) => setReviewRemarks(e.target.value)}
+                    placeholder="Provide a reason for rejecting these transactions..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-rose-500 focus:outline-hidden min-h-[100px]"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowBulkRejectModal(false);
+                      setReviewRemarks("");
+                    }}
+                    className="flex-1 py-3 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold transition-all uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleBulkAction("rejected")}
+                    className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold transition-all uppercase tracking-wider shadow-sm"
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* REVIEW MODAL */}
       <AnimatePresence>
@@ -421,10 +771,15 @@ export default function Approvals({
                     Entity: {allCompanies.find((c) => c.id === selectedTxn.companyId)?.name || selectedTxn.companyId}
                   </div>
                   <div className="text-sky-400/90 truncate">
-                    Wallet: {allAccounts.find((a) => a.id === selectedTxn.accountId)?.bankName} - {allAccounts.find((a) => a.id === selectedTxn.accountId)?.accountName || selectedTxn.accountId}
+                    Wallet: {allAccounts.find((a) => a.id === selectedTxn.cashAccountId)?.bankName} - {allAccounts.find((a) => a.id === selectedTxn.cashAccountId)?.accountName || selectedTxn.cashAccountId}
                   </div>
                 </div>
               </div>
+
+              {/* ATTACHMENT VIEWER */}
+              {selectedTxn.receiptPath && (
+                <AttachmentViewer transaction={selectedTxn} userId={userId} />
+              )}
 
               {/* TIMELINE */}
               <div className="mb-6 bg-white border border-slate-200 p-4 rounded-xl">

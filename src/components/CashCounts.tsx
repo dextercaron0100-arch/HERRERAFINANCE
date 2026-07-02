@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getCashCounts, getCashAccounts, getCashCustodians, saveCashCount } from "../data/mockDatabase";
+import { getCashCounts, getCashAccounts, getCashCustodians, saveCashCount, useDBUpdate } from "../data/mockDatabase";
 import { CashCount } from "../types";
 import { Plus, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -10,12 +10,13 @@ interface Props {
 }
 
 export default function CashCounts({ userId, companyId }: Props) {
+  const dbTick = useDBUpdate();
   const [counts, setCounts] = useState<CashCount[]>([]);
   const [forceRender, setForceRender] = useState(0);
 
   useEffect(() => {
     setCounts(getCashCounts(companyId === "all" ? "" : companyId));
-  }, [companyId, forceRender]);
+  }, [companyId, forceRender, dbTick]);
 
   const allAccounts = getCashAccounts(companyId === "all" ? "" : companyId);
   const allCustodians = getCashCustodians(companyId === "all" ? "" : companyId);
