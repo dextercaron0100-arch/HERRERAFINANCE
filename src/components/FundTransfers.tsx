@@ -31,6 +31,9 @@ export default function FundTransfers({ userId, companyId }: Props) {
   const [purpose, setPurpose] = useState("");
   const [receivedAs, setReceivedAs] = useState<"sales" | "capital">("sales");
 
+  const [editingRefId, setEditingRefId] = useState<string | null>(null);
+  const [refValue, setRefValue] = useState("");
+
   const [isSplit, setIsSplit] = useState(false);
   const emptySplitRow = () => ({ toCompanyId: companyId === "all" ? "" : companyId, toAccountId: "", amount: "" });
   const [splitDestinations, setSplitDestinations] = useState<{ toCompanyId: string; toAccountId: string; amount: string }[]>([emptySplitRow(), emptySplitRow()]);
@@ -224,6 +227,18 @@ export default function FundTransfers({ userId, companyId }: Props) {
     setForceRender(prev => prev + 1);
   };
 
+  const handleSaveReference = (t: FundTransfer) => {
+    if (!refValue.trim()) {
+      toast.error("Reference number cannot be empty.");
+      return;
+    }
+    saveFundTransfer({ ...t, transferReferenceNumber: refValue.trim() }, t.id);
+    toast.success("Reference number saved.");
+    setEditingRefId(null);
+    setRefValue("");
+    setForceRender(prev => prev + 1);
+  };
+
   const stats = useMemo(() => {
     let pending = 0;
     let approved = 0;
@@ -326,6 +341,9 @@ export default function FundTransfers({ userId, companyId }: Props) {
                           )}
                         </div>
                         <div className="text-[9px] text-slate-500 mt-0.5">{t.id}</div>
+                        {t.transferReferenceNumber && (
+                          <div className="text-[9px] text-emerald-600 font-bold mt-0.5">Ref: {t.transferReferenceNumber}</div>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-slate-700">{fromAcc}</div>
@@ -365,7 +383,33 @@ export default function FundTransfers({ userId, companyId }: Props) {
                           <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-emerald-600 hover:underline">Mark Completed</button>
                         )}
                         {t.status === "Completed" && isApprover(t.fromCompanyId) && (
-                          <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-sky-600 hover:underline">Sync Posting</button>
+                          <div className="flex flex-col gap-1.5 items-end">
+                            <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-sky-600 hover:underline">Sync Posting</button>
+                            {!t.transferReferenceNumber && (
+                              editingRefId === t.id ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={refValue}
+                                    onChange={(e) => setRefValue(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveReference(t); if (e.key === 'Escape') { setEditingRefId(null); setRefValue(""); } }}
+                                    placeholder="Bank/GCash ref #"
+                                    className="w-28 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                                  />
+                                  <button onClick={() => handleSaveReference(t)} className="text-emerald-600 hover:underline text-[11px]">Save</button>
+                                  <button onClick={() => { setEditingRefId(null); setRefValue(""); }} className="text-slate-400 hover:text-slate-600 text-[11px]">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingRefId(t.id); setRefValue(""); }}
+                                  className="text-amber-600 hover:underline text-[11px]"
+                                >
+                                  + Add Reference #
+                                </button>
+                              )
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
