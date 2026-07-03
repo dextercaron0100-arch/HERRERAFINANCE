@@ -51,6 +51,8 @@ export default function QuickEncodePanel({
   const [categoryId, setCategoryId] = useState("");
   const [responsiblePerson, setResponsiblePerson] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [paymentAllocations, setPaymentAllocations] = useState<{ id: string, cashAccountId: string, amountStr: string }[]>([
     { id: "initial", cashAccountId: "", amountStr: "" }
   ]);
@@ -168,6 +170,7 @@ export default function QuickEncodePanel({
         responsiblePerson,
         remarks: remarks.trim() || null,
         receiptPath,
+        tags,
         mockMetadata: null,
         paymentMethod: "",
         reversalOf: null
@@ -192,6 +195,8 @@ export default function QuickEncodePanel({
       setPaymentAllocations([{ id: Date.now().toString(), cashAccountId: "", amountStr: "" }]);
       setResponsiblePerson("");
       setRemarks("");
+      setTags([]);
+      setTagsInput("");
       setDuplicateWarning(null);
 
       if (!encodeAnother && onClose) {
@@ -411,6 +416,40 @@ export default function QuickEncodePanel({
               placeholder="Optional remarks"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
             />
+          </div>
+
+          <div className="col-span-2">
+            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><FileText className="w-3 h-3" /> Tags</label>
+            <div className="flex flex-col gap-2">
+              <input 
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagsInput.trim()) {
+                    e.preventDefault();
+                    if (!tags.includes(tagsInput.trim().toLowerCase())) {
+                      setTags([...tags, tagsInput.trim().toLowerCase()]);
+                    }
+                    setTagsInput("");
+                  }
+                }}
+                placeholder="Type tag and press Enter"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-emerald-500/50 transition font-mono placeholder:text-zinc-700"
+              />
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {tags.map(tag => (
+                    <span key={tag} className="px-2 py-1 bg-emerald-100 text-emerald-800 text-[10px] rounded flex items-center gap-1 uppercase font-mono font-bold tracking-widest">
+                      {tag}
+                      <button onClick={() => setTags(tags.filter(t => t !== tag))} className="hover:text-emerald-950">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="col-span-2">

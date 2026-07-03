@@ -5,7 +5,7 @@
 
 export type CompanyRole = 'company_admin' | 'finance_officer' | 'approver' | 'viewer' | 'owner';
 export type CashflowType = 'cash_in' | 'cash_out';
-export type TransactionStatus = 'pending' | 'approved' | 'rejected';
+export type TransactionStatus = 'pending' | 'approved' | 'completed' | 'rejected';
 export type ApprovalAction = 'approved' | 'rejected';
 export type PayableStatus = 'unpaid' | 'paid';
 export type ReceivableStatus = 'uncollected' | 'collected';
@@ -15,6 +15,7 @@ export interface Company {
   id: string;
   name: string;
   code: string;
+  color?: string;
   createdAt: string;
 }
 
@@ -219,6 +220,8 @@ export interface Transaction {
   paymentMethod?: string;
   encodedBy: string; // profile id
   reversalOf: string | null; // transaction id
+  transferRef?: string | null;
+  tags?: string[] | null;
   createdAt: string;
   updatedAt: string;
 }

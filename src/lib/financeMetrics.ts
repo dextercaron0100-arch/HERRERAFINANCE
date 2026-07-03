@@ -1,9 +1,9 @@
 import { Transaction, Payable, Receivable, CashAccount, Budget, Company, Category } from "../types";
 
 export function getMoneyFlowSummary(transactions: Transaction[]) {
-  const approved = transactions.filter((t) => t.status === "approved");
-  const cashIn = approved.filter((t) => t.type === "cash_in").reduce((sum, t) => sum + t.amount, 0);
-  const cashOut = approved.filter((t) => t.type === "cash_out").reduce((sum, t) => sum + t.amount, 0);
+  const completed = transactions.filter((t) => t.status === "completed");
+  const cashIn = completed.filter((t) => t.type === "cash_in").reduce((sum, t) => sum + t.amount, 0);
+  const cashOut = completed.filter((t) => t.type === "cash_out").reduce((sum, t) => sum + t.amount, 0);
   
   return {
     cashIn,
@@ -13,14 +13,14 @@ export function getMoneyFlowSummary(transactions: Transaction[]) {
 }
 
 export function getProfitSummary(transactions: Transaction[], categories: Category[]) {
-  const approved = transactions.filter((t) => t.status === "approved");
+  const completed = transactions.filter((t) => t.status === "completed");
   
   // Find Capital categories to exclude them from revenue
   const capitalCategoryIds = categories
     .filter(c => c.name.toLowerCase().includes("capital"))
     .map(c => c.id);
 
-  const revenue = approved
+  const revenue = completed
     .filter((t) => t.type === "cash_in" && !capitalCategoryIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
   
@@ -35,15 +35,15 @@ export function getProfitSummary(transactions: Transaction[], categories: Catego
     .filter(c => payrollCategoryNames.some(name => c.name.toLowerCase().includes(name)))
     .map(c => c.id);
 
-  const cogs = approved
+  const cogs = completed
     .filter((t) => t.type === "cash_out" && cogsCategoryIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
     
-  const payroll = approved
+  const payroll = completed
     .filter((t) => t.type === "cash_out" && payrollCategoryIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
     
-  const operatingExpenses = approved
+  const operatingExpenses = completed
     .filter(
       (t) =>
         t.type === "cash_out" &&
@@ -83,7 +83,7 @@ export function getCompanyProfitComparison(companies: Company[], allTransactions
 }
 
 export function getCashFlowTimeline(transactions: Transaction[], days: number = 30) {
-  const approved = transactions.filter((t) => t.status === "approved");
+  const completed = transactions.filter((t) => t.status === "completed");
   const data: { date: string; cashIn: number; cashOut: number; netCash: number }[] = [];
   
   const today = new Date();
@@ -93,7 +93,7 @@ export function getCashFlowTimeline(transactions: Transaction[], days: number = 
     d.setDate(today.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
     
-    const dayTxns = approved.filter(t => t.txnDate === dateStr);
+    const dayTxns = completed.filter(t => t.txnDate === dateStr);
     const cashIn = dayTxns.filter(t => t.type === "cash_in").reduce((sum, t) => sum + t.amount, 0);
     const cashOut = dayTxns.filter(t => t.type === "cash_out").reduce((sum, t) => sum + t.amount, 0);
     const netCash = cashIn - cashOut;

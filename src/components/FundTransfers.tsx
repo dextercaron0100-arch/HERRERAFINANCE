@@ -7,7 +7,7 @@ import {
 } from "../types";
 import { 
   getFundTransfers, saveFundTransfer, getCashAccounts, getCompanies, getProfiles, getUserRole,
-  saveCashAccount, saveCashLedgerEntry, getCashLedgerEntries, getAllCashAccounts, useDBUpdate
+  getAllCashAccounts, useDBUpdate, executeFundTransferToLedger
 } from "../data/mockDatabase";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
@@ -104,10 +104,6 @@ export default function FundTransfers({ userId, companyId }: Props) {
 
     saveFundTransfer(newTransfer, newTransfer.id);
 
-    if (isApproved) {
-      postTransferToLedger(newTransfer);
-    }
-
     toast.success("Fund transfer requested.");
     setShowAddModal(false);
     setAmount("");
@@ -116,44 +112,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
   };
 
   const postTransferToLedger = (t: FundTransfer) => {
-    const fromAcc = allAccounts.find(a => a.id === t.fromAccountId);
-    const toAcc = allAccounts.find(a => a.id === t.toAccountId);
-    
-    if (fromAcc) {
-      const newFromBal = fromAcc.currentBalance - t.amount;
-      saveCashAccount(userId, t.fromCompanyId, { ...fromAcc, currentBalance: newFromBal }, fromAcc.id);
-      saveCashLedgerEntry({
-        date: new Date().toISOString().split('T')[0],
-        companyId: t.fromCompanyId,
-        cashAccountId: t.fromAccountId,
-        custodianId: fromAcc.assignedCustodian || null,
-        transactionType: 'Cash Transfer',
-        referenceNo: t.id,
-        description: `Transfer out: ${t.purpose}`,
-        cashIn: 0,
-        cashOut: t.amount,
-        createdBy: userId,
-        approvedBy: userId
-      });
-    }
-
-    if (toAcc) {
-      const newToBal = toAcc.currentBalance + t.amount;
-      saveCashAccount(userId, t.toCompanyId, { ...toAcc, currentBalance: newToBal }, toAcc.id);
-      saveCashLedgerEntry({
-        date: new Date().toISOString().split('T')[0],
-        companyId: t.toCompanyId,
-        cashAccountId: t.toAccountId,
-        custodianId: toAcc.assignedCustodian || null,
-        transactionType: 'Cash Transfer',
-        referenceNo: t.id,
-        description: `Transfer in: ${t.purpose}`,
-        cashIn: t.amount,
-        cashOut: 0,
-        createdBy: userId,
-        approvedBy: userId
-      });
-    }
+    executeFundTransferToLedger(userId, t);
   };
 
   const handleUpdateStatus = (id: string, newStatus: FundTransfer['status']) => {
@@ -177,7 +136,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
     
     saveFundTransfer(updated, id);
 
-    if (newStatus === 'Approved') {
+    if (newStatus === 'Completed') {
       postTransferToLedger(updated);
     }
 
@@ -444,12 +403,6 @@ export default function FundTransfers({ userId, companyId }: Props) {
                     </div>
                   </div>
                   
-                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 text-xs text-sky-800 flex gap-2 items-start">
-                    <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-sky-600" />
-                    <div>
-                      <span className="font-bold">Approval Rules:</span> Transfers to a different company or amounts ≥ 50,000 PHP require approval. Others are auto-approved.
-                    </div>
-                  </div>
                 </form>
               </div>
               

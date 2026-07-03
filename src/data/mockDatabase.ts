@@ -495,6 +495,65 @@ export function initDB() {
 
   isSeeding = false;
 
+  
+  if (!localStorage.getItem(KEYS.TRANSACTIONS) || load<Transaction[]>(KEYS.TRANSACTIONS, []).length === 0) {
+    justSeeded = true;
+    const mockTxns: Transaction[] = [];
+    const accounts = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+    const cats = load<Category[]>(KEYS.CATEGORIES, []);
+    
+    // Create initial capital
+    SEED_COMPANIES.forEach(c => {
+      const compAccounts = accounts.filter(a => a.companyId === c.id);
+      const mainAcc = compAccounts.length > 0 ? compAccounts[0].id : '';
+      const inCat = cats.find(cat => cat.companyId === c.id && cat.type === 'cash_in');
+      
+      if (mainAcc && inCat) {
+        mockTxns.push({
+          id: `txn-seed-${c.id}-1`,
+          companyId: c.id,
+          txnDate: new Date().toISOString().split('T')[0],
+          type: 'cash_in',
+          amount: 500000,
+          purpose: 'Initial Capital',
+          categoryId: inCat.id,
+          cashAccountId: mainAcc,
+          paymentMethod: 'bank_transfer',
+          referenceNo: 'DEP-001',
+          responsiblePerson: 'Owner',
+          status: 'completed',
+          encodedBy: 'u-mark',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        
+        mockTxns.push({
+          id: `txn-seed-${c.id}-2`,
+          companyId: c.id,
+          txnDate: new Date().toISOString().split('T')[0],
+          type: 'cash_out',
+          amount: 15000,
+          purpose: 'Office Supplies',
+          categoryId: cats.find(cat => cat.companyId === c.id && cat.type === 'cash_out')?.id || '',
+          cashAccountId: mainAcc,
+          paymentMethod: 'cash',
+          referenceNo: 'EXP-001',
+          responsiblePerson: 'Admin',
+          status: 'completed',
+          encodedBy: 'u-mark',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    });
+    save(KEYS.TRANSACTIONS, mockTxns);
+    if (db) {
+      import("firebase/firestore").then(({ doc, setDoc }) => {
+        setDoc(doc(db, "appData", KEYS.TRANSACTIONS), { data: mockTxns }, { merge: true });
+      });
+    }
+  }
+
   // Push local seeding changes to firestore if needed
   if (db && (profilesChanged || rolesChanged || compsChanged || catsChanged)) {
     if (profilesChanged) safeSetDoc(doc(db, "appData", KEYS.PROFILES), { data: JSON.parse(localStorage.getItem(KEYS.PROFILES) || '[]') }, { merge: true });
@@ -630,6 +689,25 @@ export function setSelectedCompanyId(companyId: string): void {
 export function getCompanies(): Company[] {
   initDB();
   return load<Company[]>(KEYS.COMPANIES, []);
+}
+
+export function saveCompany(company: Company): void {
+  initDB();
+  const companies = load<Company[]>(KEYS.COMPANIES, []);
+  const existingIndex = companies.findIndex(c => c.id === company.id);
+  if (existingIndex >= 0) {
+    companies[existingIndex] = company;
+  } else {
+    companies.push(company);
+  }
+  save(KEYS.COMPANIES, companies);
+}
+
+export function deleteCompany(companyId: string): void {
+  initDB();
+  const companies = load<Company[]>(KEYS.COMPANIES, []);
+  const updatedCompanies = companies.filter(c => c.id !== companyId);
+  save(KEYS.COMPANIES, updatedCompanies);
 }
 
 export function getProfiles(): Profile[] {
@@ -815,6 +893,44 @@ export async function resetAllData() {
         }
       } else {
         console.error("Failed to delete from Firestore:", e);
+      }
+      throw e;
+    }
+  }
+}
+
+export async function emptyDataExceptCashAccounts() {
+  const keysToEmpty = [
+    KEYS.TRANSACTIONS, KEYS.APPROVALS, KEYS.BUDGETS, KEYS.PAYABLES,
+    KEYS.RECEIVABLES, KEYS.EMPLOYEES, KEYS.PAYROLL_RUNS, KEYS.PAYROLL_ITEMS,
+    KEYS.AUDIT_LOGS, KEYS.BANK_STATEMENT_LINES,
+    KEYS.BANK_RECONCILIATIONS, KEYS.RECONCILIATION_MATCHES, KEYS.CASH_CUSTODIANS,
+    KEYS.CASH_LEDGER_ENTRIES, KEYS.CASH_COUNTS, KEYS.BANK_DEPOSITS,
+    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS
+  ];
+
+  lastLocalWriteTime = Date.now();
+  if (!memoryDb) memoryDb = {};
+  
+  keysToEmpty.forEach(k => {
+    localStorage.setItem(k, JSON.stringify([]));
+    memoryDb![k] = [];
+  });
+
+  if (db) {
+    try {
+      const { doc, writeBatch } = await import("firebase/firestore");
+      const batch = writeBatch(db);
+      
+      keysToEmpty.forEach((k) => {
+        const docRef = doc(db, "appData", k);
+        batch.set(docRef, { data: [] }, { merge: true });
+      });
+
+      await batch.commit();
+    } catch (e: any) {
+      if (e?.code !== 'resource-exhausted') {
+        console.error("Failed to write to Firestore:", e);
       }
       throw e;
     }
@@ -1040,6 +1156,23 @@ export function createReversalTransaction(
 }
 
 // Reviewing Pending Transaction (RPC: review_transaction)
+export function markTransactionCompleted(userId: string, transactionId: string): { error?: string } {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const index = allTxns.findIndex(t => t.id === transactionId);
+  if (index === -1) return { error: "Transaction not found" };
+  
+  if (allTxns[index].status !== 'approved') {
+    return { error: "Only approved transactions can be marked completed." };
+  }
+
+  allTxns[index].status = 'completed';
+  allTxns[index].updatedAt = new Date().toISOString();
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  writeAuditLog(userId, allTxns[index].companyId, "MARK_COMPLETED", "transaction", transactionId, {});
+  return {};
+}
+
 export function reviewTransaction(
   userId: string,
   targetTransactionId: string,
@@ -2065,10 +2198,26 @@ export function updatePayrollRunMetadata(
   return { run };
 }
 
+let sqlAttachments: Record<string, import("../types").Attachment[]> = {};
+let sqlAttachmentsFetched: Record<string, boolean> = {};
+
 export function getAttachments(companyId: string): import("../types").Attachment[] {
   initDB();
-  const all = load<import("../types").Attachment[]>(KEYS.ATTACHMENTS, []);
-  return all.filter(a => a.companyId === companyId);
+  const fetchKey = companyId || 'ALL';
+  
+  if (!sqlAttachmentsFetched[fetchKey]) {
+    sqlAttachmentsFetched[fetchKey] = true;
+    const url = companyId ? `/api/attachments/${companyId}` : `/api/attachments`;
+    fetch(url).then(r => r.json()).then(data => {
+      sqlAttachments[fetchKey] = data;
+      window.dispatchEvent(new Event("db-update"));
+    }).catch(e => {
+       console.error("Failed to fetch attachments", e);
+       sqlAttachmentsFetched[fetchKey] = false;
+    });
+  }
+  
+  return sqlAttachments[fetchKey] || [];
 }
 
 export function saveAttachment(
@@ -2090,9 +2239,21 @@ export function saveAttachment(
     ...payload
   };
 
-  const all = load<import("../types").Attachment[]>(KEYS.ATTACHMENTS, []);
-  all.push(attachment);
-  save(KEYS.ATTACHMENTS, all);
+  fetch(`/api/attachments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(attachment)
+  }).then(r => r.json()).then(() => {
+     window.dispatchEvent(new Event("db-update"));
+  });
+
+  const fetchKey = companyId;
+  if (!sqlAttachments[fetchKey]) sqlAttachments[fetchKey] = [];
+  sqlAttachments[fetchKey].push(attachment);
+  
+  if (sqlAttachments['ALL']) {
+    sqlAttachments['ALL'].push(attachment);
+  }
 
   writeAuditLog(userId, companyId, "UPLOAD_ATTACHMENT", "attachment", attachment.id, { fileName: attachment.fileName });
 
@@ -2115,16 +2276,16 @@ export function getCashAccounts(companyId: string): CashAccount[] {
     saveSilent(KEYS.CASH_ACCOUNTS, all);
   }
 
-  // Recalculate balances dynamically to fix state inconsistencies
-  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  // Recalculate balances dynamically from COMPLETED transactions
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   all = all.map(acc => {
-    const accEntries = ledgerEntries.filter(e => e.cashAccountId === acc.id);
-    if (accEntries.length > 0) {
-      acc.currentBalance = Number(accEntries[accEntries.length - 1].runningBalance) || 0;
-    } else {
-      // If there are no ledger entries, currentBalance should equal openingBalance
-      acc.currentBalance = Number(acc.openingBalance) || 0;
-    }
+    let inflows = 0;
+    let outflows = 0;
+    allTxns.filter(t => t.cashAccountId === acc.id && t.status === 'completed').forEach(t => {
+      if (t.type === 'cash_in') inflows += t.amount;
+      if (t.type === 'cash_out') outflows += t.amount;
+    });
+    acc.currentBalance = Number(acc.openingBalance || 0) + inflows - outflows;
     return acc;
   });
 
@@ -2136,15 +2297,16 @@ export function getAllCashAccounts(): CashAccount[] {
   initDB();
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
   
-  // Recalculate balances dynamically to fix state inconsistencies
-  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  // Recalculate balances dynamically from COMPLETED transactions
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   all = all.map(acc => {
-    const accEntries = ledgerEntries.filter(e => e.cashAccountId === acc.id);
-    if (accEntries.length > 0) {
-      acc.currentBalance = Number(accEntries[accEntries.length - 1].runningBalance) || 0;
-    } else {
-      acc.currentBalance = Number(acc.openingBalance) || 0;
-    }
+    let inflows = 0;
+    let outflows = 0;
+    allTxns.filter(t => t.cashAccountId === acc.id && t.status === 'completed').forEach(t => {
+      if (t.type === 'cash_in') inflows += t.amount;
+      if (t.type === 'cash_out') outflows += t.amount;
+    });
+    acc.currentBalance = Number(acc.openingBalance || 0) + inflows - outflows;
     return acc;
   });
   
@@ -2433,6 +2595,52 @@ export function getFundTransfers(companyId: string): FundTransfer[] {
   const all = load<FundTransfer[]>(KEYS.FUND_TRANSFERS, []);
   if (!companyId || companyId === 'all') return all;
   return all.filter(t => t.fromCompanyId === companyId || t.toCompanyId === companyId);
+}
+
+export function executeFundTransferToLedger(userId: string, transfer: FundTransfer) {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  
+  // OUTFLOW
+  allTxns.push({
+    id: `txn-${Date.now()}-out`,
+    companyId: transfer.fromCompanyId,
+    cashAccountId: transfer.fromAccountId,
+    txnDate: new Date().toISOString().split('T')[0],
+    type: 'cash_out',
+    amount: transfer.amount,
+    categoryId: 'transfer-out',
+    purpose: `Transfer out: ${transfer.purpose}`,
+    responsiblePerson: userId,
+    receiptPath: null,
+    status: 'completed', // completed means money moved
+    encodedBy: userId,
+    reversalOf: null,
+    transferRef: transfer.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+
+  // INFLOW
+  allTxns.push({
+    id: `txn-${Date.now()}-in`,
+    companyId: transfer.toCompanyId,
+    cashAccountId: transfer.toAccountId,
+    txnDate: new Date().toISOString().split('T')[0],
+    type: 'cash_in',
+    amount: transfer.amount,
+    categoryId: 'transfer-in',
+    purpose: `Transfer in: ${transfer.purpose}`,
+    responsiblePerson: userId,
+    receiptPath: null,
+    status: 'completed', // completed means money moved
+    encodedBy: userId,
+    reversalOf: null,
+    transferRef: transfer.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+
+  save(KEYS.TRANSACTIONS, allTxns);
 }
 
 export function saveFundTransfer(payload: Omit<FundTransfer, "id" | "createdAt">, id?: string) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle } from 'lucide-react';
-import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData, emptyDashboardData } from '../data/mockDatabase';
+import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData, emptyDashboardData, emptyDataExceptCashAccounts, saveCompany, deleteCompany } from '../data/mockDatabase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '../types';
 import { toast } from "sonner";
 
@@ -51,6 +51,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
   ]);
   const [draggedSectionIndex, setDraggedSectionIndex] = React.useState<number | null>(null);
   const [isConfirmingEmpty, setIsConfirmingEmpty] = useState(false);
+  const [isConfirmingEmptyExceptCash, setIsConfirmingEmptyExceptCash] = useState(false);
   
   const latestNavOrder = useRef<string[]>(navOrder);
   const latestDashboardSections = useRef<string[]>(dashboardSections);
@@ -73,8 +74,12 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
   const [editAllowedSections, setEditAllowedSections] = useState<string[]>([]);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ fullName: '', email: '' });
-  const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'layout'>('layout');
+  const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'layout' | 'companies'>('layout');
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [editCompanyData, setEditCompanyData] = useState<Partial<Company>>({});
+  const [isAddingCompany, setIsAddingCompany] = useState(false);
+  const [newCompany, setNewCompany] = useState<Partial<Company>>({ name: '', code: '', color: '#3b82f6' });
 
   const refreshData = () => {
     setProfiles(getProfiles());
@@ -257,6 +262,18 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
             }`}
           >
             Permission Management
+          </button>
+        )}
+        {isGroupAdmin(userId) && (
+          <button
+            onClick={() => setActiveTab('companies')}
+            className={`px-4 py-2 font-mono text-sm tracking-wider uppercase transition-colors border-b-2 ${
+              activeTab === 'companies'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Companies Management
           </button>
         )}
         <button
@@ -614,6 +631,190 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
           </div>
         )}
 
+        {activeTab === 'companies' && isGroupAdmin(userId) && (
+          <div className="bg-white border border-slate-200 rounded-xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-bold font-mono tracking-tight flex items-center gap-2 text-slate-800">
+                <Building2 className="w-5 h-5 text-indigo-400" />
+                Companies Management
+              </h2>
+              <button 
+                onClick={() => setIsAddingCompany(!isAddingCompany)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition-colors"
+              >
+                {isAddingCompany ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {isAddingCompany ? 'Cancel' : 'Add Company'}
+              </button>
+            </div>
+
+            {isAddingCompany && (
+              <div className="mb-6 p-4 border border-indigo-100 bg-indigo-50/50 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-500 font-mono tracking-wider block mb-1">Company Name</label>
+                  <input
+                    type="text"
+                    value={newCompany.name}
+                    onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+                    className="w-full text-sm border-slate-200 rounded-lg font-mono focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. Acme Corp"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-500 font-mono tracking-wider block mb-1">Code</label>
+                  <input
+                    type="text"
+                    value={newCompany.code}
+                    onChange={(e) => setNewCompany({ ...newCompany, code: e.target.value })}
+                    className="w-full text-sm border-slate-200 rounded-lg font-mono focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. ACME"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-500 font-mono tracking-wider block mb-1">Theme Color</label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={newCompany.color || '#3b82f6'}
+                      onChange={(e) => setNewCompany({ ...newCompany, color: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                    />
+                    <span className="text-xs font-mono text-slate-500 uppercase">{newCompany.color || '#3b82f6'}</span>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => {
+                      if (!newCompany.name || !newCompany.code) return;
+                      saveCompany({
+                        id: `c-${Date.now()}`,
+                        name: newCompany.name,
+                        code: newCompany.code,
+                        color: newCompany.color,
+                        createdAt: new Date().toISOString()
+                      });
+                      setIsAddingCompany(false);
+                      setNewCompany({ name: '', code: '', color: '#3b82f6' });
+                      refreshData();
+                      toast.success("Company Added");
+                    }}
+                    disabled={!newCompany.name || !newCompany.code}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase tracking-wider transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-500 font-bold">Company Name</th>
+                    <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-500 font-bold">Code</th>
+                    <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-500 font-bold">Color</th>
+                    <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-500 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {companies.map((company) => (
+                    <tr key={company.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {editingCompanyId === company.id ? (
+                          <input
+                            type="text"
+                            value={editCompanyData.name}
+                            onChange={(e) => setEditCompanyData({ ...editCompanyData, name: e.target.value })}
+                            className="w-full text-sm border-slate-200 rounded font-mono px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        ) : (
+                          company.name
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 font-mono">
+                        {editingCompanyId === company.id ? (
+                          <input
+                            type="text"
+                            value={editCompanyData.code}
+                            onChange={(e) => setEditCompanyData({ ...editCompanyData, code: e.target.value })}
+                            className="w-24 text-sm border-slate-200 rounded font-mono px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        ) : (
+                          company.code
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {editingCompanyId === company.id ? (
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="color"
+                              value={editCompanyData.color || '#3b82f6'}
+                              onChange={(e) => setEditCompanyData({ ...editCompanyData, color: e.target.value })}
+                              className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full border border-black/10" style={{ backgroundColor: company.color || '#3b82f6' }}></div>
+                            <span className="text-xs font-mono text-slate-500 uppercase">{company.color || '#3b82f6'}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {editingCompanyId === company.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                saveCompany({ ...company, ...editCompanyData });
+                                setEditingCompanyId(null);
+                                refreshData();
+                                toast.success("Company Updated");
+                              }}
+                              className="p-1.5 bg-emerald-500/20 text-emerald-600 hover:bg-emerald-500/30 rounded transition-colors"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingCompanyId(null)}
+                              className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingCompanyId(company.id);
+                                setEditCompanyData(company);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if(confirm(`Are you sure you want to delete ${company.name}?`)) {
+                                  deleteCompany(company.id);
+                                  refreshData();
+                                  toast.success("Company Deleted");
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'general' && (
           <div className="bg-white border border-slate-200 rounded-xl p-6">
             <h2 className="text-lg font-bold font-mono tracking-tight mb-6 flex items-center gap-2 text-slate-800">
@@ -665,6 +866,42 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                     >
                       <Trash2 className="w-4 h-4" />
                       Empty Dashboard (Keep Users & Companies)
+                    </button>
+                  )}
+
+                  {/* Empty Data Except Cash Accounts */}
+                  {isConfirmingEmptyExceptCash ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await emptyDataExceptCashAccounts();
+                            toast.success("Dashboard Emptied (Kept Cash Accounts) Successfully");
+                            setTimeout(() => {
+                              window.location.href = '/';
+                            }, 1000);
+                          } catch (e: any) {
+                            toast.error("Failed to empty dashboard", { description: e.message });
+                          }
+                        }}
+                        className="text-xs font-mono uppercase font-bold text-slate-900 bg-orange-500 hover:bg-orange-400 px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Confirm Delete (Keep Cash Accounts)
+                      </button>
+                      <button
+                        onClick={() => setIsConfirmingEmptyExceptCash(false)}
+                        className="text-xs font-mono uppercase font-bold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsConfirmingEmptyExceptCash(true)}
+                      className="inline-flex items-center justify-center w-fit gap-2 text-xs font-mono uppercase font-bold text-orange-400 hover:text-slate-900 bg-orange-500/10 hover:bg-orange-500/80 border border-orange-500/20 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Empty Dashboard (Keep Users, Companies & Cash Accounts)
                     </button>
                   )}
 

@@ -3,6 +3,9 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { db } from "./src/db/index.ts";
+import { attachments } from "./src/db/schema.ts";
+import { eq } from "drizzle-orm";
 
 dotenv.config();
 
@@ -17,26 +20,25 @@ const ai = new GoogleGenAI({
 
 function handleError(e: any, res: express.Response, defaultMsg: string) {
   let errMsg = e.message || defaultMsg;
-  const isQuota = typeof e.message === 'string' && (e.message.includes('prepayment credits are depleted') || e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED'));
+  console.error("API Error:", e);
   
-  if (isQuota) {
-    errMsg = "Gemini API Error: Your prepayment credits are depleted. Please top up in AI Studio.";
-    console.warn(errMsg); // Warn instead of error to avoid crashing the environment's error detection
-  } else {
-    console.error(e);
-    if (typeof e.message === 'string' && e.message.includes('{"error"')) {
-      try {
-        const jsonStr = e.message.substring(e.message.indexOf('{'));
-        const parsedErr = JSON.parse(jsonStr);
-        if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-      } catch (_) {}
-    } else if (typeof e.message === 'string' && e.message.startsWith('{"error"')) {
-      try {
-        const parsedErr = JSON.parse(e.message);
-        if (parsedErr.error?.message) errMsg = parsedErr.error.message;
-      } catch (_) {}
-    }
+  if (typeof e.message === 'string' && e.message.includes('{"error"')) {
+    try {
+      const jsonStr = e.message.substring(e.message.indexOf('{'));
+      const parsedErr = JSON.parse(jsonStr);
+      if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+    } catch (_) {}
+  } else if (typeof e.message === 'string' && e.message.startsWith('{"error"')) {
+    try {
+      const parsedErr = JSON.parse(e.message);
+      if (parsedErr.error?.message) errMsg = parsedErr.error.message;
+    } catch (_) {}
   }
+  
+  if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+      errMsg = "Gemini API Rate Limit Exceeded. Please try again in a moment.";
+  }
+
   res.status(500).json({ error: errMsg });
 }
 
@@ -59,7 +61,7 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: [
           {
             text: "Extract transaction details from this receipt. Return ONLY the JSON object with the following fields: txnDate (string: YYYY-MM-DD), amount (number: total amount without currency symbols), purpose (string: concise vendor name or receipt purpose). If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else."
@@ -106,7 +108,7 @@ ${JSON.stringify(transactions.slice(0, 50), null, 2)}
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: promptString,
         config: {
           systemInstruction: "You are a professional financial risk analyst.",
@@ -134,7 +136,7 @@ ${JSON.stringify(categories, null, 2)}
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: promptString,
         config: {
           systemInstruction: "You are a specialized transaction categorization assistant.",
@@ -169,7 +171,7 @@ User Question: ${message}
 Provide a concise, insightful answer based ONLY on the provided context. Speak directly to the user.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: promptString,
         config: {
           systemInstruction: "You are a professional Herrera Financial Intelligence Assistant. Answer concisely.",
@@ -210,7 +212,7 @@ Focus on answering:
 Do not use markdown headers (# or ##), but you can use bullet points. Speak in a confident, advisory tone.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: promptString,
         config: {
           systemInstruction: "You are a senior financial advisor acting as an AI assistant. Be direct, clear, and action-oriented.",
@@ -241,7 +243,7 @@ Return ONLY a valid JSON array of objects with the following fields:
 If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: [
           {
             text: promptString
@@ -300,7 +302,7 @@ DATA:
 ${text}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         contents: [
           {
             text: promptString
@@ -330,6 +332,43 @@ ${text}`;
       res.json(parsed);
     } catch (e: any) {
       handleError(e, res, "Failed to parse text");
+    }
+  });
+
+  app.post("/api/attachments", async (req, res) => {
+    try {
+      const attachment = req.body;
+      await db.insert(attachments).values(attachment);
+      res.json({ success: true, attachment });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to save attachment" });
+    }
+  });
+
+  app.get("/api/attachments", async (req, res) => {
+    try {
+      const data = await db.select().from(attachments);
+      res.json(data);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  app.get("/api/attachments/:companyId", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      let data;
+      if (companyId === "all") {
+        data = await db.select().from(attachments);
+      } else {
+        data = await db.select().from(attachments).where(eq(attachments.companyId, companyId));
+      }
+      res.json(data);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to fetch attachments" });
     }
   });
 

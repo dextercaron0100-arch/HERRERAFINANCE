@@ -43,7 +43,8 @@ import {
   getNextControlNumber,
   getAttachments,
   saveAttachment,
-  getCashAccounts
+  getCashAccounts,
+  markTransactionCompleted
 } from '../data/mockDatabase';
 import { compressImage } from '../lib/imageUtils';
 import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '../types';
@@ -111,6 +112,13 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedType, selectedCategory, selectedStatus, selectedPaymentMethod, startDate, endDate]);
+
   // Encode form toggle & fields
   const [isEncoding, setIsEncoding] = useState(false);
   const [encDate, setEncDate] = useState(new Date().toISOString().split('T')[0]);
@@ -123,6 +131,8 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const [encAccountId, setEncAccountId] = useState('');
   const [encReceipt, setEncReceipt] = useState<string | null>(null);
   const [encReceiptFile, setEncReceiptFile] = useState<File | null>(null);
+  const [encTagsInput, setEncTagsInput] = useState('');
+  const [encTags, setEncTags] = useState<string[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -263,6 +273,16 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleMarkCompleted = (txnId: string) => {
+    const res = markTransactionCompleted(userId, txnId);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Transaction successfully marked as completed (Money Moved).");
+      window.dispatchEvent(new Event('db-update'));
+    }
+  };
+
   const handleDownloadCsvTemplate = () => {
     const headers = ['date', 'amount', 'description', 'type', 'category'];
     const sampleRow1 = ['2023-10-25', '1500.50', 'Office Supplies', 'cash_out', 'Supplies'];
@@ -353,28 +373,52 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
   // 1. CALCULATE DAILY BALANCES SUMMARY CARD
   const balanceSummary = useMemo(() => {
-    // Total cash in/out approved for selected period
-    const approvedTxns = rawTxns.filter(t => t.status === 'approved');
-    const cashInTxns = approvedTxns.filter(t => t.type === 'cash_in');
-    const cashOutTxns = approvedTxns.filter(t => t.type === 'cash_out');
+    // Total cash in/out completed for selected period
+    const completedTxns = rawTxns.filter(t => t.status === 'completed');
+    const allCashInTxns = completedTxns.filter(t => t.type === 'cash_in');
+    const cashOutTxns = completedTxns.filter(t => t.type === 'cash_out');
     
-    const cashIn = cashInTxns.reduce((sum, t) => sum + t.amount, 0);
+    // Separate capital from regular cash inputs
+    const capitalTxns = allCashInTxns.filter(t => {
+      const cat = categories.find(c => c.id === t.categoryId);
+      return cat?.name.toLowerCase().includes('capital');
+    });
+    
+    const regularCashInTxns = allCashInTxns.filter(t => {
+      const cat = categories.find(c => c.id === t.categoryId);
+      return !cat?.name.toLowerCase().includes('capital');
+    });
+
+    const beginning = allCashAccounts.reduce((sum, a) => sum + (Number(a.openingBalance) || 0), 0) + capitalTxns.reduce((sum, t) => sum + t.amount, 0);
+    const cashIn = regularCashInTxns.reduce((sum, t) => sum + t.amount, 0);
     const cashOut = cashOutTxns.reduce((sum, t) => sum + t.amount, 0);
-    
-    // Find initial capital (first cash-in or specific category)
-    // For simplicity, we can just say beginning is 0 for an all-time view, 
-    // but to match the UI which might expect something, let's just make beginning 0,
-    // cashIn as all cash inputs, and ending as cashIn - cashOut.
-    const beginning = 0;
-    const ending = cashIn - cashOut;
+    const ending = beginning + cashIn - cashOut;
 
     const breakdown = {
+      beginning: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>,
       cashIn: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>,
       cashOut: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>,
       ending: { Bank: 0, 'E-Wallet': 0, 'Cash on Hand': 0, 'Main Vault': 0 } as Record<string, number>
     };
 
-    cashInTxns.forEach(t => {
+    allCashAccounts.forEach(a => {
+      if (breakdown.beginning[a.accountType] !== undefined) {
+        breakdown.beginning[a.accountType] += (Number(a.openingBalance) || 0);
+      } else {
+        breakdown.beginning['Bank'] += (Number(a.openingBalance) || 0);
+      }
+    });
+
+    capitalTxns.forEach(t => {
+      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      if (acc && breakdown.beginning[acc.accountType] !== undefined) {
+        breakdown.beginning[acc.accountType] += t.amount;
+      } else {
+        breakdown.beginning['Bank'] += t.amount;
+      }
+    });
+
+    regularCashInTxns.forEach(t => {
       const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
       if (acc && breakdown.cashIn[acc.accountType] !== undefined) {
         breakdown.cashIn[acc.accountType] += t.amount;
@@ -405,7 +449,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       ending,
       breakdown
     };
-  }, [rawTxns, companyId, allCashAccounts]);
+  }, [rawTxns, companyId, allCashAccounts, categories]);
 
   // 2. FILTER TRANSACTIONS
   const filteredTransactions = useMemo(() => {
@@ -414,7 +458,8 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
       const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
       const accName = acc ? `${acc.bankName} ${acc.accountName}` : '';
-      const searchStr = `${t.purpose} ${t.responsiblePerson} ${t.id} ${catName} ${t.paymentMethod || ''} ${accName}`.toLowerCase();
+      const tagsStr = (t.tags || []).join(' ');
+      const searchStr = `${t.purpose} ${t.responsiblePerson} ${t.id} ${catName} ${t.paymentMethod || ''} ${accName} ${tagsStr}`.toLowerCase();
       if (searchTerm && !searchStr.includes(searchTerm.toLowerCase())) return false;
 
       // Type
@@ -463,6 +508,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     });
     return Array.from(methods).sort();
   }, [rawTxns]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // 4. FILE UPLOAD SIMULATOR (BASE64)
   const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -566,6 +614,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       responsiblePerson: encResponsible,
       cashAccountId: encAccountId || undefined,
       receiptPath: finalReceiptPath,
+      tags: encTags,
       reversalOf: null
     });
 
@@ -590,6 +639,8 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       setEncResponsible('');
       setEncReceipt(null);
       setEncReceiptFile(null);
+      setEncTags([]);
+      setEncTagsInput('');
       // close delay
       setTimeout(() => {
         setIsEncoding(false);
@@ -780,9 +831,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               <div className="uiverse-back">
                 <span className="text-[10px] uppercase font-mono text-slate-500 font-bold mb-2">Breakdown</span>
                 <div className="space-y-1 overflow-y-auto pr-1 custom-scrollbar text-xs font-mono">
-                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">₱0.00</span></div>
-                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">₱0.00</span></div>
-                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">₱0.00</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Banks:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.beginning['Bank'] || 0)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">Cash:</span> <span className="font-bold">{formatPeso((balanceSummary.breakdown.beginning['Cash on Hand'] || 0) + (balanceSummary.breakdown.beginning['Main Vault'] || 0))}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-slate-600">E-Wallet:</span> <span className="font-bold">{formatPeso(balanceSummary.breakdown.beginning['E-Wallet'] || 0)}</span></div>
                 </div>
               </div>
             </div>
@@ -1063,23 +1114,65 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
           </div>
 
           {/* DATES */}
-          <div className="space-y-1 sm:col-span-1 lg:col-span-1">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Start Date</span>
-            <input 
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
-            />
-          </div>
-          <div className="space-y-1 sm:col-span-1 lg:col-span-1">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">End Date</span>
-            <input 
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
-            />
+          <div className="sm:col-span-2 lg:col-span-2 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Date Range</span>
+              <select 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const today = new Date();
+                  if (val === 'today') {
+                    const todayStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                    setStartDate(todayStr);
+                    setEndDate(todayStr);
+                  } else if (val === 'this_week') {
+                    const first = today.getDate() - today.getDay();
+                    const firstDay = new Date(today.setDate(first));
+                    const lastDay = new Date(today.setDate(first + 6));
+                    setStartDate(new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                    setEndDate(new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                  } else if (val === 'this_month') {
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    setStartDate(new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                    setEndDate(new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                  } else if (val === 'last_month') {
+                    const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+                    setStartDate(new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                    setEndDate(new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().split('T')[0]);
+                  } else if (val === 'all_time') {
+                    setStartDate('');
+                    setEndDate('');
+                  }
+                }}
+                className="text-[9px] bg-slate-50 border border-slate-200 py-0.5 px-1.5 rounded text-slate-600 font-mono tracking-widest cursor-pointer uppercase focus:outline-hidden"
+                value={(!startDate && !endDate) ? 'all_time' : 'custom'}
+              >
+                <option value="custom">Custom</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="all_time">All Time</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <input 
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
+                title="Start Date"
+              />
+              <input 
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-2 py-1.5 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-xl transition-all"
+                title="End Date"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1153,15 +1246,15 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 font-medium text-slate-700">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((t) => {
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((t) => {
                   // Find category label
-                  const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
+                  const catName = t.transferRef ? (t.type === 'cash_in' ? 'Incoming Transfer' : 'Outgoing Transfer') : (categories.find(c => c.id === t.categoryId)?.name || 'Operations');
                   const encoderEmail = profiles.find(p => p.id === t.encodedBy)?.email || 'finance@sys.com';
                   const txnAttachments = vaultAttachments.filter(a => a.entityId === t.id && a.entityType === 'transaction');
 
                   return (
-                    <tr key={t.id} className="hover:bg-slate-50/40 transition">
+                    <tr key={t.id} className="even:bg-slate-50 odd:bg-white hover:!bg-sky-50 transition-colors">
                       {/* ID */}
                       <td className="p-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">
                         #{t.id}
@@ -1218,6 +1311,11 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                                 ADJUSTMENT ADJ
                               </span>
                             )}
+                            {t.tags?.map(tag => (
+                              <span key={tag} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg font-mono text-[8px] font-semibold uppercase">
+                                {tag}
+                              </span>
+                            ))}
                             {txnAttachments.length > 0 && (
                               <span 
                                 className="px-1 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg flex items-center justify-center cursor-help"
@@ -1243,8 +1341,14 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
                       {/* STATUS */}
                       <td className="p-3 whitespace-nowrap">
+                        {t.status === 'completed' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg font-mono font-bold tracking-wider uppercase">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>COMPLETED</span>
+                          </span>
+                        )}
                         {t.status === 'approved' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-[#00B67A]/10 text-[#00B67A] border border-[#00B67A]/20 rounded-lg font-mono font-bold tracking-wider uppercase">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-sky-500/10 text-sky-500 border border-sky-500/20 rounded-lg font-mono font-bold tracking-wider uppercase">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>APPROVED</span>
                           </span>
@@ -1297,15 +1401,24 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                       </td>
 
                       {/* ACTION CORRECTIONS */}
-                      <td className="p-3 text-right whitespace-nowrap no-print">
+                      <td className="p-3 text-right whitespace-nowrap no-print space-x-2">
                         {t.status === 'approved' && !t.reversalOf && (
-                          <button 
-                            onClick={() => handleReversal(t.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-slate-200 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
-                          >
-                            <RefreshCcw className="w-3 h-3 text-slate-500" />
-                            <span>Intelligent Reverse</span>
-                          </button>
+                          <>
+                            <button 
+                              onClick={() => handleMarkCompleted(t.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-emerald-200 text-emerald-700 hover:bg-emerald-50 bg-white rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                              <span>Mark Completed</span>
+                            </button>
+                            <button 
+                              onClick={() => handleReversal(t.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-slate-200 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
+                            >
+                              <RefreshCcw className="w-3 h-3 text-slate-500" />
+                              <span>Intelligent Reverse</span>
+                            </button>
+                          </>
                         )}
                         {t.status !== 'approved' && (
                           <span className="text-[10px] text-zinc-600 font-mono">N/A</span>
@@ -1324,6 +1437,31 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION CONTROLS */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <div className="text-xs font-mono text-slate-500">
+              Showing page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold font-mono hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold font-mono hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RECEIPT VIEWER POPUP MODAL */}

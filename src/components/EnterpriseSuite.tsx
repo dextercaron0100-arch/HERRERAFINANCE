@@ -149,7 +149,7 @@ export default function EnterpriseSuite({
     const allReceivables = getReceivables(userId, "all");
     companies.forEach((com) => {
       const txs = allTxns.filter(
-        (t) => t.companyId === com.id && t.status === "approved",
+        (t) => t.companyId === com.id && t.status === "completed",
       );
       const cashIn = txs
         .filter((t) => t.type === "cash_in")
@@ -212,7 +212,7 @@ export default function EnterpriseSuite({
       accList = getCashAccounts(companyId);
     }
 
-    const txs = allTxns.filter((t) => t.status === "approved");
+    const txs = allTxns.filter((t) => t.status === "completed");
 
     accounts = accList.map(acc => {
       let runBal = acc.openingBalance || 0;
@@ -359,7 +359,7 @@ export default function EnterpriseSuite({
 
   const unMatchedLedgTxns = useMemo(() => {
     return allTxns
-      .filter((t) => t.companyId === companyId && t.status === "approved")
+      .filter((t) => t.companyId === companyId && t.status === "completed")
       .slice(0, 5);
   }, [dbTick, allTxns, companyId]);
 
@@ -392,7 +392,7 @@ export default function EnterpriseSuite({
 
   const taxBreakdown = useMemo(() => {
     const txObj = allTxns.filter(
-      (t) => t.companyId === companyId && t.status === "approved",
+      (t) => t.companyId === companyId && t.status === "completed",
     );
     const taxableSales = txObj
       .filter((t) => t.type === "cash_in")

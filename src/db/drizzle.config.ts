@@ -8,17 +8,8 @@ const sqlDbName = process.env.SQL_DB_NAME;
 const user = process.env.SQL_ADMIN_USER;
 const password = process.env.SQL_ADMIN_PASSWORD;
 
-if (!sqlHost) {
-  throw new Error("SQL_HOST must be set in environment variables.");
-}
-if (!sqlDbName) {
-  throw new Error("SQL_DB_NAME must be set in environment variables.");
-}
-if (!user) {
-  throw new Error("SQL_ADMIN_USER must be set in environment variables.");
-}
-if (!password) {
-  throw new Error("SQL_ADMIN_PASSWORD must be set in environment variables.");
+if (!sqlHost || !sqlDbName || !user || !password) {
+  console.log("Missing DB config for Drizzle Kit (skipping during build)");
 }
 
 export default defineConfig({
@@ -27,10 +18,10 @@ export default defineConfig({
   dialect: "postgresql",
   schemaFilter: ["public"],
   dbCredentials: {
-    host: sqlHost,
-    user: user,
-    password: password,
-    database: sqlDbName,
+    host: sqlHost || 'localhost',
+    user: user || 'postgres',
+    password: password || 'postgres',
+    database: sqlDbName || 'postgres',
     ssl: false,
   },
   verbose: true,

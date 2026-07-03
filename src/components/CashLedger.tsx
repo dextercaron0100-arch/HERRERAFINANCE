@@ -26,6 +26,41 @@ export default function CashLedger({ userId, companyId }: Props) {
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Account Name', 'Custodian', 'Transaction Type', 'Description', 'Reference No', 'Cash In', 'Cash Out', 'Balance'];
+    
+    const rows = entries.map(e => {
+      const acc = allAccounts.find(a => a.id === e.cashAccountId);
+      const cust = allCustodians.find(c => c.id === e.custodianId);
+      
+      const escape = (str: string) => `"${(str || '').replace(/"/g, '""')}"`;
+      
+      return [
+        `"${e.date}"`,
+        escape(acc?.accountName || "Unknown"),
+        escape(cust?.name || "Unassigned"),
+        escape(e.transactionType),
+        escape(e.description),
+        escape(e.referenceNo || ""),
+        e.cashIn.toFixed(2),
+        e.cashOut.toFixed(2),
+        e.runningBalance.toFixed(2)
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `cash_ledger_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Ledger Exported', { description: 'Cash ledger transactions exported as CSV.' });
+  };
+
   const handleNewEntry = () => {
     if (allAccounts.length === 0) {
       toast.error("Please create a cash account first.");
@@ -56,6 +91,12 @@ export default function CashLedger({ userId, companyId }: Props) {
       <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
         <h3 className="text-sm font-bold text-slate-900 font-mono uppercase tracking-widest">Cash Ledger</h3>
         <div className="flex gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm"
+          >
+            <Download className="w-3 h-3" /> Export CSV
+          </button>
           <button 
             onClick={handleNewEntry}
             className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition"

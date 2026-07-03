@@ -1,8 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
+import { Pool } from 'pg';
 import * as schema from './schema.ts';
-
-const { Pool } = pg;
 
 export const createPool = () => {
   return new Pool({

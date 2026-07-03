@@ -304,7 +304,12 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
                       </span>
                     </td>
                     <td className="p-4">
-                      <span className="text-amber-400 text-xs">
+                      <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wider ${
+                        acc.accountType === 'Bank' ? 'bg-blue-100 text-blue-700' :
+                        acc.accountType === 'E-Wallet' ? 'bg-purple-100 text-purple-700' :
+                        acc.accountType === 'Cash on Hand' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
                         {acc.accountType}
                       </span>
                     </td>

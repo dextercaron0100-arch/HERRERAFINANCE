@@ -6,6 +6,7 @@ export async function getOrCreateUser(uid: string, email: string) {
     .values({
       uid,
       email,
+      fullName: '',
     })
     .onConflictDoUpdate({
       target: users.uid,

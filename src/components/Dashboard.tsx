@@ -125,7 +125,7 @@ export default function Dashboard({
   ];
 
   const txns = useMemo(() => {
-    const allTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "approved");
+    const allTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "completed");
     if (dateRange === "all_time") return allTxns;
 
     const now = new Date();
@@ -250,7 +250,7 @@ export default function Dashboard({
   const monthlyData = useMemo(() => {
     const monthMap: Record<string, { month: string; sales: number; expenses: number; profit: number; capital: number; totalFund: number }> = {};
     
-    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "approved");
+    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "completed");
 
     allHistoricalTxns.forEach(t => {
       const month = t.txnDate.slice(0, 7); // YYYY-MM
@@ -601,7 +601,7 @@ export default function Dashboard({
             <tbody className="divide-y divide-slate-200/60 font-medium text-slate-700">
               {recentTransactions.length > 0 ? (
                 recentTransactions.map((t) => {
-                  const catName = categoryMap[t.categoryId] || 'Operations';
+                  const catName = t.transferRef ? (t.type === 'cash_in' ? 'Incoming Transfer' : 'Outgoing Transfer') : (categoryMap[t.categoryId] || 'Operations');
                   const encoderEmail = profiles.find(p => p.id === t.encodedBy)?.email || 'finance@sys.com';
                   const txnAttachments = vaultAttachments.filter(a => a.entityId === t.id && a.entityType === 'transaction');
 
@@ -688,8 +688,14 @@ export default function Dashboard({
 
                       {/* STATUS */}
                       <td className="p-3 whitespace-nowrap">
+                        {t.status === 'completed' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg font-mono font-bold tracking-wider uppercase">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>COMPLETED</span>
+                          </span>
+                        )}
                         {t.status === 'approved' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-[#00B67A]/10 text-[#00B67A] border border-[#00B67A]/20 rounded-lg font-mono font-bold tracking-wider uppercase">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] bg-sky-500/10 text-sky-600 border border-sky-500/20 rounded-lg font-mono font-bold tracking-wider uppercase">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>APPROVED</span>
                           </span>
@@ -734,7 +740,7 @@ export default function Dashboard({
 
                       {/* ACTION CORRECTIONS */}
                       <td className="p-3 text-right whitespace-nowrap">
-                        {t.status === 'approved' && !t.reversalOf && (
+                        {(t.status === 'approved' || t.status === 'completed') && !t.reversalOf && (
                           <button 
                             onClick={() => handleReversal(t.id)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-slate-200 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
@@ -839,11 +845,14 @@ function MetricCard({ title, subtitle, value, icon: Icon, color, strokeColor, da
         </div>
       </div>
 
-      <div className="flex items-center gap-3 z-10 w-full mb-3 mt-1">
-        <div className="p-2 rounded-full border border-white/30 bg-white/10 flex items-center justify-center">
+      <div className="flex items-center gap-2 z-10 w-full mb-3 mt-1 min-w-0">
+        <div className="p-2 rounded-full border border-white/30 bg-white/10 flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <div className="text-2xl md:text-3xl font-extrabold tracking-tight">
+        <div 
+          className="text-xl sm:text-2xl lg:text-lg xl:text-xl 2xl:text-2xl font-extrabold tracking-tight truncate min-w-0 flex-1"
+          title={formatPeso(value)}
+        >
           {formatPeso(value)}
         </div>
       </div>
