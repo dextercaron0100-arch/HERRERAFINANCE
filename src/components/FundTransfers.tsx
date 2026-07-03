@@ -30,6 +30,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("");
   const [receivedAs, setReceivedAs] = useState<"sales" | "capital">("sales");
+  const [referenceNumber, setReferenceNumber] = useState("");
 
   const [editingRefId, setEditingRefId] = useState<string | null>(null);
   const [refValue, setRefValue] = useState("");
@@ -130,7 +131,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
           status: "Pending",
           approvedBy: null,
           dateApproved: null,
-          transferReferenceNumber: null,
+          transferReferenceNumber: referenceNumber.trim() || null,
           remarks: "",
           createdAt: new Date().toISOString(),
           splitGroupId,
@@ -176,7 +177,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
         status: "Pending",
         approvedBy: null,
         dateApproved: null,
-        transferReferenceNumber: null,
+        transferReferenceNumber: referenceNumber.trim() || null,
         remarks: "",
         createdAt: new Date().toISOString()
       };
@@ -189,6 +190,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
     setAmount("");
     setPurpose("");
     setReceivedAs("sales");
+    setReferenceNumber("");
     setIsSplit(false);
     setSplitDestinations([emptySplitRow(), emptySplitRow()]);
     setForceRender(prev => prev + 1);
@@ -603,7 +605,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">
                         {isSplit ? "Total Amount (PHP)" : "Amount (PHP)"}
@@ -645,6 +647,16 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
                         placeholder="e.g. Replenishment, Intercompany Loan"
                         required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Reference # <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                      <input
+                        type="text"
+                        value={referenceNumber}
+                        onChange={(e) => setReferenceNumber(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
+                        placeholder="Bank/GCash ref #"
                       />
                     </div>
                   </div>
