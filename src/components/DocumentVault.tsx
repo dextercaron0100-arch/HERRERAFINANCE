@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 
 import { compressImage } from '../lib/imageUtils';
+import { uploadPrivateDocument } from '../lib/privateDocuments';
 
 interface DocumentVaultProps {
   userId: string;
@@ -42,10 +43,11 @@ export default function DocumentVault({ userId, companyId }: DocumentVaultProps)
         });
       }
 
+      const privateUrl = await uploadPrivateDocument(finalBase64, companyId, file.name);
       const { error, attachment } = saveAttachment(userId, companyId, {
         fileName: file.name,
         fileType: file.type,
-        fileUrl: finalBase64,
+        fileUrl: privateUrl,
         entityType: "other",
         entityId: null
       });

@@ -47,6 +47,7 @@ import {
   markTransactionCompleted
 } from '../data/mockDatabase';
 import { compressImage } from '../lib/imageUtils';
+import { uploadPrivateDocument } from '../lib/privateDocuments';
 import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '../types';
 import { toast } from 'sonner';
 
@@ -603,6 +604,18 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
 
     let finalReceiptPath = encReceipt;
+    if (encReceipt) {
+      try {
+        finalReceiptPath = await uploadPrivateDocument(
+          encReceipt,
+          targetCompanyId,
+          encReceiptFile?.name || `receipt-${Date.now()}.jpg`,
+        );
+      } catch (error: any) {
+        setFormError(error.message || 'Secure receipt upload failed.');
+        return;
+      }
+    }
 
     const { error, transaction } = insertTransaction(userId, {
       companyId: targetCompanyId,
@@ -626,7 +639,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         saveAttachment(userId, targetCompanyId, {
           fileName: encReceiptFile.name,
           fileType: encReceiptFile.type,
-          fileUrl: encReceipt,
+          fileUrl: finalReceiptPath,
           entityType: "transaction",
           entityId: transaction?.id || null 
         });

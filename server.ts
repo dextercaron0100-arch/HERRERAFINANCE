@@ -6,6 +6,9 @@ import dotenv from "dotenv";
 import { db } from "./src/db/index.ts";
 import { attachments, cashAccounts } from "./src/db/schema.ts";
 import { eq } from "drizzle-orm";
+import { get, put } from "@vercel/blob";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
 
 dotenv.config();
 
@@ -126,15 +129,64 @@ function handleError(e: any, res: express.Response, defaultMsg: string) {
   res.status(500).json({ error: errMsg });
 }
 
-async function startServer() {
+function signDocumentPath(pathname: string) {
+  const secret = process.env.DOCUMENT_ACCESS_SECRET || process.env.BLOB_READ_WRITE_TOKEN;
+  if (!secret) throw new Error("Private document storage is not configured.");
+  return createHmac("sha256", secret).update(pathname).digest("hex");
+}
+
+function hasValidDocumentSignature(pathname: string, signature: string) {
+  const expected = Buffer.from(signDocumentPath(pathname), "utf8");
+  const received = Buffer.from(signature || "", "utf8");
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+export async function createApp(options: { serveFrontend?: boolean } = {}) {
   const app = express();
-  const PORT = 3000;
+  const serveFrontend = options.serveFrontend ?? true;
 
   // Increase payload size limit since we might be sending base64 images
   app.use(express.json({ limit: '50mb' }));
 
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", database: "firestore", documents: Boolean(process.env.BLOB_READ_WRITE_TOKEN), ai: Boolean(process.env.OPENAI_API_KEY) });
+  });
+
+  app.post("/api/private-documents", async (req, res) => {
+    try {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: "Private Blob storage is not configured." });
+      const { dataUrl, fileName, companyId } = req.body || {};
+      const match = typeof dataUrl === "string" ? dataUrl.match(/^data:([^;]+);base64,(.+)$/) : null;
+      if (!match) return res.status(400).json({ error: "A base64 data URL is required." });
+      const bytes = Buffer.from(match[2], "base64");
+      if (bytes.length > 4_000_000) return res.status(413).json({ error: "File exceeds the 4 MB secure upload limit." });
+      const safeName = String(fileName || "document").replace(/[^a-zA-Z0-9._-]/g, "-");
+      const safeCompany = String(companyId || "shared").replace(/[^a-zA-Z0-9_-]/g, "-");
+      const pathname = `finance/${safeCompany}/${Date.now()}-${safeName}`;
+      const blob = await put(pathname, bytes, { access: "private", contentType: match[1], addRandomSuffix: true });
+      const signature = signDocumentPath(blob.pathname);
+      res.json({ pathname: blob.pathname, url: `/api/private-documents?pathname=${encodeURIComponent(blob.pathname)}&signature=${signature}` });
+    } catch (e: any) {
+      handleError(e, res, "Failed to upload private document");
+    }
+  });
+
+  app.get("/api/private-documents", async (req, res) => {
+    try {
+      const pathname = String(req.query.pathname || "");
+      const signature = String(req.query.signature || "");
+      if (!pathname || !hasValidDocumentSignature(pathname, signature)) return res.status(403).json({ error: "Invalid document signature." });
+      const result = await get(pathname, { access: "private", ifNoneMatch: req.headers["if-none-match"] as string | undefined });
+      if (!result) return res.status(404).send("Not found");
+      res.setHeader("Cache-Control", "private, no-cache");
+      res.setHeader("ETag", result.blob.etag);
+      if (result.statusCode === 304) return res.status(304).end();
+      res.setHeader("Content-Type", result.blob.contentType);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      Readable.fromWeb(result.stream as any).pipe(res);
+    } catch (e: any) {
+      handleError(e, res, "Failed to retrieve private document");
+    }
   });
 
   app.post("/api/scan-receipt", async (req, res) => {
@@ -550,13 +602,13 @@ ${text}`;
     }
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  if (serveFrontend && process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (serveFrontend) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -564,9 +616,13 @@ ${text}`;
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-  });
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
+  const PORT = Number(process.env.PORT || 3000);
+  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on http://0.0.0.0:${PORT}`));
 }
 
 
@@ -606,4 +662,4 @@ async function seedCashAccounts() {
 }
 */
 
-startServer();
+if (!process.env.VERCEL) void startServer();
