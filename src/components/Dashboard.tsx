@@ -13,7 +13,7 @@ import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend 
 } from "recharts";
 import { 
-  TrendingUp, TrendingDown, Wallet, DollarSign, Activity, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, X, GripVertical, Calendar, ChevronDown, Download,
+  TrendingUp, TrendingDown, Wallet, PhilippinePeso, Activity, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, X, GripVertical, Calendar, ChevronDown, Download,
   ArrowUpRight, ArrowDownLeft, Paperclip, User, CheckCircle2, XCircle, Clock, RefreshCcw
 } from "lucide-react";
 import { Transaction } from "../types";
@@ -345,7 +345,7 @@ export default function Dashboard({
       title: "Capital",
       subtitle: "Initial business capital",
       value: summary.capital,
-      icon: DollarSign,
+      icon: PhilippinePeso,
       color: "text-amber-400",
       strokeColor: "#FBBF24",
       data: generateSparkline(summary.capital)
