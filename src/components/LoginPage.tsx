@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getProfiles, getRoles, initDB } from '../data/mockDatabase';
+import { getProfiles, hydrateDatabaseFromFirestore, initDB } from '../data/mockDatabase';
 import { Lock, Mail, Briefcase, Shield, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 
 interface LoginPageProps {
   onLogin: (userId: string) => void;
@@ -17,8 +17,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   
   useEffect(() => {
     initDB();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        try {
+          await hydrateDatabaseFromFirestore();
+        } catch (error: any) {
+          await auth.signOut();
+          setErrorMsg(error.message || "Unable to load the production database.");
+          setIsLoading(false);
+          return;
+        }
         // Find if profile already exists for this email
         const profiles = getProfiles();
         const existingProfile = profiles.find(p => p.email.toLowerCase() === user.email?.toLowerCase());
@@ -53,37 +61,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       return;
     }
 
-    if (isHerrera && password === "Herrera2027") {
-      try {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-      } catch (err: any) {
-         try {
-           await createUserWithEmailAndPassword(auth, email.trim(), password);
-         } catch(e) {}
-      }
-      setIsLoading(true);
-      if (lowerEmail === "mark@herrera.com") onLogin("u-mark");
-      if (lowerEmail === "ryan@herrera.com") onLogin("u-ryan");
-      if (lowerEmail === "marvin@herrera.com") onLogin("u-marvin");
-      if (lowerEmail === "accounting@herrera.com") onLogin("u-accounting");
-      if (lowerEmail === "it@herrera.com") onLogin("u-it");
-      return;
-    }
-    
     setIsLoading(true);
     setErrorMsg('');
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await signInWithEmailAndPassword(auth, lowerEmail, password);
     } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        try {
-          await createUserWithEmailAndPassword(auth, email.trim(), password);
-        } catch (createErr: any) {
-          setErrorMsg(createErr.message);
-        }
-      } else {
-        setErrorMsg(err.message);
-      }
+      setErrorMsg(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : err.message);
     } finally {
       setIsLoading(false);
     }

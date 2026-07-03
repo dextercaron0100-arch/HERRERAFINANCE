@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-financedashboard-aa910227-5d34-4e29-8158-83d8f8d84a10",
+      "rules": "firestore.rules"
+    }
+  ]
+}
