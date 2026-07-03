@@ -477,7 +477,7 @@ export default function Dashboard({
 
       {/* Metrics Grid */}
       {visibleCards.length > 0 ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
           {visibleCards.map((item) => {
             const def = cardDefinitions[item.id];
             if (!def) return null;
@@ -901,8 +901,8 @@ function MetricCard({ title, subtitle, value, icon: Icon, color, strokeColor, da
         <div className="p-2 rounded-full border border-white/30 bg-white/10 flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <div 
-          className="text-xl sm:text-2xl lg:text-lg xl:text-xl 2xl:text-2xl font-extrabold tracking-tight truncate min-w-0 flex-1"
+        <div
+          className="text-lg sm:text-xl lg:text-base xl:text-lg 2xl:text-xl font-extrabold tracking-tight truncate min-w-0 flex-1"
           title={formatPeso(value)}
         >
           {formatPeso(value)}
