@@ -16,6 +16,8 @@ import {
   TrendingUp, TrendingDown, Wallet, DollarSign, Activity, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, X, GripVertical, Calendar, ChevronDown, Download,
   ArrowUpRight, ArrowDownLeft, Paperclip, User, CheckCircle2, XCircle, Clock, RefreshCcw
 } from "lucide-react";
+import { Transaction } from "../types";
+import AttachmentViewer from "./AttachmentViewer";
 
 interface DashboardProps {
   userId: string;
@@ -97,6 +99,7 @@ export default function Dashboard({
   });
 
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [selectedDocsTxn, setSelectedDocsTxn] = useState<Transaction | null>(null);
 
   useEffect(() => {
     localStorage.setItem('dashboard_layout', JSON.stringify(layout));
@@ -125,7 +128,8 @@ export default function Dashboard({
   ];
 
   const txns = useMemo(() => {
-    const allTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "completed");
+    const allTxns = getTransactions(userId, isConsolidated ? null : companyId)
+      .filter(t => t.status === "approved" || t.status === "completed");
     if (dateRange === "all_time") return allTxns;
 
     const now = new Date();
@@ -233,6 +237,9 @@ export default function Dashboard({
           sales += t.amount;
         }
       } else if (t.type === "cash_out") {
+        // Moving money between company accounts is a balance-sheet movement,
+        // not an operating expense or a reduction in profit.
+        if (t.transferRef) return;
         if (catName.toLowerCase().includes("capital")) {
           capital -= t.amount;
         } else {
@@ -250,7 +257,8 @@ export default function Dashboard({
   const monthlyData = useMemo(() => {
     const monthMap: Record<string, { month: string; sales: number; expenses: number; profit: number; capital: number; totalFund: number }> = {};
     
-    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId).filter(t => t.status === "completed");
+    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId)
+      .filter(t => t.status === "approved" || t.status === "completed");
 
     allHistoricalTxns.forEach(t => {
       const month = t.txnDate.slice(0, 7); // YYYY-MM
@@ -266,6 +274,9 @@ export default function Dashboard({
           monthMap[month].sales += t.amount;
         }
       } else if (t.type === "cash_out") {
+        // Keep transfers in cash-flow/account balances, but exclude them from
+        // expense and profit reporting.
+        if (t.transferRef) return;
         if (catName.toLowerCase().includes("capital")) {
           monthMap[month].capital -= t.amount;
         } else {
@@ -719,6 +730,7 @@ export default function Dashboard({
                         <div className="flex items-center justify-center gap-2">
                           {t.receiptPath ? (
                             <button 
+                              onClick={() => setSelectedDocsTxn(t)}
                               className="p-1 text-slate-600 hover:text-[#00B67A] bg-white border border-slate-200 hover:border-[#00B67A] rounded-lg cursor-pointer transition-all"
                               title="Preview secure billing vouchers"
                             >
@@ -728,6 +740,7 @@ export default function Dashboard({
                             <span className="text-zinc-600 font-bold text-[10px] font-mono w-6 text-center">-</span>
                           )}
                           <button
+                            onClick={() => setSelectedDocsTxn(t)}
                             className={`p-1 border rounded-lg cursor-pointer transition-all ${
                               t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
                             }`}
@@ -767,6 +780,45 @@ export default function Dashboard({
           </table>
         </div>
       </div>
+
+      {selectedDocsTxn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Documents & Metadata</h3>
+                <p className="text-xs text-slate-500 mt-1">Transaction {selectedDocsTxn.id}</p>
+              </div>
+              <button onClick={() => setSelectedDocsTxn(null)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {selectedDocsTxn.receiptPath ? (
+              <AttachmentViewer transaction={selectedDocsTxn} userId={userId} />
+            ) : (
+              <div className="mb-5 p-5 rounded-xl border border-dashed border-slate-300 text-center text-sm text-slate-500">
+                No receipt is attached to this transaction.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Scan Reference</div>
+                <div className="mt-1 font-mono text-slate-800">{selectedDocsTxn.mockMetadata?.scanRef || "Not supplied"}</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Timestamp</div>
+                <div className="mt-1 font-mono text-slate-800">{selectedDocsTxn.mockMetadata?.timestamp || selectedDocsTxn.createdAt}</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 sm:col-span-2">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Control Number</div>
+                <div className="mt-1 font-mono text-slate-800">{selectedDocsTxn.mockMetadata?.controlNumber || "Not supplied"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isCustomizing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">

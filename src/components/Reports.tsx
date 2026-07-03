@@ -95,7 +95,11 @@ export default function Reports({ userId, companyId }: ReportsProps) {
     const grossProfit = revenue - cogs;
 
     // Operating expenses
-    const opexTxns = approved.filter(t => t.type === 'cash_out' && !cogsCatIds.includes(t.categoryId));
+    const opexTxns = approved.filter(t =>
+      t.type === 'cash_out' &&
+      !t.transferRef &&
+      !cogsCatIds.includes(t.categoryId)
+    );
     const totalOpex = opexTxns.reduce((s, t) => s + t.amount, 0);
 
     const netOpIncome = grossProfit - totalOpex;

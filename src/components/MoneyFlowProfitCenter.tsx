@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Wallet, ArrowRightLeft, Building2, BookOpen, AlertTriangle, Clock, ShieldCheck, Coins, Banknote } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 import CashAccounts from "./CashAccounts";
@@ -15,15 +15,11 @@ interface MoneyFlowProfitCenterProps {
 export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidated }: MoneyFlowProfitCenterProps) {
   useDBUpdate();
   const [activeTab, setActiveTab] = useState<"dashboard" | "accounts" | "transfers" | "ledger">("dashboard");
-  const [forceRender, setForceRender] = useState(0);
+  const scopeCompanyId = isConsolidated || companyId === "all" ? "all" : companyId;
 
-  useEffect(() => {
-    setForceRender(prev => prev + 1);
-  }, [companyId]);
-
-  const allAccounts = getCashAccounts(companyId === "all" ? "" : companyId);
-  const allTransfers = getFundTransfers(companyId === "all" ? "" : companyId);
-  const allLedgers = getCashLedgerEntries(companyId === "all" ? "" : companyId);
+  const allAccounts = getCashAccounts(scopeCompanyId);
+  const allTransfers = getFundTransfers(scopeCompanyId);
+  const allLedgers = getCashLedgerEntries(scopeCompanyId);
 
   const warnings = useMemo(() => {
     const issues: { id: string; message: string; type: "error" | "warning" }[] = [];
@@ -45,12 +41,12 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
       transferIds.add(t.id);
 
       // Missing Reference Number
-      if (t.status === "Completed" && !t.transferReferenceNumber) {
+      if (t.status.toLowerCase() === "completed" && !t.transferReferenceNumber) {
         issues.push({ id: `no-ref-${t.id}`, message: `Missing Reference: Transfer ${t.id} is Completed but has no reference number.`, type: "warning" });
       }
 
       // Approved transfer has no approver
-      if (t.status === "Approved" && !t.approvedBy) {
+      if (t.status.toLowerCase() === "approved" && !t.approvedBy) {
         issues.push({ id: `no-approver-${t.id}`, message: `Missing Approver: Transfer ${t.id} is Approved but has no approver recorded.`, type: "error" });
       }
 
@@ -88,9 +84,10 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
     let completedTransfers = 0;
 
     allTransfers.forEach(t => {
-      if (t.status === 'Pending') pendingTransfers += t.amount;
-      else if (t.status === 'Approved') approvedTransfers += t.amount;
-      else if (t.status === 'Completed') completedTransfers += t.amount;
+      const status = t.status.toLowerCase();
+      if (status === 'pending') pendingTransfers += t.amount;
+      else if (status === 'approved') approvedTransfers += t.amount;
+      else if (status === 'completed') completedTransfers += t.amount;
     });
 
     return {
@@ -103,24 +100,41 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
   };
 
-  const chartData1 = useMemo(() => {
-    if (stats.totalCash === 0) return Array.from({ length: 8 }, () => ({ value: 0 }));
-    const data = Array.from({ length: 7 }, () => ({ value: Math.random() * (stats.totalCash * 0.5) + (stats.totalCash * 0.5) }));
-    data.push({ value: stats.totalCash });
-    return data;
-  }, [stats.totalCash]);
-  const chartData2 = useMemo(() => {
-    if (stats.totalBank === 0) return Array.from({ length: 8 }, () => ({ value: 0 }));
-    const data = Array.from({ length: 7 }, () => ({ value: Math.random() * (stats.totalBank * 0.5) + (stats.totalBank * 0.5) }));
-    data.push({ value: stats.totalBank });
-    return data;
-  }, [stats.totalBank]);
-  const chartData3 = useMemo(() => {
-    if (stats.totalEWallet === 0) return Array.from({ length: 8 }, () => ({ value: 0 }));
-    const data = Array.from({ length: 7 }, () => ({ value: Math.random() * (stats.totalEWallet * 0.5) + (stats.totalEWallet * 0.5) }));
-    data.push({ value: stats.totalEWallet });
-    return data;
-  }, [stats.totalEWallet]);
+  const buildLiquidityTrend = (accountTypes: string[], currentTotal: number) => {
+    const accountIds = new Set(
+      allAccounts.filter(account => accountTypes.includes(account.accountType)).map(account => account.id)
+    );
+    const recentEntries = allLedgers
+      .filter(entry => accountIds.has(entry.cashAccountId))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .slice(-7);
+
+    const recentMovement = recentEntries.reduce(
+      (total, entry) => total + entry.cashIn - entry.cashOut,
+      0
+    );
+    let runningBalance = currentTotal - recentMovement;
+    const values = [{ value: runningBalance }];
+    recentEntries.forEach(entry => {
+      runningBalance += entry.cashIn - entry.cashOut;
+      values.push({ value: runningBalance });
+    });
+    while (values.length < 8) values.unshift({ value: values[0]?.value ?? 0 });
+    return values;
+  };
+
+  const chartData1 = useMemo(
+    () => buildLiquidityTrend(["Cash on Hand", "Main Vault"], stats.totalCash),
+    [allAccounts, allLedgers, stats.totalCash]
+  );
+  const chartData2 = useMemo(
+    () => buildLiquidityTrend(["Bank"], stats.totalBank),
+    [allAccounts, allLedgers, stats.totalBank]
+  );
+  const chartData3 = useMemo(
+    () => buildLiquidityTrend(["E-Wallet"], stats.totalEWallet),
+    [allAccounts, allLedgers, stats.totalEWallet]
+  );
 
   return (
     <div className="w-full space-y-6">
@@ -341,15 +355,15 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
         )}
 
         {activeTab === "accounts" && (
-          <CashAccounts userId={userId} companyId={companyId} />
+          <CashAccounts userId={userId} companyId={scopeCompanyId} />
         )}
 
         {activeTab === "transfers" && (
-          <FundTransfers userId={userId} companyId={companyId} />
+          <FundTransfers userId={userId} companyId={scopeCompanyId} />
         )}
 
         {activeTab === "ledger" && (
-          <CashLedger userId={userId} companyId={companyId} />
+          <CashLedger userId={userId} companyId={scopeCompanyId} />
         )}
       </div>
     </div>

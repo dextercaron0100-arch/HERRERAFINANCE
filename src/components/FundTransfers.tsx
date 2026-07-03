@@ -7,7 +7,7 @@ import {
 } from "../types";
 import { 
   getFundTransfers, saveFundTransfer, getCashAccounts, getCompanies, getProfiles, getUserRole,
-  getAllCashAccounts, useDBUpdate, executeFundTransferToLedger
+  getAllCashAccounts, useDBUpdate, executeFundTransferToLedger, isGroupAdmin
 } from "../data/mockDatabase";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
@@ -29,6 +29,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
   const [toAccountId, setToAccountId] = useState("");
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [receivedAs, setReceivedAs] = useState<"sales" | "capital">("sales");
 
   const allCompanies = getCompanies();
   const allAccounts = getAllCashAccounts();
@@ -80,9 +81,6 @@ export default function FundTransfers({ userId, companyId }: Props) {
       return;
     }
 
-    const needsApproval = fromCompanyId !== toCompanyId || amt >= 50000;
-    const isApproved = !needsApproval;
-
     const newTransfer: FundTransfer = {
       id: `FT-${Date.now()}`,
       requestDate: new Date().toISOString().split('T')[0],
@@ -92,11 +90,12 @@ export default function FundTransfers({ userId, companyId }: Props) {
       toAccountId,
       amount: amt,
       purpose,
+      receivedAs,
       requestedBy: userId,
-      approvalRequired: needsApproval,
-      status: isApproved ? "Approved" : "Pending",
-      approvedBy: isApproved ? userId : null,
-      dateApproved: isApproved ? new Date().toISOString() : null,
+      approvalRequired: true,
+      status: "Pending",
+      approvedBy: null,
+      dateApproved: null,
       transferReferenceNumber: null,
       remarks: "",
       createdAt: new Date().toISOString()
@@ -108,11 +107,8 @@ export default function FundTransfers({ userId, companyId }: Props) {
     setShowAddModal(false);
     setAmount("");
     setPurpose("");
+    setReceivedAs("sales");
     setForceRender(prev => prev + 1);
-  };
-
-  const postTransferToLedger = (t: FundTransfer) => {
-    executeFundTransferToLedger(userId, t);
   };
 
   const handleUpdateStatus = (id: string, newStatus: FundTransfer['status']) => {
@@ -134,11 +130,15 @@ export default function FundTransfers({ userId, companyId }: Props) {
       dateApproved: newStatus === 'Approved' ? new Date().toISOString() : transfer.dateApproved,
     };
     
-    saveFundTransfer(updated, id);
-
     if (newStatus === 'Completed') {
-      postTransferToLedger(updated);
+      const result = executeFundTransferToLedger(userId, updated);
+      if (!result.success) {
+        toast.error(result.error || 'The transfer could not be posted.');
+        return;
+      }
     }
+
+    saveFundTransfer(updated, id);
 
     toast.success(`Transfer status updated to ${newStatus}.`);
     setForceRender(prev => prev + 1);
@@ -162,8 +162,9 @@ export default function FundTransfers({ userId, companyId }: Props) {
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
   };
 
-  const isApprover = () => {
-    const role = getUserRole(userId, companyId);
+  const isApprover = (transferCompanyId: string) => {
+    if (isGroupAdmin(userId)) return true;
+    const role = getUserRole(userId, transferCompanyId);
     return role === "company_admin" || role === "approver" || role === "owner";
   };
 
@@ -267,14 +268,17 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        {t.status === "Pending" && isApprover() && (
+                        {t.status === "Pending" && isApprover(t.fromCompanyId) && (
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => handleUpdateStatus(t.id, 'Approved')} className="text-emerald-600 hover:underline">Approve</button>
                             <button onClick={() => handleUpdateStatus(t.id, 'Rejected')} className="text-rose-600 hover:underline">Reject</button>
                           </div>
                         )}
-                        {t.status === "Approved" && (
+                        {t.status === "Approved" && isApprover(t.fromCompanyId) && (
                           <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-emerald-600 hover:underline">Mark Completed</button>
+                        )}
+                        {t.status === "Completed" && isApprover(t.fromCompanyId) && (
+                          <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-sky-600 hover:underline">Sync Posting</button>
                         )}
                       </td>
                     </tr>
@@ -377,7 +381,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Amount (PHP)</label>
                       <input
@@ -389,6 +393,18 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         placeholder="0.00"
                         required
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Received As</label>
+                      <select
+                        value={receivedAs}
+                        onChange={(e) => setReceivedAs(e.target.value as "sales" | "capital")}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                        required
+                      >
+                        <option value="sales">Sales</option>
+                        <option value="capital">Capital</option>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Purpose / Remarks</label>
