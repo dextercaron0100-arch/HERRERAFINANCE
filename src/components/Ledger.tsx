@@ -374,9 +374,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   // 1. CALCULATE DAILY BALANCES SUMMARY CARD
   const balanceSummary = useMemo(() => {
     // Total cash in/out completed for selected period
-    const completedTxns = rawTxns.filter(t => t.status === 'completed');
-    const allCashInTxns = completedTxns.filter(t => t.type === 'cash_in');
-    const cashOutTxns = completedTxns.filter(t => t.type === 'cash_out');
+    const postedTxns = rawTxns.filter(t => t.status === 'approved' || t.status === 'completed');
+    const allCashInTxns = postedTxns.filter(t => t.type === 'cash_in');
+    const cashOutTxns = postedTxns.filter(t => t.type === 'cash_out');
     
     // Separate capital from regular cash inputs
     const capitalTxns = allCashInTxns.filter(t => {

@@ -155,6 +155,7 @@ export interface FundTransfer {
   toAccountId: string;
   amount: number;
   purpose: string;
+  receivedAs?: 'sales' | 'capital';
   requestedBy: string;
   approvalRequired: boolean;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';

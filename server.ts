@@ -1,22 +1,106 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import dotenv from "dotenv";
 import { db } from "./src/db/index.ts";
-import { attachments } from "./src/db/schema.ts";
+import { attachments, cashAccounts } from "./src/db/schema.ts";
 import { eq } from "drizzle-orm";
 
 dotenv.config();
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const SQL_CONFIGURED = Boolean(
+  process.env.SQL_HOST &&
+  process.env.SQL_USER &&
+  process.env.SQL_PASSWORD &&
+  process.env.SQL_DB_NAME
+);
+
+const Type = {
+  OBJECT: "object",
+  ARRAY: "array",
+  STRING: "string",
+  NUMBER: "number",
+} as const;
+
+type ContentPart =
+  | { text: string }
+  | { inlineData: { data: string; mimeType: string } };
+
+function makeStrictJsonSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+  if (Array.isArray(schema)) return schema.map(makeStrictJsonSchema);
+
+  const normalized: any = {};
+  for (const [key, value] of Object.entries(schema)) {
+    normalized[key] = makeStrictJsonSchema(value);
   }
-});
+  if (normalized.type === "object") normalized.additionalProperties = false;
+  return normalized;
+}
+
+async function generateContent({
+  contents,
+  config,
+}: {
+  contents: string | ContentPart[];
+  config?: {
+    systemInstruction?: string;
+    responseMimeType?: string;
+    responseSchema?: any;
+    temperature?: number;
+  };
+}) {
+  if (!openai) {
+    throw new Error("OPENAI_API_KEY is not configured on the server.");
+  }
+
+  let input: any = contents;
+
+  if (Array.isArray(contents)) {
+    const content: any[] = contents.map((part) => {
+      if ("text" in part) return { type: "input_text", text: part.text };
+
+      const { data, mimeType } = part.inlineData;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+      if (mimeType === "application/pdf") {
+        return {
+          type: "input_file",
+          filename: "document.pdf",
+          file_data: dataUrl,
+        };
+      }
+      return { type: "input_image", image_url: dataUrl, detail: "auto" };
+    });
+    input = [{ role: "user", content }];
+  }
+
+  const request: any = {
+    model: OPENAI_MODEL,
+    instructions: config?.systemInstruction,
+    input,
+  };
+
+  if (config?.responseMimeType === "application/json" && config.responseSchema) {
+    request.text = {
+      format: {
+        type: "json_schema",
+        name: "finance_response",
+        strict: true,
+        schema: makeStrictJsonSchema(config.responseSchema),
+      },
+    };
+  } else if (config?.responseMimeType === "application/json") {
+    request.text = { format: { type: "json_object" } };
+  }
+
+  const response = await openai.responses.create(request);
+  return { text: response.output_text };
+}
 
 function handleError(e: any, res: express.Response, defaultMsg: string) {
   let errMsg = e.message || defaultMsg;
@@ -35,8 +119,8 @@ function handleError(e: any, res: express.Response, defaultMsg: string) {
     } catch (_) {}
   }
   
-  if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-      errMsg = "Gemini API Rate Limit Exceeded. Please try again in a moment.";
+  if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit')) {
+      errMsg = "OpenAI API rate limit exceeded. Please try again in a moment.";
   }
 
   res.status(500).json({ error: errMsg });
@@ -60,8 +144,7 @@ async function startServer() {
         return res.status(400).json({ error: "Missing imageBase64" });
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: [
           {
             text: "Extract transaction details from this receipt. Return ONLY the JSON object with the following fields: txnDate (string: YYYY-MM-DD), amount (number: total amount without currency symbols), purpose (string: concise vendor name or receipt purpose). If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else."
@@ -107,8 +190,7 @@ Transactions:
 ${JSON.stringify(transactions.slice(0, 50), null, 2)}
 `;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: promptString,
         config: {
           systemInstruction: "You are a professional financial risk analyst.",
@@ -135,8 +217,7 @@ Categories:
 ${JSON.stringify(categories, null, 2)}
 `;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: promptString,
         config: {
           systemInstruction: "You are a specialized transaction categorization assistant.",
@@ -170,8 +251,7 @@ User Question: ${message}
 
 Provide a concise, insightful answer based ONLY on the provided context. Speak directly to the user.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: promptString,
         config: {
           systemInstruction: "You are a professional Herrera Financial Intelligence Assistant. Answer concisely.",
@@ -211,8 +291,7 @@ Focus on answering:
 
 Do not use markdown headers (# or ##), but you can use bullet points. Speak in a confident, advisory tone.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: promptString,
         config: {
           systemInstruction: "You are a senior financial advisor acting as an AI assistant. Be direct, clear, and action-oriented.",
@@ -242,8 +321,7 @@ Return ONLY a valid JSON array of objects with the following fields:
 - accountHolder (string)
 If a field cannot be found, provide null or a sensible generic value. Do not wrap in markdown or anything else.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: [
           {
             text: promptString
@@ -301,8 +379,7 @@ If a field cannot be found, provide null or a sensible generic value. Do not wra
 DATA:
 ${text}`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+      const response = await generateContent({
         contents: [
           {
             text: promptString
@@ -336,6 +413,9 @@ ${text}`;
   });
 
   app.post("/api/attachments", async (req, res) => {
+    if (!SQL_CONFIGURED) {
+      return res.json({ success: true, attachment: req.body, storage: "local-only" });
+    }
     try {
       const attachment = req.body;
       await db.insert(attachments).values(attachment);
@@ -347,6 +427,7 @@ ${text}`;
   });
 
   app.get("/api/attachments", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.json([]);
     try {
       const data = await db.select().from(attachments);
       res.json(data);
@@ -357,6 +438,7 @@ ${text}`;
   });
 
   app.get("/api/attachments/:companyId", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.json([]);
     try {
       const { companyId } = req.params;
       let data;
@@ -369,6 +451,102 @@ ${text}`;
     } catch (e: any) {
       console.error(e);
       res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+
+  // ── CASH ACCOUNTS API ──────────────────────────────────────────────────────
+  // GET /api/cash-accounts  – fetch all accounts
+  app.get("/api/cash-accounts", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.status(503).json({ error: "SQL database is not configured; using local storage." });
+    try {
+      const data = await db.select().from(cashAccounts);
+      res.json(data);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to fetch cash accounts" });
+    }
+  });
+
+  // GET /api/cash-accounts/:companyId  – fetch by company
+  app.get("/api/cash-accounts/:companyId", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.status(503).json({ error: "SQL database is not configured; using local storage." });
+    try {
+      const { companyId } = req.params;
+      let data;
+      if (companyId === "all") {
+        data = await db.select().from(cashAccounts);
+      } else {
+        data = await db.select().from(cashAccounts).where(eq(cashAccounts.companyId, companyId));
+      }
+      res.json(data);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to fetch cash accounts" });
+    }
+  });
+
+  // POST /api/cash-accounts  – create account
+  app.post("/api/cash-accounts", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.status(503).json({ error: "SQL database is not configured; using local storage." });
+    try {
+      const payload = req.body;
+      if (!payload.companyId || !payload.accountType || !payload.accountName) {
+        return res.status(400).json({ error: "Missing required fields: companyId, accountType, accountName" });
+      }
+      const [inserted] = await db.insert(cashAccounts).values({
+        companyId: payload.companyId,
+        accountType: payload.accountType,
+        bankName: payload.bankName || "",
+        accountName: payload.accountName,
+        accountNumber: payload.accountNumber || "",
+        accountHolder: payload.accountHolder || "",
+        openingBalance: payload.openingBalance ?? 0,
+        isActive: payload.isActive ?? true,
+      }).returning();
+      res.json({ success: true, account: inserted });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to create cash account" });
+    }
+  });
+
+  // PUT /api/cash-accounts/:id  – update account
+  app.put("/api/cash-accounts/:id", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.status(503).json({ error: "SQL database is not configured; using local storage." });
+    try {
+      const { id } = req.params;
+      const payload = req.body;
+      const [updated] = await db.update(cashAccounts)
+        .set({
+          accountType: payload.accountType,
+          bankName: payload.bankName,
+          accountName: payload.accountName,
+          accountNumber: payload.accountNumber,
+          accountHolder: payload.accountHolder,
+          openingBalance: payload.openingBalance,
+          isActive: payload.isActive,
+        })
+        .where(eq(cashAccounts.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Account not found" });
+      res.json({ success: true, account: updated });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to update cash account" });
+    }
+  });
+
+  // DELETE /api/cash-accounts/:id  – delete account
+  app.delete("/api/cash-accounts/:id", async (req, res) => {
+    if (!SQL_CONFIGURED) return res.status(503).json({ error: "SQL database is not configured; using local storage." });
+    try {
+      const { id } = req.params;
+      await db.delete(cashAccounts).where(eq(cashAccounts.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to delete cash account" });
     }
   });
 
@@ -390,5 +568,42 @@ ${text}`;
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
+
+
+// ─── Seed cash accounts into SQL on server start ────────────────────────────
+/* Seed cash accounts removed. Accounts must be created explicitly by users.
+async function seedCashAccounts() {
+  try {
+    const existing = await db.select().from(cashAccounts);
+    if (existing.length > 0) {
+      console.log(`[Seed] Cash accounts already seeded (${existing.length} records). Skipping.`);
+      return;
+    }
+    const seedData = [
+      // ─── BIGSTOP ───────────────────────────────────────────────
+      { companyId: "c-bgs", accountType: "Bank",         bankName: "Security Bank", accountName: "Security Bank - Bigstop",        accountNumber: "0000054663022",   accountHolder: "HHC Franchise Hub",        openingBalance: 0, isActive: true },
+      { companyId: "c-bgs", accountType: "E-Wallet",     bankName: "GCash",         accountName: "Bigstop GCash",                  accountNumber: "09687912017",      accountHolder: "Anna Jane Herrera",        openingBalance: 0, isActive: true },
+      { companyId: "c-bgs", accountType: "Cash on Hand", bankName: "",              accountName: "Cash On Hand - Bigstop",         accountNumber: "",                 accountHolder: "Bigstop",                  openingBalance: 0, isActive: true },
+      // ─── HERRERA PROPERTY ─────────────────────────────────────
+      { companyId: "c-hbp", accountType: "Cash on Hand", bankName: "",              accountName: "Cash On Hand - Herrera Property",accountNumber: "",                 accountHolder: "Herrera Property",         openingBalance: 0, isActive: true },
+      { companyId: "c-hbp", accountType: "E-Wallet",     bankName: "GCash",         accountName: "Herrera Property GCash",         accountNumber: "09565937890",      accountHolder: "Mark Herrera",             openingBalance: 0, isActive: true },
+      // ─── HHC FRANCHISE HUB ────────────────────────────────────
+      { companyId: "c-frn", accountType: "Bank",         bankName: "RCBC",          accountName: "RCBC - HHC Franchise Hub",       accountNumber: "0000007591347012", accountHolder: "HHC Franchise Hub",        openingBalance: 0, isActive: true },
+      { companyId: "c-frn", accountType: "Cash on Hand", bankName: "",              accountName: "Cash On Hand - HHC Franchise Hub",accountNumber: "",                accountHolder: "HHC Franchise Hub",        openingBalance: 0, isActive: true },
+      // ─── BLESSCENT ────────────────────────────────────────────
+      { companyId: "c-bls", accountType: "Bank",         bankName: "Security Bank", accountName: "Security Bank - Blesscent",      accountNumber: "0000075257037",    accountHolder: "Blesscent Marketing Corp", openingBalance: 0, isActive: true },
+      { companyId: "c-bls", accountType: "E-Wallet",     bankName: "GCash",         accountName: "Blesscent GCash",                accountNumber: "09193305412",      accountHolder: "Mark Herrera",             openingBalance: 0, isActive: true },
+      { companyId: "c-bls", accountType: "Cash on Hand", bankName: "",              accountName: "Cash On Hand - Blesscent",       accountNumber: "",                 accountHolder: "Blesscent",                openingBalance: 0, isActive: true },
+      // ─── SCENTIMO ─────────────────────────────────────────────
+      { companyId: "c-sct", accountType: "Bank",         bankName: "Security Bank", accountName: "Security Bank - Scentimo",       accountNumber: "0000041508572",    accountHolder: "Scentimo Manufacturing Corp", openingBalance: 0, isActive: true },
+      { companyId: "c-sct", accountType: "Cash on Hand", bankName: "",              accountName: "Cash On Hand - Scentimo",        accountNumber: "",                 accountHolder: "Scentimo",                 openingBalance: 0, isActive: true },
+    ];
+    await db.insert(cashAccounts).values(seedData);
+    console.log(`[Seed] Inserted ${seedData.length} cash accounts into SQL.`);
+  } catch (err) {
+    console.error("[Seed] Failed to seed cash accounts:", err);
+  }
+}
+*/
 
 startServer();

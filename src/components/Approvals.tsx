@@ -24,9 +24,11 @@ import {
   getCompanies,
   getAllCashAccounts,
   getRoles,
+  getFundTransfers,
+  saveFundTransfer,
   useDBUpdate,
 } from "../data/mockDatabase";
-import { Transaction } from "../types";
+import { FundTransfer, Transaction } from "../types";
 import { toast } from "sonner";
 
 import AttachmentViewer from "./AttachmentViewer";
@@ -63,6 +65,7 @@ export default function Approvals({
   const profiles = getProfiles();
   const allCompanies = getCompanies();
   const allAccounts = getAllCashAccounts();
+  const fundTransfers = getFundTransfers(companyId);
 
   const currentUser = profiles.find((p) => p.id === userId);
   const isOwner = currentUser && ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(currentUser.email);
@@ -74,6 +77,23 @@ export default function Approvals({
   const historyTxns = useMemo(() => {
     return transactions.filter((t) => t.status !== "pending");
   }, [transactions]);
+
+  const visibleFundTransfers = useMemo(() => {
+    const expectedStatus = viewMode === "pending" ? "Pending" : null;
+    const lower = searchTerm.toLowerCase();
+    return fundTransfers.filter(transfer => {
+      const matchesView = expectedStatus
+        ? transfer.status === expectedStatus
+        : transfer.status !== "Pending";
+      const matchesSearch = !lower ||
+        transfer.purpose.toLowerCase().includes(lower) ||
+        transfer.amount.toString().includes(lower) ||
+        transfer.id.toLowerCase().includes(lower);
+      return matchesView && matchesSearch;
+    });
+  }, [fundTransfers, viewMode, searchTerm]);
+
+  const pendingFundTransfers = fundTransfers.filter(t => t.status === "Pending");
 
   const filteredTxns = useMemo(() => {
     let list = viewMode === "pending" ? pendingTxns : historyTxns;
@@ -177,6 +197,30 @@ export default function Approvals({
       setReviewRemarks("");
       if (onAuditLogged) onAuditLogged();
     }
+  };
+
+  const handleFundTransferAction = (
+    transfer: FundTransfer,
+    action: "Approved" | "Rejected",
+  ) => {
+    const role = getUserRole(userId, transfer.fromCompanyId);
+    const canReview = isGroupAdmin(userId) || role === "company_admin" || role === "approver";
+    if (!canReview) {
+      toast.error("You are not authorized to review this fund transfer.");
+      return;
+    }
+    if (transfer.requestedBy === userId && !isGroupAdmin(userId)) {
+      toast.error("You cannot approve your own fund transfer request.");
+      return;
+    }
+
+    saveFundTransfer({
+      ...transfer,
+      status: action,
+      approvedBy: action === "Approved" ? userId : transfer.approvedBy,
+      dateApproved: action === "Approved" ? new Date().toISOString() : transfer.dateApproved,
+    }, transfer.id);
+    toast.success(`Fund transfer ${action.toLowerCase()}.`);
   };
 
   const handleBulkAction = (action: "approved" | "rejected") => {
@@ -373,10 +417,55 @@ export default function Approvals({
             Pending Approvals
           </div>
           <div className="text-3xl font-display font-light text-amber-500">
-            {pendingTxns.length}
+            {pendingTxns.length + pendingFundTransfers.length}
           </div>
         </div>
       </div>
+
+      {visibleFundTransfers.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
+          <div className="px-5 py-4 bg-sky-50 border-b border-sky-100">
+            <h3 className="font-bold text-sky-900">Cash Flow & Fund Transfers</h3>
+            <p className="text-xs text-sky-700 mt-1">Transfer requests included in the approval queue.</p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {visibleFundTransfers.map(transfer => {
+              const sourceCompany = allCompanies.find(c => c.id === transfer.fromCompanyId)?.name || "Unknown";
+              const destinationCompany = allCompanies.find(c => c.id === transfer.toCompanyId)?.name || "Unknown";
+              const sourceAccount = allAccounts.find(a => a.id === transfer.fromAccountId)?.accountName || "Unknown";
+              const destinationAccount = allAccounts.find(a => a.id === transfer.toAccountId)?.accountName || "Unknown";
+              const role = getUserRole(userId, transfer.fromCompanyId);
+              const canReview = isGroupAdmin(userId) || role === "company_admin" || role === "approver";
+              return (
+                <div key={transfer.id} className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{transfer.purpose}</span>
+                      <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-700 text-[10px] font-bold uppercase">Fund Transfer</span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {sourceCompany} / {sourceAccount} → {destinationCompany} / {destinationAccount}
+                    </div>
+                    <div className="text-[10px] font-bold uppercase text-sky-600 mt-1">Received as: {transfer.receivedAs || "Sales"}</div>
+                    <div className="text-[10px] text-slate-400 mt-1">{transfer.id} · {transfer.requestDate}</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="font-bold text-slate-900">{formatPeso(transfer.amount)}</div>
+                    {viewMode === "pending" && canReview ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleFundTransferAction(transfer, "Approved")} className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">Approve</button>
+                        <button onClick={() => handleFundTransferAction(transfer, "Rejected")} className="px-3 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold">Reject</button>
+                      </div>
+                    ) : (
+                      <span className="text-xs font-bold uppercase text-slate-500">{transfer.status}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* SEARCH AND FILTER */}
       <div className="flex flex-col gap-4 bg-white border border-slate-200 p-4 rounded-2xl">

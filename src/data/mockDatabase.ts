@@ -330,6 +330,180 @@ const saveSilent = <T>(key: string, val: T): void => {
   }
 };
 
+// Seed Cash Accounts
+/* Default account seeding removed. Accounts must be created explicitly by users.
+const SEED_CASH_ACCOUNTS: CashAccount[] = [
+  // ─── BIGSTOP ────────────────────────────────────────────
+  {
+    id: "acc-bgs-001",
+    companyId: "c-bgs",
+    accountType: "Bank",
+    bankName: "Security Bank",
+    accountName: "Security Bank - Bigstop",
+    accountNumber: "0000054663022",
+    accountHolder: "HHC Franchise Hub",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-bgs-002",
+    companyId: "c-bgs",
+    accountType: "E-Wallet",
+    bankName: "GCash",
+    accountName: "Bigstop GCash",
+    accountNumber: "09687912017",
+    accountHolder: "Anna Jane Herrera",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-bgs-003",
+    companyId: "c-bgs",
+    accountType: "Cash on Hand",
+    bankName: "",
+    accountName: "Cash On Hand - Bigstop",
+    accountNumber: "",
+    accountHolder: "Bigstop",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  // ─── HERRERA PROPERTY ───────────────────────────────────
+  {
+    id: "acc-hbp-001",
+    companyId: "c-hbp",
+    accountType: "Cash on Hand",
+    bankName: "",
+    accountName: "Cash On Hand - Herrera Property",
+    accountNumber: "",
+    accountHolder: "Herrera Property",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-hbp-002",
+    companyId: "c-hbp",
+    accountType: "E-Wallet",
+    bankName: "GCash",
+    accountName: "Herrera Property GCash",
+    accountNumber: "09565937890",
+    accountHolder: "Mark Herrera",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  // ─── HHC FRANCHISE HUB ──────────────────────────────────
+  {
+    id: "acc-frn-001",
+    companyId: "c-frn",
+    accountType: "Bank",
+    bankName: "RCBC",
+    accountName: "RCBC - HHC Franchise Hub",
+    accountNumber: "0000007591347012",
+    accountHolder: "HHC Franchise Hub",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-frn-002",
+    companyId: "c-frn",
+    accountType: "Cash on Hand",
+    bankName: "",
+    accountName: "Cash On Hand - HHC Franchise Hub",
+    accountNumber: "",
+    accountHolder: "HHC Franchise Hub",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  // ─── BLESSCENT ──────────────────────────────────────────
+  {
+    id: "acc-bls-001",
+    companyId: "c-bls",
+    accountType: "Bank",
+    bankName: "Security Bank",
+    accountName: "Security Bank - Blesscent",
+    accountNumber: "0000075257037",
+    accountHolder: "Blesscent Marketing Corp",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-bls-002",
+    companyId: "c-bls",
+    accountType: "E-Wallet",
+    bankName: "GCash",
+    accountName: "Blesscent GCash",
+    accountNumber: "09193305412",
+    accountHolder: "Mark Herrera",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-bls-003",
+    companyId: "c-bls",
+    accountType: "Cash on Hand",
+    bankName: "",
+    accountName: "Cash On Hand - Blesscent",
+    accountNumber: "",
+    accountHolder: "Blesscent",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  // ─── SCENTIMO ───────────────────────────────────────────
+  {
+    id: "acc-sct-001",
+    companyId: "c-sct",
+    accountType: "Bank",
+    bankName: "Security Bank",
+    accountName: "Security Bank - Scentimo",
+    accountNumber: "0000041508572",
+    accountHolder: "Scentimo Manufacturing Corp",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "acc-sct-002",
+    companyId: "c-sct",
+    accountType: "Cash on Hand",
+    bankName: "",
+    accountName: "Cash On Hand - Scentimo",
+    accountNumber: "",
+    accountHolder: "Scentimo",
+    openingBalance: 0,
+    isActive: true,
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+];
+*/
+
+// One-time import supplied in company_payment_accounts.xlsx.
+const COMPANY_PAYMENT_ACCOUNTS: CashAccount[] = ([
+  { id: "xlsx-bls-bank", companyId: "c-bls", accountType: "Bank", bankName: "Security Bank", accountName: "Security Bank - Blesscent", accountNumber: "0000075257037", accountHolder: "Blesscent", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-bls-gcash", companyId: "c-bls", accountType: "E-Wallet", bankName: "GCash", accountName: "Blesscent GCash", accountNumber: "09193305412", accountHolder: "Blesscent", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-bls-cash", companyId: "c-bls", accountType: "Cash on Hand", bankName: "", accountName: "Cash On Hand - Blesscent", accountNumber: "", accountHolder: "Blesscent", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-bgs-bank", companyId: "c-bgs", accountType: "Bank", bankName: "Security Bank", accountName: "Security Bank - Bigstop", accountNumber: "0000054663022", accountHolder: "Bigstop", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-bgs-gcash", companyId: "c-bgs", accountType: "E-Wallet", bankName: "GCash", accountName: "Bigstop GCash", accountNumber: "09687912017", accountHolder: "Bigstop", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-bgs-cash", companyId: "c-bgs", accountType: "Cash on Hand", bankName: "", accountName: "Cash On Hand - Bigstop", accountNumber: "", accountHolder: "Bigstop", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-sct-bank", companyId: "c-sct", accountType: "Bank", bankName: "Security Bank", accountName: "Security Bank - Scentimo", accountNumber: "0000041508572", accountHolder: "Scentimo", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-sct-cash", companyId: "c-sct", accountType: "Cash on Hand", bankName: "", accountName: "Cash On Hand - Scentimo", accountNumber: "", accountHolder: "Scentimo", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-frn-bank", companyId: "c-frn", accountType: "Bank", bankName: "RCBC", accountName: "RCBC - HHC Franchise Hub", accountNumber: "0000007591347012", accountHolder: "HHC Franchise Hub", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-frn-cash", companyId: "c-frn", accountType: "Cash on Hand", bankName: "", accountName: "Cash On Hand - HHC Franchise Hub", accountNumber: "", accountHolder: "HHC Franchise Hub", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-hbp-cash", companyId: "c-hbp", accountType: "Cash on Hand", bankName: "", accountName: "Cash On Hand - Herrera Property", accountNumber: "", accountHolder: "Herrera Building Property", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+  { id: "xlsx-hbp-gcash", companyId: "c-hbp", accountType: "E-Wallet", bankName: "GCash", accountName: "Herrera Property GCash", accountNumber: "09565937890", accountHolder: "Herrera Building Property", openingBalance: 0, isActive: true, createdAt: "2026-07-03T00:00:00Z" },
+] as Omit<CashAccount, "currentBalance">[]).map(account => ({ ...account, currentBalance: 0 }));
+
+const COMPANY_PAYMENT_ACCOUNTS_IMPORT_KEY = "finance_db_v3_company_payment_accounts_imported_v2";
+const SUPPRESS_DEMO_TRANSACTION_SEED_KEY = "finance_db_v3_suppress_demo_transaction_seed";
+
 // Initialize database
 export function initDB() {
   if (dbInitialized) return;
@@ -496,7 +670,10 @@ export function initDB() {
   isSeeding = false;
 
   
-  if (!localStorage.getItem(KEYS.TRANSACTIONS) || load<Transaction[]>(KEYS.TRANSACTIONS, []).length === 0) {
+  if (
+    localStorage.getItem(SUPPRESS_DEMO_TRANSACTION_SEED_KEY) !== "true" &&
+    (!localStorage.getItem(KEYS.TRANSACTIONS) || load<Transaction[]>(KEYS.TRANSACTIONS, []).length === 0)
+  ) {
     justSeeded = true;
     const mockTxns: Transaction[] = [];
     const accounts = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
@@ -519,8 +696,10 @@ export function initDB() {
           categoryId: inCat.id,
           cashAccountId: mainAcc,
           paymentMethod: 'bank_transfer',
-          referenceNo: 'DEP-001',
+          transferRef: 'DEP-001',
           responsiblePerson: 'Owner',
+          receiptPath: null,
+          reversalOf: null,
           status: 'completed',
           encodedBy: 'u-mark',
           createdAt: new Date().toISOString(),
@@ -537,8 +716,10 @@ export function initDB() {
           categoryId: cats.find(cat => cat.companyId === c.id && cat.type === 'cash_out')?.id || '',
           cashAccountId: mainAcc,
           paymentMethod: 'cash',
-          referenceNo: 'EXP-001',
+          transferRef: 'EXP-001',
           responsiblePerson: 'Admin',
+          receiptPath: null,
+          reversalOf: null,
           status: 'completed',
           encodedBy: 'u-mark',
           createdAt: new Date().toISOString(),
@@ -552,6 +733,41 @@ export function initDB() {
         setDoc(doc(db, "appData", KEYS.TRANSACTIONS), { data: mockTxns }, { merge: true });
       });
     }
+  }
+
+  /* Legacy cash-account auto-seeding removed.
+  const existingCashAccounts = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+  if (existingCashAccounts.length === 0) {
+    save(KEYS.CASH_ACCOUNTS, SEED_CASH_ACCOUNTS);
+  } else {
+    // Ensure all seed accounts exist (non-destructive merge)
+    let cashChanged = false;
+    SEED_CASH_ACCOUNTS.forEach(seed => {
+      if (!existingCashAccounts.find(a => a.id === seed.id)) {
+        existingCashAccounts.push(seed);
+        cashChanged = true;
+      }
+    });
+    if (cashChanged) {
+      save(KEYS.CASH_ACCOUNTS, existingCashAccounts);
+    }
+  }
+  */
+
+  if (!localStorage.getItem(COMPANY_PAYMENT_ACCOUNTS_IMPORT_KEY)) {
+    const existingCashAccounts = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
+    const importedAccounts = COMPANY_PAYMENT_ACCOUNTS.filter(imported =>
+      !existingCashAccounts.some(existing =>
+        existing.companyId === imported.companyId &&
+        existing.accountName.toLowerCase() === imported.accountName.toLowerCase() &&
+        existing.accountNumber === imported.accountNumber
+      )
+    );
+
+    if (importedAccounts.length > 0) {
+      save(KEYS.CASH_ACCOUNTS, [...existingCashAccounts, ...importedAccounts]);
+    }
+    localStorage.setItem(COMPANY_PAYMENT_ACCOUNTS_IMPORT_KEY, new Date().toISOString());
   }
 
   // Push local seeding changes to firestore if needed
@@ -910,6 +1126,7 @@ export async function emptyDataExceptCashAccounts() {
   ];
 
   lastLocalWriteTime = Date.now();
+  localStorage.setItem(SUPPRESS_DEMO_TRANSACTION_SEED_KEY, "true");
   if (!memoryDb) memoryDb = {};
   
   keysToEmpty.forEach(k => {
@@ -948,6 +1165,7 @@ export async function emptyDashboardData() {
   ];
 
   lastLocalWriteTime = Date.now();
+  localStorage.setItem(SUPPRESS_DEMO_TRANSACTION_SEED_KEY, "true");
   if (!memoryDb) memoryDb = {};
   
   keysToEmpty.forEach(k => {
@@ -1037,16 +1255,11 @@ export function insertTransaction(
     }
   }
 
-  const userRole = getUserRole(userId, data.companyId);
-  const userProfile = getProfiles().find((p) => p.id === userId);
-  const isOwner = userRole === "company_admin" || userProfile?.isGroupAdmin;
-  const isCapital = matchedCat.name.toLowerCase() === "capital_injection";
-
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   const newTxn: Transaction = {
     ...data,
     id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-    status: isOwner && isCapital ? "approved" : "pending",
+    status: "pending",
     encodedBy: userId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -2270,46 +2483,45 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   initDB();
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
   
-  if (!localStorage.getItem(KEYS.CASH_ACCOUNTS)) {
-    const seedAccounts: CashAccount[] = [];
-    all = seedAccounts;
-    saveSilent(KEYS.CASH_ACCOUNTS, all);
-  }
+  // FIX: Removed dangerous empty-array auto-save that was wiping Firestore data
+  // when a new browser/device opened the app with no local cash account data.
+  // We now simply load what exists – if nothing exists, return empty array safely.
 
-  // Recalculate balances dynamically from COMPLETED transactions
+  // Recalculate balances dynamically from APPROVED + COMPLETED transactions
+  // (using both statuses so approved transactions are reflected immediately)
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   all = all.map(acc => {
-    let inflows = 0;
-    let outflows = 0;
-    allTxns.filter(t => t.cashAccountId === acc.id && t.status === 'completed').forEach(t => {
-      if (t.type === 'cash_in') inflows += t.amount;
-      if (t.type === 'cash_out') outflows += t.amount;
-    });
-    acc.currentBalance = Number(acc.openingBalance || 0) + inflows - outflows;
-    return acc;
+    const txns = allTxns.filter(
+      t => t.cashAccountId === acc.id &&
+           (t.status === "approved" || t.status === "completed")
+    );
+    const balance = txns.reduce((sum, t) => {
+      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
+    }, acc.openingBalance ?? 0);
+    return { ...acc, currentBalance: balance };
   });
 
-  if (!companyId || companyId === 'all') return all;
-  return all.filter((a) => a.companyId === companyId);
+  if (companyId === "all") return all;
+  return all.filter(a => a.companyId === companyId);
 }
 
 export function getAllCashAccounts(): CashAccount[] {
   initDB();
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
-  
-  // Recalculate balances dynamically from COMPLETED transactions
+
+  // Recalculate balances dynamically from APPROVED + COMPLETED transactions
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   all = all.map(acc => {
-    let inflows = 0;
-    let outflows = 0;
-    allTxns.filter(t => t.cashAccountId === acc.id && t.status === 'completed').forEach(t => {
-      if (t.type === 'cash_in') inflows += t.amount;
-      if (t.type === 'cash_out') outflows += t.amount;
-    });
-    acc.currentBalance = Number(acc.openingBalance || 0) + inflows - outflows;
-    return acc;
+    const txns = allTxns.filter(
+      t => t.cashAccountId === acc.id &&
+           (t.status === "approved" || t.status === "completed")
+    );
+    const balance = txns.reduce((sum, t) => {
+      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
+    }, acc.openingBalance ?? 0);
+    return { ...acc, currentBalance: balance };
   });
-  
+
   return all;
 }
 
@@ -2597,15 +2809,55 @@ export function getFundTransfers(companyId: string): FundTransfer[] {
   return all.filter(t => t.fromCompanyId === companyId || t.toCompanyId === companyId);
 }
 
-export function executeFundTransferToLedger(userId: string, transfer: FundTransfer) {
+export function executeFundTransferToLedger(
+  userId: string,
+  transfer: FundTransfer,
+): { success: boolean; alreadyPosted?: boolean; error?: string } {
+  initDB();
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  
+
+  const postedOut = allTxns.some(
+    t => t.transferRef === transfer.id && t.type === 'cash_out',
+  );
+  const postedIn = allTxns.some(
+    t => t.transferRef === transfer.id && t.type === 'cash_in',
+  );
+
+  const accounts = getAllCashAccounts();
+  const source = accounts.find(a => a.id === transfer.fromAccountId);
+  const destination = accounts.find(a => a.id === transfer.toAccountId);
+
+  if (!source || !destination) {
+    return { success: false, error: 'Source or destination cash account no longer exists.' };
+  }
+  if (source.id === destination.id) {
+    return { success: false, error: 'Source and destination accounts must be different.' };
+  }
+  if (!Number.isFinite(transfer.amount) || transfer.amount <= 0) {
+    return { success: false, error: 'Transfer amount must be greater than zero.' };
+  }
+  if (!postedOut && source.currentBalance < transfer.amount) {
+    return { success: false, error: `Insufficient funds in ${source.accountName}.` };
+  }
+
+  const now = new Date().toISOString();
+  const txnDate = now.split('T')[0];
+  const destinationCategories = getAllCategories().filter(
+    category => category.companyId === transfer.toCompanyId && category.type === 'cash_in',
+  );
+  const receivedAs = transfer.receivedAs ?? 'sales';
+  const destinationCategory = destinationCategories.find(category =>
+    receivedAs === 'capital'
+      ? category.name.toLowerCase().includes('capital')
+      : category.name.toLowerCase().includes('sales'),
+  );
+
   // OUTFLOW
-  allTxns.push({
-    id: `txn-${Date.now()}-out`,
+  if (!postedOut) allTxns.push({
+    id: `txn-${transfer.id}-out`,
     companyId: transfer.fromCompanyId,
     cashAccountId: transfer.fromAccountId,
-    txnDate: new Date().toISOString().split('T')[0],
+    txnDate,
     type: 'cash_out',
     amount: transfer.amount,
     categoryId: 'transfer-out',
@@ -2616,31 +2868,74 @@ export function executeFundTransferToLedger(userId: string, transfer: FundTransf
     encodedBy: userId,
     reversalOf: null,
     transferRef: transfer.id,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
   });
 
   // INFLOW
-  allTxns.push({
-    id: `txn-${Date.now()}-in`,
+  if (!postedIn) allTxns.push({
+    id: `txn-${transfer.id}-in`,
     companyId: transfer.toCompanyId,
     cashAccountId: transfer.toAccountId,
-    txnDate: new Date().toISOString().split('T')[0],
+    txnDate,
     type: 'cash_in',
     amount: transfer.amount,
-    categoryId: 'transfer-in',
-    purpose: `Transfer in: ${transfer.purpose}`,
+    categoryId: destinationCategory?.id || 'transfer-in',
+    purpose: `Transfer in (${receivedAs === 'capital' ? 'Capital' : 'Sales'}): ${transfer.purpose}`,
     responsiblePerson: userId,
     receiptPath: null,
     status: 'completed', // completed means money moved
     encodedBy: userId,
     reversalOf: null,
     transferRef: transfer.id,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
   });
 
-  save(KEYS.TRANSACTIONS, allTxns);
+  if (!postedOut || !postedIn) {
+    save(KEYS.TRANSACTIONS, allTxns);
+  }
+
+  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  const hasSourceLedgerEntry = ledgerEntries.some(
+    e => e.referenceNo === transfer.id && e.cashAccountId === transfer.fromAccountId,
+  );
+  const hasDestinationLedgerEntry = ledgerEntries.some(
+    e => e.referenceNo === transfer.id && e.cashAccountId === transfer.toAccountId,
+  );
+
+  if (!hasSourceLedgerEntry) {
+    saveCashLedgerEntry({
+      date: txnDate,
+      companyId: transfer.fromCompanyId,
+      cashAccountId: transfer.fromAccountId,
+      custodianId: null,
+      transactionType: 'Cash Transfer',
+      referenceNo: transfer.id,
+      description: `Transfer to ${destination.accountName}: ${transfer.purpose}`,
+      cashIn: 0,
+      cashOut: transfer.amount,
+      createdBy: userId,
+      approvedBy: transfer.approvedBy ?? userId,
+    });
+  }
+  if (!hasDestinationLedgerEntry) {
+    saveCashLedgerEntry({
+      date: txnDate,
+      companyId: transfer.toCompanyId,
+      cashAccountId: transfer.toAccountId,
+      custodianId: null,
+      transactionType: 'Cash Transfer',
+      referenceNo: transfer.id,
+      description: `Transfer from ${source.accountName}: ${transfer.purpose}`,
+      cashIn: transfer.amount,
+      cashOut: 0,
+      createdBy: userId,
+      approvedBy: transfer.approvedBy ?? userId,
+    });
+  }
+
+  return { success: true, alreadyPosted: postedOut && postedIn };
 }
 
 export function saveFundTransfer(payload: Omit<FundTransfer, "id" | "createdAt">, id?: string) {

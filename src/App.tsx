@@ -165,11 +165,23 @@ export default function App() {
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
+      // Real sync: fetch cash accounts from SQL and refresh localStorage cache
+      const DB_PREFIX = "finance_db_v3_";
+      const CASH_ACCOUNTS_KEY = DB_PREFIX + "cash_accounts";
+      try {
+        const res = await fetch("/api/cash-accounts/all");
+        if (res.ok) {
+          const sqlAccounts = await res.json();
+          localStorage.setItem(CASH_ACCOUNTS_KEY, JSON.stringify(sqlAccounts));
+        }
+      } catch (_) {
+        // SQL may not be available; swallow and continue with local data
+      }
+      // Notify all components to re-read from localStorage
       window.dispatchEvent(new Event("db-update"));
       setLastSyncTime(new Date());
       toast.success("Database Synced", {
-        description: "Data successfully refreshed from treasury group ledger.",
+        description: "Cash accounts refreshed from SQL. Local data updated.",
       });
     } catch (e) {
       toast.error("Sync Failed", {
@@ -1193,4 +1205,6 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
-
+    </div>
+  );
+}

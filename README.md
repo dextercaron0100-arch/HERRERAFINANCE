@@ -1,12 +1,6 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
-
-# Run and deploy your AI Studio app
+# Run and deploy Herrera Finance
 
 This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/aa910227-5d34-4e29-8158-83d8f8d84a10
 
 ## Run Locally
 
@@ -15,6 +9,10 @@ View your app in AI Studio: https://ai.studio/apps/aa910227-5d34-4e29-8158-83d8f
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy `.env.example` to `.env` and set the required environment variables.
+   - `GEMINI_API_KEY` if you use Gemini AI features
+   - `SQL_HOST`, `SQL_USER`, `SQL_PASSWORD`, `SQL_DB_NAME` for the PostgreSQL database
 3. Run the app:
    `npm run dev`
+4. If you want to remove seeded cash accounts after `.env` is configured, run:
+   `npm run remove-seed-cash-accounts`
