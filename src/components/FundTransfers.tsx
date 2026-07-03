@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { 
-  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User
+import {
+  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User, Split, X
 } from "lucide-react";
 import { 
   FundTransfer, CashAccount, Company, Profile
@@ -31,6 +31,10 @@ export default function FundTransfers({ userId, companyId }: Props) {
   const [purpose, setPurpose] = useState("");
   const [receivedAs, setReceivedAs] = useState<"sales" | "capital">("sales");
 
+  const [isSplit, setIsSplit] = useState(false);
+  const emptySplitRow = () => ({ toCompanyId: companyId === "all" ? "" : companyId, toAccountId: "", amount: "" });
+  const [splitDestinations, setSplitDestinations] = useState<{ toCompanyId: string; toAccountId: string; amount: string }[]>([emptySplitRow(), emptySplitRow()]);
+
   const allCompanies = getCompanies();
   const allAccounts = getAllCashAccounts();
   const allProfiles = getProfiles();
@@ -48,6 +52,22 @@ export default function FundTransfers({ userId, companyId }: Props) {
     return allAccounts.filter(a => a.companyId === toCompanyId);
   }, [allAccounts, toCompanyId]);
 
+  const splitTotal = useMemo(() => {
+    return splitDestinations.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+  }, [splitDestinations]);
+
+  const updateSplitRow = (index: number, patch: Partial<{ toCompanyId: string; toAccountId: string; amount: string }>) => {
+    setSplitDestinations(rows => rows.map((r, i) => {
+      if (i !== index) return r;
+      const next = { ...r, ...patch };
+      if (patch.toCompanyId !== undefined && patch.toCompanyId !== r.toCompanyId) next.toAccountId = "";
+      return next;
+    }));
+  };
+
+  const addSplitRow = () => setSplitDestinations(rows => [...rows, emptySplitRow()]);
+  const removeSplitRow = (index: number) => setSplitDestinations(rows => rows.length <= 2 ? rows : rows.filter((_, i) => i !== index));
+
   const filteredTransfers = useMemo(() => {
     return transfers.filter(t => {
       const matchSearch = t.purpose.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -59,55 +79,115 @@ export default function FundTransfers({ userId, companyId }: Props) {
 
   const handleSaveTransfer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fromCompanyId || !fromAccountId || !toCompanyId || !toAccountId || !amount || !purpose) {
+
+    if (!fromCompanyId || !fromAccountId || !purpose) {
       toast.error("Please fill in all fields.");
       return;
     }
 
-    if (fromAccountId === toAccountId) {
-      toast.error("Source and destination accounts must be different.");
-      return;
-    }
-
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) {
-      toast.error("Amount must be greater than zero.");
-      return;
-    }
-
     const fromAccCheck = allAccounts.find(a => a.id === fromAccountId);
-    if (fromAccCheck && amt > fromAccCheck.currentBalance) {
-      toast.error(`Insufficient funds in ${fromAccCheck.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(fromAccCheck.currentBalance)}`);
-      return;
+
+    if (isSplit) {
+      if (splitDestinations.some(d => !d.toCompanyId || !d.toAccountId || !d.amount)) {
+        toast.error("Please fill in every destination row, or remove unused ones.");
+        return;
+      }
+      if (splitDestinations.some(d => d.toAccountId === fromAccountId)) {
+        toast.error("Source and destination accounts must be different.");
+        return;
+      }
+      const destAccountIds = splitDestinations.map(d => d.toAccountId);
+      if (new Set(destAccountIds).size !== destAccountIds.length) {
+        toast.error("Each destination account can only appear once.");
+        return;
+      }
+      if (splitDestinations.some(d => isNaN(parseFloat(d.amount)) || parseFloat(d.amount) <= 0)) {
+        toast.error("Every split amount must be greater than zero.");
+        return;
+      }
+      if (fromAccCheck && splitTotal > fromAccCheck.currentBalance) {
+        toast.error(`Insufficient funds in ${fromAccCheck.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(fromAccCheck.currentBalance)}`);
+        return;
+      }
+
+      const splitGroupId = `FTSPLIT-${Date.now()}`;
+      splitDestinations.forEach((d, i) => {
+        const newTransfer: FundTransfer = {
+          id: `FT-${Date.now()}-${i}`,
+          requestDate: new Date().toISOString().split('T')[0],
+          fromCompanyId,
+          fromAccountId,
+          toCompanyId: d.toCompanyId,
+          toAccountId: d.toAccountId,
+          amount: parseFloat(d.amount),
+          purpose,
+          receivedAs,
+          requestedBy: userId,
+          approvalRequired: true,
+          status: "Pending",
+          approvedBy: null,
+          dateApproved: null,
+          transferReferenceNumber: null,
+          remarks: "",
+          createdAt: new Date().toISOString(),
+          splitGroupId,
+        };
+        saveFundTransfer(newTransfer, newTransfer.id);
+      });
+
+      toast.success(`Split fund transfer requested across ${splitDestinations.length} destinations.`);
+    } else {
+      if (!toCompanyId || !toAccountId || !amount) {
+        toast.error("Please fill in all fields.");
+        return;
+      }
+
+      if (fromAccountId === toAccountId) {
+        toast.error("Source and destination accounts must be different.");
+        return;
+      }
+
+      const amt = parseFloat(amount);
+      if (isNaN(amt) || amt <= 0) {
+        toast.error("Amount must be greater than zero.");
+        return;
+      }
+
+      if (fromAccCheck && amt > fromAccCheck.currentBalance) {
+        toast.error(`Insufficient funds in ${fromAccCheck.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(fromAccCheck.currentBalance)}`);
+        return;
+      }
+
+      const newTransfer: FundTransfer = {
+        id: `FT-${Date.now()}`,
+        requestDate: new Date().toISOString().split('T')[0],
+        fromCompanyId,
+        fromAccountId,
+        toCompanyId,
+        toAccountId,
+        amount: amt,
+        purpose,
+        receivedAs,
+        requestedBy: userId,
+        approvalRequired: true,
+        status: "Pending",
+        approvedBy: null,
+        dateApproved: null,
+        transferReferenceNumber: null,
+        remarks: "",
+        createdAt: new Date().toISOString()
+      };
+
+      saveFundTransfer(newTransfer, newTransfer.id);
+      toast.success("Fund transfer requested.");
     }
 
-    const newTransfer: FundTransfer = {
-      id: `FT-${Date.now()}`,
-      requestDate: new Date().toISOString().split('T')[0],
-      fromCompanyId,
-      fromAccountId,
-      toCompanyId,
-      toAccountId,
-      amount: amt,
-      purpose,
-      receivedAs,
-      requestedBy: userId,
-      approvalRequired: true,
-      status: "Pending",
-      approvedBy: null,
-      dateApproved: null,
-      transferReferenceNumber: null,
-      remarks: "",
-      createdAt: new Date().toISOString()
-    };
-
-    saveFundTransfer(newTransfer, newTransfer.id);
-
-    toast.success("Fund transfer requested.");
     setShowAddModal(false);
     setAmount("");
     setPurpose("");
     setReceivedAs("sales");
+    setIsSplit(false);
+    setSplitDestinations([emptySplitRow(), emptySplitRow()]);
     setForceRender(prev => prev + 1);
   };
 
@@ -237,7 +317,14 @@ export default function FundTransfers({ userId, companyId }: Props) {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50 transition">
                       <td className="p-4">
-                        <div className="font-bold text-slate-900">{t.requestDate}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                          {t.requestDate}
+                          {t.splitGroupId && (
+                            <span title="Part of a split transfer" className="flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              <Split className="w-2.5 h-2.5" /> Split
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[9px] text-slate-500 mt-0.5">{t.id}</div>
                       </td>
                       <td className="p-4">
@@ -352,47 +439,146 @@ export default function FundTransfers({ userId, companyId }: Props) {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">To Destination</h4>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Company</label>
-                        <select
-                          value={toCompanyId}
-                          onChange={(e) => setToCompanyId(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
-                          required
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">To Destination</h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsSplit(s => !s)}
+                          className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg transition ${
+                            isSplit ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          }`}
                         >
-                          <option value="">Select Company...</option>
-                          {allCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                          <Split className="w-3 h-3" /> Split
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Account</label>
-                        <select
-                          value={toAccountId}
-                          onChange={(e) => setToAccountId(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
-                          required
-                          disabled={!toCompanyId}
-                        >
-                          <option value="">Select Account...</option>
-                          {toCompanyAccounts.map(a => <option key={a.id} value={a.id}>{a.accountName} ({a.bankName})</option>)}
-                        </select>
-                      </div>
+                      {!isSplit && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Company</label>
+                            <select
+                              value={toCompanyId}
+                              onChange={(e) => setToCompanyId(e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                              required
+                            >
+                              <option value="">Select Company...</option>
+                              {allCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Account</label>
+                            <select
+                              value={toAccountId}
+                              onChange={(e) => setToAccountId(e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                              required
+                              disabled={!toCompanyId}
+                            >
+                              <option value="">Select Account...</option>
+                              {toCompanyAccounts.map(a => <option key={a.id} value={a.id}>{a.accountName} ({a.bankName})</option>)}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                      {isSplit && (
+                        <p className="text-xs text-slate-500 font-mono">
+                          One source, split across multiple destinations below.
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {isSplit && (
+                    <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Split Destinations</h4>
+                        <div className="text-xs font-mono text-slate-600">
+                          Total: <span className="font-bold text-slate-900">{formatPeso(splitTotal)}</span>
+                        </div>
+                      </div>
+                      {splitDestinations.map((row, i) => {
+                        const rowAccounts = allAccounts.filter(a => a.companyId === row.toCompanyId);
+                        return (
+                          <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_140px_auto] gap-2 items-end bg-white border border-slate-200 rounded-xl p-3">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Company</label>
+                              <select
+                                value={row.toCompanyId}
+                                onChange={(e) => updateSplitRow(i, { toCompanyId: e.target.value })}
+                                className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                                required
+                              >
+                                <option value="">Select Company...</option>
+                                {allCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Account</label>
+                              <select
+                                value={row.toAccountId}
+                                onChange={(e) => updateSplitRow(i, { toAccountId: e.target.value })}
+                                className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                                required
+                                disabled={!row.toCompanyId}
+                              >
+                                <option value="">Select Account...</option>
+                                {rowAccounts.map(a => <option key={a.id} value={a.id}>{a.accountName} ({a.bankName})</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Amount</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={row.amount}
+                                onChange={(e) => updateSplitRow(i, { amount: e.target.value })}
+                                className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
+                                placeholder="0.00"
+                                required
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeSplitRow(i)}
+                              disabled={splitDestinations.length <= 2}
+                              className="p-2 text-slate-400 hover:text-rose-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                              title="Remove destination"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={addSplitRow}
+                        className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-500 transition"
+                      >
+                        <Plus className="w-3 h-3" /> Add Destination
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Amount (PHP)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
-                        placeholder="0.00"
-                        required
-                      />
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">
+                        {isSplit ? "Total Amount (PHP)" : "Amount (PHP)"}
+                      </label>
+                      {isSplit ? (
+                        <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 font-mono">
+                          {formatPeso(splitTotal)}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
+                          placeholder="0.00"
+                          required
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">Received As</label>
@@ -418,7 +604,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
                       />
                     </div>
                   </div>
-                  
+
                 </form>
               </div>
               

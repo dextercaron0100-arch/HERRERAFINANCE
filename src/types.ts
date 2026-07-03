@@ -164,6 +164,7 @@ export interface FundTransfer {
   transferReferenceNumber: string | null;
   remarks: string;
   createdAt: string;
+  splitGroupId?: string | null;
 }
 
 export interface BankStatementLine {
