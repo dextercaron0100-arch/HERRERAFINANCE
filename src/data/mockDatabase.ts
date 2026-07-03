@@ -194,6 +194,28 @@ let isSeeding = false;
 let lastLocalWriteTime = 0;
 const IS_PRODUCTION = import.meta.env.PROD;
 
+// Coalesce rapid successive writes to the same key into a single Firestore write,
+// so bursts of edits (bulk entry, fast clicking) don't send one write per edit.
+const FIRESTORE_WRITE_DEBOUNCE_MS = 800;
+const pendingWriteTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+const scheduleFirestoreWrite = (key: string) => {
+  if (pendingWriteTimers[key]) clearTimeout(pendingWriteTimers[key]);
+  pendingWriteTimers[key] = setTimeout(() => {
+    delete pendingWriteTimers[key];
+    if (localStorage.getItem("quota_exceeded") === "true") return;
+    const latest = localStorage.getItem(key);
+    if (latest === null) return;
+    const docRef = doc(db, "appData", key);
+    const cleanVal = JSON.parse(latest);
+    safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true }).catch(() => {
+      if (!IS_PRODUCTION) return;
+      window.dispatchEvent(new Event("db-update"));
+      toast.error("Save not confirmed", { description: "Firestore rejected the update. The local change was rolled back." });
+    });
+  }, FIRESTORE_WRITE_DEBOUNCE_MS);
+};
+
 export async function hydrateDatabaseFromFirestore(): Promise<void> {
   if (!IS_PRODUCTION || !db) return;
 
@@ -297,7 +319,6 @@ const sanitizeForFirestore = (data: any) => {
 };
 
 const save = <T>(key: string, val: T): void => {
-  const previousValue = localStorage.getItem(key);
   if (!isSeeding) {
     lastLocalWriteTime = Date.now();
   }
@@ -311,30 +332,12 @@ const save = <T>(key: string, val: T): void => {
   }, 0);
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
-    const docRef = doc(db, "appData", key);
-    
     if (localStorage.getItem("quota_exceeded") === "true") {
-      // If we are recovering from a quota exceeded state, push the full local state to ensure consistency
-      Object.values(KEYS).forEach((k) => {
-        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
-        const v = localStorage.getItem(k);
-        if (v) {
-          const dRef = doc(db, "appData", k);
-          safeSetDoc(dRef, { data: sanitizeForFirestore(JSON.parse(v)) }, { merge: true });
-        }
-      });
-    } else {
-      const cleanVal = JSON.parse(JSON.stringify(val));
-      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true }).catch(() => {
-        if (!IS_PRODUCTION) return;
-        if (previousValue === null) localStorage.removeItem(key);
-        else localStorage.setItem(key, previousValue);
-        if (!memoryDb) memoryDb = {};
-        memoryDb[key] = previousValue === null ? undefined : JSON.parse(previousValue);
-        window.dispatchEvent(new Event("db-update"));
-        toast.error("Save not confirmed", { description: "Firestore rejected the update. The local change was rolled back." });
-      });
+      // Network is disabled while quota is exceeded; skip syncing until it recovers
+      // (safeSetDoc clears this flag automatically once a write succeeds again).
+      return;
     }
+    scheduleFirestoreWrite(key);
   }
 };
 
@@ -347,22 +350,11 @@ const saveSilent = <T>(key: string, val: T): void => {
   memoryDb[key] = val;
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
-    const docRef = doc(db, "appData", key);
-    
     if (localStorage.getItem("quota_exceeded") === "true") {
-      // If we are recovering from a quota exceeded state, push the full local state to ensure consistency
-      Object.values(KEYS).forEach((k) => {
-        if (k === KEYS.CURRENT_USER_ID || k === KEYS.SELECTED_COMPANY_ID) return;
-        const v = localStorage.getItem(k);
-        if (v) {
-          const dRef = doc(db, "appData", k);
-          safeSetDoc(dRef, { data: sanitizeForFirestore(JSON.parse(v)) }, { merge: true });
-        }
-      });
-    } else {
-      const cleanVal = JSON.parse(JSON.stringify(val));
-      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true });
+      // Network is disabled while quota is exceeded; skip syncing until it recovers.
+      return;
     }
+    scheduleFirestoreWrite(key);
   }
 };
 
