@@ -22,6 +22,7 @@ import {
   getTransactions
 } from '../data/mockDatabase';
 import { compressImage } from '../lib/imageUtils';
+import { uploadPrivateDocument } from '../lib/privateDocuments';
 import { toast } from 'sonner';
 import { Transaction } from '../types';
 
@@ -123,7 +124,7 @@ export default function QuickEncodePanel({
   }, [amount, txnDate, formCompanyId, purpose, responsiblePerson, recentTransactions, type]);
 
 
-  const handleSave = (encodeAnother: boolean) => {
+  const handleSave = async (encodeAnother: boolean) => {
     const validAllocations = [...paymentAllocations].filter(p => p.cashAccountId);
 
     if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || validAllocations.length === 0 || !receiptPath) {
@@ -156,6 +157,18 @@ export default function QuickEncodePanel({
       return;
     }
 
+    let finalReceiptPath = receiptPath;
+    try {
+      finalReceiptPath = await uploadPrivateDocument(
+        receiptPath,
+        formCompanyId,
+        `receipt-${Date.now()}`,
+      );
+    } catch (error: any) {
+      toast.error("Secure receipt upload failed", { description: error.message });
+      return;
+    }
+
     let hasError = false;
     for (const alloc of validAllocations) {
       const allocAmt = alloc.amountStr === "" ? 0 : Number(alloc.amountStr.replace(/,/g, ''));
@@ -169,7 +182,7 @@ export default function QuickEncodePanel({
         purpose,
         responsiblePerson,
         remarks: remarks.trim() || null,
-        receiptPath,
+        receiptPath: finalReceiptPath,
         tags,
         mockMetadata: null,
         paymentMethod: "",

@@ -839,7 +839,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                       <button
                         onClick={async () => {
                           try {
-                            await emptyDashboardData();
+                            await emptyDashboardData(userId);
                             toast.success("Dashboard Emptied Successfully");
                             setTimeout(() => {
                               window.location.href = '/';
@@ -875,7 +875,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                       <button
                         onClick={async () => {
                           try {
-                            await emptyDataExceptCashAccounts();
+                            await emptyDataExceptCashAccounts(userId);
                             toast.success("Dashboard Emptied (Kept Cash Accounts) Successfully");
                             setTimeout(() => {
                               window.location.href = '/';
@@ -911,7 +911,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                       <button
                         onClick={async () => {
                           try {
-                            await resetAllData();
+                            await resetAllData(userId);
                             toast.success("Database Reset Successfully");
                             setTimeout(() => {
                               window.location.href = '/';

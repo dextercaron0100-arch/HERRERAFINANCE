@@ -172,7 +172,7 @@ export const DEFAULT_CASH_IN_CATEGORIES = [...SHARED_CATEGORIES];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { doc, getDoc, setDoc, onSnapshot, disableNetwork } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, disableNetwork } from "firebase/firestore";
 import { toast } from "sonner";
 
 let hasNotifiedQuota = false;
@@ -192,6 +192,33 @@ let memoryDb: Record<string, any> | null = null;
 let dbInitialized = false;
 let isSeeding = false;
 let lastLocalWriteTime = 0;
+const IS_PRODUCTION = import.meta.env.PROD;
+
+export async function hydrateDatabaseFromFirestore(): Promise<void> {
+  if (!IS_PRODUCTION || !db) return;
+
+  try {
+    const snapshot = await getDocs(collection(db, "appData"));
+    if (snapshot.empty) {
+      throw new Error("The production Firestore database is empty. Seed data was not created for safety.");
+    }
+
+    if (!memoryDb) memoryDb = {};
+    snapshot.forEach(remoteDoc => {
+      const key = remoteDoc.id;
+      if (key === "master" || !Object.values(KEYS).includes(key)) return;
+      const remoteData = remoteDoc.data().data;
+      if (remoteData === undefined) return;
+      localStorage.setItem(key, JSON.stringify(remoteData));
+      memoryDb![key] = remoteData;
+    });
+    localStorage.setItem(`${DB_PREFIX}production_hydrated_at`, new Date().toISOString());
+  } catch (error) {
+    // A previously confirmed Firestore snapshot may be used as an offline cache.
+    if (!localStorage.getItem(KEYS.COMPANIES)) throw error;
+    console.warn("Firestore unavailable; using the last confirmed local cache.", error);
+  }
+}
 
 const safeSetDoc = async (docRef: any, data: any, options: any) => {
   try {
@@ -270,6 +297,7 @@ const sanitizeForFirestore = (data: any) => {
 };
 
 const save = <T>(key: string, val: T): void => {
+  const previousValue = localStorage.getItem(key);
   if (!isSeeding) {
     lastLocalWriteTime = Date.now();
   }
@@ -297,7 +325,15 @@ const save = <T>(key: string, val: T): void => {
       });
     } else {
       const cleanVal = JSON.parse(JSON.stringify(val));
-      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true });
+      safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true }).catch(() => {
+        if (!IS_PRODUCTION) return;
+        if (previousValue === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, previousValue);
+        if (!memoryDb) memoryDb = {};
+        memoryDb[key] = previousValue === null ? undefined : JSON.parse(previousValue);
+        window.dispatchEvent(new Event("db-update"));
+        toast.error("Save not confirmed", { description: "Firestore rejected the update. The local change was rolled back." });
+      });
     }
   }
 };
@@ -511,6 +547,7 @@ export function initDB() {
   isSeeding = true;
   let justSeeded = false;
 
+  if (!IS_PRODUCTION) {
   if (!localStorage.getItem(KEYS.COMPANIES)) {
     justSeeded = true;
     save(KEYS.COMPANIES, SEED_COMPANIES);
@@ -777,6 +814,10 @@ export function initDB() {
     if (compsChanged) safeSetDoc(doc(db, "appData", KEYS.COMPANIES), { data: JSON.parse(localStorage.getItem(KEYS.COMPANIES) || '[]') }, { merge: true });
     if (catsChanged) safeSetDoc(doc(db, "appData", KEYS.CATEGORIES), { data: JSON.parse(localStorage.getItem(KEYS.CATEGORIES) || '[]') }, { merge: true });
   }
+  }
+
+  // Production never creates, repairs, imports, or pushes seed data.
+  isSeeding = false;
 
   // Hook Firebase Realtime Updates
   if (db) {
@@ -785,7 +826,11 @@ export function initDB() {
       
       // Do initial fetch to see if data exists
       getDocs(colRef).then((snapshot) => {
-        if (snapshot.empty) {
+         if (snapshot.empty) {
+           if (IS_PRODUCTION) {
+             console.error("Production Firestore is empty; refusing to upload cached or seed data.");
+             return;
+           }
            if (justSeeded) {
              // Push existing data up
              Object.values(KEYS).forEach((k) => {
@@ -1082,7 +1127,14 @@ export function getAuditLogs(
 }
 
 // TRANSACTION READ/WRITE (WITH RLS CHECKS MOCKED)
-export async function resetAllData() {
+function requireGroupAdmin(userId: string) {
+  if (!userId || !isGroupAdmin(userId)) {
+    throw new Error("Only a Group Admin can perform this destructive operation.");
+  }
+}
+
+export async function resetAllData(userId: string) {
+  requireGroupAdmin(userId);
   localStorage.clear();
   memoryDb = null;
   dbInitialized = false;
@@ -1115,7 +1167,8 @@ export async function resetAllData() {
   }
 }
 
-export async function emptyDataExceptCashAccounts() {
+export async function emptyDataExceptCashAccounts(userId: string) {
+  requireGroupAdmin(userId);
   const keysToEmpty = [
     KEYS.TRANSACTIONS, KEYS.APPROVALS, KEYS.BUDGETS, KEYS.PAYABLES,
     KEYS.RECEIVABLES, KEYS.EMPLOYEES, KEYS.PAYROLL_RUNS, KEYS.PAYROLL_ITEMS,
@@ -1154,7 +1207,8 @@ export async function emptyDataExceptCashAccounts() {
   }
 }
 
-export async function emptyDashboardData() {
+export async function emptyDashboardData(userId: string) {
+  requireGroupAdmin(userId);
   const keysToEmpty = [
     KEYS.TRANSACTIONS, KEYS.APPROVALS, KEYS.BUDGETS, KEYS.PAYABLES,
     KEYS.RECEIVABLES, KEYS.EMPLOYEES, KEYS.PAYROLL_RUNS, KEYS.PAYROLL_ITEMS,
