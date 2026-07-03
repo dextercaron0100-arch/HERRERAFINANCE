@@ -2547,7 +2547,7 @@ export function getCashAccounts(companyId: string): CashAccount[] {
     return { ...acc, currentBalance: balance };
   });
 
-  if (companyId === "all") return all;
+  if (!companyId || companyId === "all") return all;
   return all.filter(a => a.companyId === companyId);
 }
 
@@ -2711,6 +2711,7 @@ export function saveReconciliationMatch(
 export function getCashCustodians(companyId: string): CashCustodian[] {
   initDB();
   const all = load<CashCustodian[]>(KEYS.CASH_CUSTODIANS, []);
+  if (!companyId || companyId === "all") return all;
   return all.filter(c => c.companyId === companyId);
 }
 
