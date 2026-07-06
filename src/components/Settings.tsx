@@ -24,7 +24,6 @@ const NAV_LABELS: Record<string, string> = {
   "payroll": "Wages & Payroll",
   "reports": "Executive Sheets",
   "cash_acc": "Cash & Bank",
-  "bank_rec": "Bank Reconciliation",
   "vault": "Document Vault",
   "enterprise": "Enterprise Suite",
   "tax_compliance": "Tax Compliance",

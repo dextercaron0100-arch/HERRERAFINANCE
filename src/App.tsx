@@ -39,7 +39,6 @@ import {
   Sun,
   Moon,
   RefreshCw,
-  BookOpen,
   Notebook,
   PanelLeftClose,
   PanelLeftOpen,
@@ -60,7 +59,6 @@ import PayablesReceivables from "./components/PayablesReceivables";
 import Payroll from "./components/Payroll";
 import DueDates from "./components/DueDates";
 import Reports from "./components/Reports";
-import BankReconciliation from "./components/BankReconciliation";
 import CashBankModule from "./components/CashBankModule";
 import AuditLog from "./components/AuditLog";
 import EnterpriseSuite from "./components/EnterpriseSuite";
@@ -100,7 +98,6 @@ type ActivePage =
   | "due_dates"
   | "reports"
   | "cash_acc"
-  | "bank_rec"
   | "vault"
   | "enterprise"
   | "tax_compliance"
@@ -132,7 +129,6 @@ export default function App() {
     "due_dates",
     "reports",
     "cash_acc",
-    "bank_rec",
     "vault",
     "enterprise",
     "tax_compliance",
@@ -237,7 +233,6 @@ export default function App() {
         "due_dates",
         "reports",
         "cash_acc",
-        "bank_rec",
         "assistant",
         "vault",
         "enterprise",
@@ -268,7 +263,6 @@ export default function App() {
         "due_dates",
         "reports",
         "cash_acc",
-        "bank_rec",
         "assistant",
         "vault",
         "enterprise",
@@ -793,11 +787,6 @@ export default function App() {
                       icon: Notebook,
                     },
                     {
-                      id: "bank_rec",
-                      label: "Bank Reconciliation",
-                      icon: BookOpen,
-                    },
-                    {
                       id: "vault",
                       label: "Document Vault",
                       icon: FileText,
@@ -1142,13 +1131,6 @@ export default function App() {
 
               {activePage === "cash_acc" && (
                 <CashBankModule
-                  userId={activeUserId}
-                  companyId={activeCompanyId}
-                />
-              )}
-
-              {activePage === "bank_rec" && (
-                <BankReconciliation
                   userId={activeUserId}
                   companyId={activeCompanyId}
                 />
