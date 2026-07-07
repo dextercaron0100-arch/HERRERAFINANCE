@@ -183,14 +183,11 @@ export const SEED_ROLES: UserCompanyRole[] = [
   { userId: "u-kayla-sct", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
 ];
 
-export const DEFAULT_CASH_IN_CATEGORIES = [
+const SHARED_CATEGORIES = [
   "Sales",
   "Capital",
-  "Accounts Receivable",
-];
-
-export const DEFAULT_CASH_OUT_CATEGORIES = [
   "Accounts Payable",
+  "Accounts Receivable",
   "Rent Exp.",
   "Payout Exp.",
   "Permit Exp.",
@@ -211,6 +208,10 @@ export const DEFAULT_CASH_OUT_CATEGORIES = [
   "Bank Fee",
   "Shipping Fee",
 ];
+
+export const DEFAULT_CASH_IN_CATEGORIES = [...SHARED_CATEGORIES];
+
+export const DEFAULT_CASH_OUT_CATEGORIES = [...SHARED_CATEGORIES];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
