@@ -142,18 +142,12 @@ export const SEED_ROLES: UserCompanyRole[] = [];
 
 const SHARED_CATEGORIES = [
   "Capital",
-  "Sales (COG Sold)",
-  "Purchases (COG)",
-  "COG Stock",
-  "Expenses",
   "Liabilities",
   "Permits",
   "Rental",
   "Payouts",
   "Salary",
-  "Payroll",
   "Bonus",
-  "3rd Party",
   "Govt Contribution",
   "Utility",
   "Meralco",

@@ -211,9 +211,12 @@ export default function App() {
   }, []);
 
   const currentRole = getUserRole(activeUserId, activeCompanyId);
-  const currentUserRoleData = rolesState.find(
-    (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
-  );
+  const currentUserRoleData =
+    activeCompanyId === "all"
+      ? rolesState.find((r) => r.userId === activeUserId)
+      : rolesState.find(
+          (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
+        );
 
   useEffect(() => {
     if (
