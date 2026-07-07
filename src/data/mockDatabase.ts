@@ -1266,6 +1266,32 @@ export async function emptyDashboardData(userId: string) {
   }
 }
 
+export async function removeCategoriesByName(userId: string, names: string[]): Promise<{ removedCount: number }> {
+  requireGroupAdmin(userId);
+  const lowerNames = names.map((n) => n.toLowerCase());
+  const allCats = load<Category[]>(KEYS.CATEGORIES, []);
+  const kept = allCats.filter((c) => !lowerNames.includes(c.name.toLowerCase()));
+  const removedCount = allCats.length - kept.length;
+
+  if (removedCount === 0) return { removedCount: 0 };
+
+  save(KEYS.CATEGORIES, kept);
+
+  if (db) {
+    try {
+      const docRef = doc(db, "appData", KEYS.CATEGORIES);
+      await safeSetDoc(docRef, { data: kept }, { merge: true });
+    } catch (e: any) {
+      if (e?.code !== 'resource-exhausted') {
+        console.error("Failed to write categories to Firestore:", e);
+      }
+      throw e;
+    }
+  }
+
+  return { removedCount };
+}
+
 export function getTransactions(
   userId: string,
   companyId: string | null = null,
