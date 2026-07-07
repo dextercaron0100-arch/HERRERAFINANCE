@@ -160,9 +160,16 @@ export const SEED_PROFILES: Profile[] = [
     createdAt: "2026-07-07T08:00:00Z",
   },
   {
-    id: "u-kayla",
-    fullName: "Kayla",
-    email: "kaylaaccounting@herrera.com",
+    id: "u-kayla-bls",
+    fullName: "Kayla (Blesscent)",
+    email: "kaylaaccountingblesscent@herrera.com",
+    isGroupAdmin: false,
+    createdAt: "2026-07-07T08:00:00Z",
+  },
+  {
+    id: "u-kayla-sct",
+    fullName: "Kayla (Scentimo)",
+    email: "kaylaaccountingscentimo@herrera.com",
     isGroupAdmin: false,
     createdAt: "2026-07-07T08:00:00Z",
   },
@@ -172,8 +179,8 @@ export const SEED_ROLES: UserCompanyRole[] = [
   { userId: "u-claine-bgs", companyId: "c-bgs", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
   { userId: "u-claine-frh", companyId: "c-frh", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
   { userId: "u-claine-hbp", companyId: "c-hbp", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-kayla", companyId: "c-bls", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-kayla", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla-bls", companyId: "c-bls", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla-sct", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
 ];
 
 const SHARED_CATEGORIES = [
