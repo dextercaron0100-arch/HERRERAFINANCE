@@ -183,29 +183,34 @@ export const SEED_ROLES: UserCompanyRole[] = [
   { userId: "u-kayla-sct", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
 ];
 
-const SHARED_CATEGORIES = [
+export const DEFAULT_CASH_IN_CATEGORIES = [
+  "Sales",
   "Capital",
-  "Liabilities",
-  "Permits",
-  "Rental",
-  "Payouts",
-  "Salary",
-  "Bonus",
-  "Govt Contribution",
-  "Utility",
-  "Meralco",
-  "Water",
-  "Internet",
-  "Transportation",
-  "Supplies",
-  "Cleaning Mats",
-  "Office Supplies",
-  "Equipment",
+  "Accounts Receivable",
 ];
 
-export const DEFAULT_CASH_OUT_CATEGORIES = [...SHARED_CATEGORIES];
-
-export const DEFAULT_CASH_IN_CATEGORIES = [...SHARED_CATEGORIES];
+export const DEFAULT_CASH_OUT_CATEGORIES = [
+  "Accounts Payable",
+  "Rent Exp.",
+  "Payout Exp.",
+  "Permit Exp.",
+  "Salary Exp.",
+  "Bonus Exp.",
+  "Marketing Exp.",
+  "Govt Contibution Exp.",
+  "Electric Utility",
+  "Water Utility",
+  "Internet Utility",
+  "Transportation",
+  "Office Supplies",
+  "Cleaning Materials",
+  "Office Equipment",
+  "Fix & Furnitures",
+  "Software & Subscription",
+  "Repair & Maintenance",
+  "Bank Fee",
+  "Shipping Fee",
+];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
