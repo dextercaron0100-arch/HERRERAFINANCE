@@ -1,11 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, User, signInWithPopup } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || "(default)"); // Provide the specific database ID or default
 export const auth = getAuth(app);
+const functions = getFunctions(app);
+
+export const resetUserPassword = async (email: string, newPassword: string): Promise<{ status: string }> => {
+  const callable = httpsCallable<{ email: string; newPassword: string }, { status: string }>(functions, 'resetUserPassword');
+  const result = await callable({ email, newPassword });
+  return result.data;
+};
 
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/drive');

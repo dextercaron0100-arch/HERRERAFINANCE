@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle, KeyRound } from 'lucide-react';
 import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData, emptyDashboardData, emptyDataExceptCashAccounts, saveCompany, deleteCompany, removeCategoriesByName } from '../data/mockDatabase';
+import { resetUserPassword } from '../lib/firebase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '../types';
 import { toast } from "sonner";
 
@@ -76,6 +77,33 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
   const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'layout' | 'companies'>('layout');
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
   const [isConfirmingCategoryCleanup, setIsConfirmingCategoryCleanup] = useState(false);
+  const [resettingPasswordUserId, setResettingPasswordUserId] = useState<string | null>(null);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const handleResetPassword = async (profile: Profile) => {
+    if (newPasswordValue.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPasswordValue !== confirmPasswordValue) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      const { status } = await resetUserPassword(profile.email, newPasswordValue);
+      toast.success(status === 'created' ? `Password set for ${profile.fullName}.` : `Password reset for ${profile.fullName}.`);
+      setResettingPasswordUserId(null);
+      setNewPasswordValue('');
+      setConfirmPasswordValue('');
+    } catch (e: any) {
+      toast.error("Failed to reset password", { description: e.message });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
   const [editCompanyData, setEditCompanyData] = useState<Partial<Company>>({});
   const [isAddingCompany, setIsAddingCompany] = useState(false);
@@ -652,6 +680,25 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                                 <Edit2 className="w-4 h-4" />
                               </button>
                             )}
+                            {!isEditing && (
+                              <button
+                                onClick={() => {
+                                  if (userId === 'u-it' || profile.id === 'u-it') return;
+                                  setResettingPasswordUserId(profile.id);
+                                  setNewPasswordValue('');
+                                  setConfirmPasswordValue('');
+                                }}
+                                disabled={userId === 'u-it' || profile.id === 'u-it'}
+                                className={`ml-2 p-1.5 bg-transparent border rounded transition-colors ${
+                                  (userId === 'u-it' || profile.id === 'u-it')
+                                  ? 'opacity-50 cursor-not-allowed border-slate-200 text-zinc-600'
+                                  : 'text-slate-500 border-slate-200 hover:text-amber-500 hover:border-amber-400/50'
+                                }`}
+                                title="Reset password"
+                              >
+                                <KeyRound className="w-4 h-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1029,6 +1076,71 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
           </div>
         )}
       </div>
+
+      {resettingPasswordUserId && (() => {
+        const targetProfile = profiles.find(p => p.id === resettingPasswordUserId);
+        if (!targetProfile) return null;
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+              <div className="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-amber-500" />
+                  Reset Password
+                </h3>
+                <button
+                  onClick={() => setResettingPasswordUserId(null)}
+                  className="p-1 hover:bg-slate-200 rounded transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-slate-600 font-mono">
+                  Set a new password for <span className="font-bold text-slate-900">{targetProfile.fullName}</span> ({targetProfile.email}).
+                </p>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">New Password</label>
+                  <input
+                    type="password"
+                    autoFocus
+                    value={newPasswordValue}
+                    onChange={(e) => setNewPasswordValue(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                    placeholder="Min. 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPasswordValue}
+                    onChange={(e) => setConfirmPasswordValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword(targetProfile); }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                    placeholder="Re-enter password"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+                <button
+                  onClick={() => setResettingPasswordUserId(null)}
+                  className="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold transition uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleResetPassword(targetProfile)}
+                  disabled={isResettingPassword}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-sm font-bold transition uppercase tracking-wider shadow-sm disabled:opacity-50"
+                >
+                  {isResettingPassword ? "Saving..." : "Reset Password"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
