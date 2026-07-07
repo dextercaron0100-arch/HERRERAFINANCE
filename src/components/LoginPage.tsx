@@ -60,14 +60,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setErrorMsg('');
   };
 
+  // Note: this only checks the domain suffix. Whether a real app profile exists
+  // for this email can't be verified client-side before authentication (the
+  // profile list is loaded from Firestore, which requires a signed-in user to
+  // read). The actual authorization check happens post-login in
+  // onAuthStateChanged above, which signs the user back out if no profile matches.
   const checkAuthorizedEmail = (lowerEmail: string): string | null => {
     if (!lowerEmail.endsWith('@herrera.com')) {
       return "Unauthorized email address. Only Herrera domain accounts are allowed.";
-    }
-    const profiles = getProfiles();
-    const matchesProfile = profiles.some(p => p.email.toLowerCase() === lowerEmail);
-    if (!matchesProfile) {
-      return "Unauthorized email address.";
     }
     return null;
   };
