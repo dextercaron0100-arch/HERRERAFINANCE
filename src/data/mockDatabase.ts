@@ -175,12 +175,20 @@ export const SEED_PROFILES: Profile[] = [
   },
 ];
 
+// All sidebar sections except "dashboard" and "settings" - used for accounts
+// that should be scoped to a single company and not see those two pages.
+const SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS = [
+  "accounting_workbench", "ledger", "money_flow", "budgets", "approvals",
+  "assistant", "owner_dashboard", "pay_rec", "payroll", "reports", "cash_acc",
+  "vault", "enterprise", "tax_compliance", "audit_log", "workspace",
+];
+
 export const SEED_ROLES: UserCompanyRole[] = [
-  { userId: "u-claine-bgs", companyId: "c-bgs", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-claine-frh", companyId: "c-frh", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-claine-hbp", companyId: "c-hbp", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-kayla-bls", companyId: "c-bls", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-kayla-sct", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-bgs", companyId: "c-bgs", role: "finance_officer", allowedSections: SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS, createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-frh", companyId: "c-frh", role: "finance_officer", allowedSections: SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS, createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-hbp", companyId: "c-hbp", role: "finance_officer", allowedSections: SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS, createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla-bls", companyId: "c-bls", role: "finance_officer", allowedSections: SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS, createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla-sct", companyId: "c-sct", role: "finance_officer", allowedSections: SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS, createdAt: "2026-07-07T08:00:00Z" },
 ];
 
 const SHARED_CATEGORIES = [
