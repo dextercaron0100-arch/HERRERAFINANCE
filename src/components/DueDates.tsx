@@ -25,7 +25,12 @@ import {
   markReceivableAsCollected,
   canWriteFinance,
   writeAuditLog,
+  getCustomDeadlines,
+  saveCustomDeadline,
+  deleteCustomDeadline,
+  useDBUpdate,
 } from "../data/mockDatabase";
+import { CustomDeadline } from "../types";
 import { toast } from "sonner";
 
 interface DueDatesProps {
@@ -34,18 +39,22 @@ interface DueDatesProps {
   onAuditLogged: () => void;
 }
 
-interface CustomDeadline {
-  id: string;
-  companyId: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  type: "tax" | "utilities" | "compliance" | "other";
-  amount?: number;
-  status: "pending" | "completed";
-}
+const addPeriod = (dateStr: string, recurrence: "monthly" | "yearly"): string => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const next = new Date(y, m - 1, d);
+  if (recurrence === "monthly") {
+    next.setMonth(next.getMonth() + 1);
+  } else {
+    next.setFullYear(next.getFullYear() + 1);
+  }
+  const yy = next.getFullYear();
+  const mm = String(next.getMonth() + 1).padStart(2, "0");
+  const dd = String(next.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+};
 
 export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesProps) {
+  const dbTick = useDBUpdate();
   const companies = getCompanies();
   const rawPayables = getPayables(userId, companyId);
   const rawReceivables = getReceivables(userId, companyId);
@@ -53,33 +62,11 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
 
   const isAdmin = canWriteFinance(userId, companyId);
 
-  const getDefaultDeadlines = (): CustomDeadline[] => {
-    return [];
-  };
-
-  // Custom Deadlines state with local storage persistence
-  const [customDeadlines, setCustomDeadlines] = useState<CustomDeadline[]>(() => {
-    if (!localStorage.getItem("due_dates_cleared_v1")) {
-      localStorage.removeItem("custom_compliance_deadlines");
-      localStorage.setItem("due_dates_cleared_v1", "true");
-    }
-
-    const saved = localStorage.getItem("custom_compliance_deadlines");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
-    }
-    return getDefaultDeadlines();
-  });
-
-  // Save custom deadlines helper
-  const saveCustomDeadlines = (newDeadlines: CustomDeadline[]) => {
-    setCustomDeadlines(newDeadlines);
-    localStorage.setItem("custom_compliance_deadlines", JSON.stringify(newDeadlines));
-  };
+  // Custom Deadlines - shared/synced storage (Firestore-backed), scoped by company access
+  const customDeadlines = useMemo(
+    () => getCustomDeadlines(userId, companyId),
+    [userId, companyId, dbTick]
+  );
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -89,6 +76,8 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
   const [formType, setFormType] = useState<"tax" | "utilities" | "compliance" | "other">("compliance");
   const [formAmount, setFormAmount] = useState("");
   const [formCompany, setFormCompany] = useState(companyId === "all" ? "c-bls" : companyId);
+  const [formRecurrence, setFormRecurrence] = useState<"once" | "monthly" | "yearly">("once");
+  const [formNotifyDays, setFormNotifyDays] = useState("2");
 
   // Filters
   const [filterType, setFilterType] = useState<"all" | "payable" | "receivable" | "payroll" | "compliance">("all");
@@ -255,8 +244,9 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
       return;
     }
 
+    const newId = `c-dl-${Date.now()}`;
     const newItem: CustomDeadline = {
-      id: `c-dl-${Date.now()}`,
+      id: newId,
       companyId: formCompany,
       title: formTitle.trim(),
       description: formDesc.trim(),
@@ -264,11 +254,12 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
       type: formType,
       amount: formAmount ? parseFloat(formAmount) : undefined,
       status: "pending",
+      recurrence: formRecurrence,
+      notifyDaysBefore: formNotifyDays ? parseInt(formNotifyDays, 10) : 2,
     };
 
-    const updated = [...customDeadlines, newItem];
-    saveCustomDeadlines(updated);
-    
+    saveCustomDeadline(newItem, newId);
+
     // Log Audit Trail
     writeAuditLog(
       userId,
@@ -285,6 +276,8 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
     setFormDesc("");
     setFormDueDate("");
     setFormAmount("");
+    setFormRecurrence("once");
+    setFormNotifyDays("2");
     onAuditLogged();
   };
 
@@ -296,25 +289,34 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
     }
 
     if (item.type === "compliance") {
-      const updated = customDeadlines.map((cd) => {
-        if (cd.id === item.id) {
-          const newStatus = cd.status === "completed" ? "pending" : "completed";
-          
-          writeAuditLog(
-            userId,
-            cd.companyId,
-            `Toggled Custom Compliance Due Date: ${cd.title}`,
-            "compliance",
-            cd.id,
-            { status: newStatus }
-          );
+      const cd: CustomDeadline = item.originalItem;
+      const isClosing = cd.status !== "completed";
 
-          return { ...cd, status: newStatus as any };
-        }
-        return cd;
-      });
-      saveCustomDeadlines(updated);
-      toast.success("Deadline status updated.");
+      if (isClosing && (cd.recurrence === "monthly" || cd.recurrence === "yearly")) {
+        const nextDueDate = addPeriod(cd.dueDate, cd.recurrence);
+        saveCustomDeadline({ ...cd, dueDate: nextDueDate, status: "pending" }, cd.id);
+        writeAuditLog(
+          userId,
+          cd.companyId,
+          `Rescheduled Recurring Due Date: ${cd.title} to ${nextDueDate}`,
+          "compliance",
+          cd.id,
+          { dueDate: nextDueDate }
+        );
+        toast.success(`Recurring deadline rescheduled to ${nextDueDate}.`);
+      } else {
+        const newStatus = isClosing ? "completed" : "pending";
+        saveCustomDeadline({ ...cd, status: newStatus }, cd.id);
+        writeAuditLog(
+          userId,
+          cd.companyId,
+          `Toggled Custom Compliance Due Date: ${cd.title}`,
+          "compliance",
+          cd.id,
+          { status: newStatus }
+        );
+        toast.success("Deadline status updated.");
+      }
       onAuditLogged();
     } else if (item.type === "payable") {
       if (item.status === "completed") {
@@ -359,8 +361,7 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
     }
     const confirm = window.confirm(`Are you sure you want to delete '${title}'?`);
     if (confirm) {
-      const updated = customDeadlines.filter((cd) => cd.id !== id);
-      saveCustomDeadlines(updated);
+      deleteCustomDeadline(id);
       writeAuditLog(
         userId,
         null,
@@ -504,8 +505,8 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
           <div className="flex gap-2">
             <button
               onClick={() => {
-                if (window.confirm("Are you sure you want to empty all custom due date details?")) {
-                  saveCustomDeadlines([]);
+                if (window.confirm("Are you sure you want to empty all visible custom due date details?")) {
+                  customDeadlines.forEach((cd) => deleteCustomDeadline(cd.id));
                   toast.success("Due date details have been emptied.");
                   onAuditLogged();
                 }
@@ -684,6 +685,38 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                       </option>
                     ))}
                   </select>
+                </div>
+
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider mb-1">
+                    Repeat
+                  </label>
+                  <select
+                    value={formRecurrence}
+                    onChange={(e: any) => setFormRecurrence(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs text-slate-900 px-3 py-2 rounded-xl focus:outline-hidden focus:border-indigo-500 font-mono"
+                  >
+                    <option value="once">One-time / Fixed Date</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider mb-1">
+                    Remind Me (Days Before)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formNotifyDays}
+                    onChange={(e) => setFormNotifyDays(e.target.value)}
+                    placeholder="2"
+                    className="w-full bg-slate-50 border border-slate-200 text-xs text-slate-900 px-3 py-2 rounded-xl focus:outline-hidden focus:border-indigo-500 font-mono"
+                  />
                 </div>
 
                 <div className="flex items-end">
@@ -922,6 +955,15 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                     countdownColor = "text-indigo-600";
                   }
 
+                  const notifyDaysBefore = item.type === "compliance"
+                    ? (item.originalItem as CustomDeadline).notifyDaysBefore ?? 2
+                    : 2;
+                  const isReminderDue =
+                    item.status !== "completed" && diffDays >= 0 && diffDays <= notifyDaysBefore;
+                  const recurrence = item.type === "compliance"
+                    ? (item.originalItem as CustomDeadline).recurrence
+                    : undefined;
+
                   const com = companies.find((c) => c.id === item.companyId);
 
                   return (
@@ -965,10 +1007,25 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
 
                       {/* Due Date & Countdown */}
                       <td className="p-3">
-                        <div className="font-mono text-slate-900 font-bold">{item.dueDate}</div>
+                        <div className="font-mono text-slate-900 font-bold flex items-center gap-1.5">
+                          {item.dueDate}
+                          {recurrence && recurrence !== "once" && (
+                            <span
+                              className="text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200"
+                              title={`Repeats ${recurrence}`}
+                            >
+                              {recurrence}
+                            </span>
+                          )}
+                        </div>
                         <div className={`text-[9px] font-mono uppercase font-bold tracking-wider mt-0.5 ${countdownColor}`}>
                           {countdownText}
                         </div>
+                        {isReminderDue && (
+                          <div className="text-[8px] font-mono font-bold uppercase tracking-wider text-amber-600 mt-0.5 flex items-center gap-1">
+                            <Info className="w-2.5 h-2.5" /> Reminder
+                          </div>
+                        )}
                       </td>
 
                       {/* Status Badge */}

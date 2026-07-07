@@ -146,6 +146,13 @@ export interface BankDeposit {
   createdAt: string;
 }
 
+export interface FundTransferAttachment {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileUrl: string;
+}
+
 export interface FundTransfer {
   id: string;
   requestDate: string;
@@ -165,6 +172,20 @@ export interface FundTransfer {
   remarks: string;
   createdAt: string;
   splitGroupId?: string | null;
+  proofOfTransferAttachments?: FundTransferAttachment[];
+}
+
+export interface CustomDeadline {
+  id: string;
+  companyId: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  type: 'tax' | 'utilities' | 'compliance' | 'other';
+  amount?: number;
+  status: 'pending' | 'completed';
+  recurrence?: 'once' | 'monthly' | 'yearly';
+  notifyDaysBefore?: number;
 }
 
 export interface BankStatementLine {

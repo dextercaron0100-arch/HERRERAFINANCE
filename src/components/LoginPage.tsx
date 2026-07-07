@@ -3,7 +3,13 @@ import { getProfiles, hydrateDatabaseFromFirestore, initDB } from '../data/mockD
 import { Lock, Mail, Briefcase, Shield, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+} from 'firebase/auth';
 
 interface LoginPageProps {
   onLogin: (userId: string) => void;
@@ -12,9 +18,11 @@ interface LoginPageProps {
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  
+
   useEffect(() => {
     initDB();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -45,28 +53,68 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     return () => unsubscribe();
   }, [onLogin]);
 
+  const handleSwitchMode = (next: 'signin' | 'signup') => {
+    setMode(next);
+    setPassword('');
+    setConfirmPassword('');
+    setErrorMsg('');
+  };
+
+  const checkAuthorizedEmail = (lowerEmail: string): string | null => {
+    if (!lowerEmail.endsWith('@herrera.com')) {
+      return "Unauthorized email address. Only Herrera domain accounts are allowed.";
+    }
+    const profiles = getProfiles();
+    const matchesProfile = profiles.some(p => p.email.toLowerCase() === lowerEmail);
+    if (!matchesProfile) {
+      return "Unauthorized email address.";
+    }
+    return null;
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg("Email and password required.");
+    const lowerEmail = email.trim().toLowerCase();
+    const authError = checkAuthorizedEmail(lowerEmail);
+    if (authError) {
+      setErrorMsg(authError);
+      return;
+    }
+    if (!password) {
+      setErrorMsg("Password required.");
       return;
     }
 
-    const lowerEmail = email.trim().toLowerCase();
-    const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com", "it@herrera.com"];
-    const isHerrera = validEmails.includes(lowerEmail);
-
-    if (!isHerrera) {
-      setErrorMsg("Unauthorized email address. Only Herrera domain accounts are allowed.");
-      return;
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setErrorMsg("Password must be at least 8 characters.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg("Passwords do not match.");
+        return;
+      }
     }
 
     setIsLoading(true);
     setErrorMsg('');
     try {
-      await signInWithEmailAndPassword(auth, lowerEmail, password);
+      if (mode === 'signup') {
+        await createUserWithEmailAndPassword(auth, lowerEmail, password);
+      } else {
+        await signInWithEmailAndPassword(auth, lowerEmail, password);
+      }
     } catch (err: any) {
-      setErrorMsg(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setMode('signin');
+        setPassword('');
+        setConfirmPassword('');
+        setErrorMsg("An account already exists for this email. Please sign in instead.");
+      } else if (err.code === 'auth/invalid-credential') {
+        setErrorMsg('Invalid email or password.');
+      } else {
+        setErrorMsg(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +216,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 {errorMsg}
               </div>
             )}
-            
+
             <div>
               <label htmlFor="email" className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 font-mono">
                 Identity Email
@@ -195,7 +243,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
             <div>
               <label htmlFor="pin" className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 font-mono">
-                Passphrase
+                {mode === 'signup' ? "Create Passphrase" : "Passphrase"}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -205,7 +253,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   id="pin"
                   name="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete={mode === 'signup' ? "new-password" : "current-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -214,15 +262,51 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </div>
             </div>
 
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="pin-confirm" className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2 font-mono">
+                  Confirm Passphrase
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    id="pin-confirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="appearance-none block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 placeholder-zinc-600 sm:text-sm focus:outline-hidden focus:ring-1 focus:ring-[#00B67A] focus:border-[#00B67A]"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-xs text-sm font-bold uppercase tracking-widest text-slate-900 bg-[#00B67A] hover:bg-[#00B67A]/90 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#00B67A] transition-all disabled:opacity-50"
               >
-                {isLoading ? "Authenticating..." : "Access Mainframe"} <ChevronRight className="w-4 h-4" />
+                {isLoading
+                  ? "Please wait..."
+                  : mode === 'signup'
+                    ? "Create Password & Sign In"
+                    : "Access Mainframe"} <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => handleSwitchMode(mode === 'signup' ? 'signin' : 'signup')}
+              disabled={isLoading}
+              className="w-full text-center text-xs text-slate-500 font-mono uppercase tracking-widest hover:text-slate-700 transition-colors disabled:opacity-50"
+            >
+              {mode === 'signup' ? "Already have a password? Sign in" : "First time here? Set up your password"}
+            </button>
           </form>
           
           <div className="mt-6">

@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User, Split, X
+  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User, Split, X, Paperclip, FileText, Image as ImageIcon
 } from "lucide-react";
-import { 
-  FundTransfer, CashAccount, Company, Profile
+import {
+  FundTransfer, CashAccount, Company, Profile, FundTransferAttachment
 } from "../types";
 import {
   getFundTransfers, saveFundTransfer, getCashAccounts, getCompanies, getProfiles, getUserRole,
@@ -16,6 +16,18 @@ interface Props {
   userId: string;
   companyId: string;
 }
+
+// Formats a raw amount string with thousands separators while typing (keeps trailing decimal point/zeros intact)
+const formatAmountInput = (raw: string): string => {
+  const cleaned = raw.replace(/[^\d.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  const intPart = firstDot === -1 ? cleaned : cleaned.slice(0, firstDot);
+  const decPart = firstDot === -1 ? "" : cleaned.slice(firstDot + 1, firstDot + 3).replace(/\./g, "");
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return firstDot === -1 ? formattedInt : `${formattedInt}.${decPart}`;
+};
+
+const parseAmountInput = (formatted: string): number => parseFloat(formatted.replace(/,/g, ""));
 
 export default function FundTransfers({ userId, companyId }: Props) {
   const dbTick = useDBUpdate();
@@ -33,6 +45,38 @@ export default function FundTransfers({ userId, companyId }: Props) {
 
   const [editingRefId, setEditingRefId] = useState<string | null>(null);
   const [refValue, setRefValue] = useState("");
+
+  const [proofFiles, setProofFiles] = useState<FundTransferAttachment[]>([]);
+  const [viewerAttachment, setViewerAttachment] = useState<FundTransferAttachment | null>(null);
+
+  const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5MB per file
+
+  const handleProofFilesSelected = (fileList: FileList | null) => {
+    if (!fileList) return;
+    Array.from(fileList).forEach((file) => {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(`"${file.name}" is too large (max 5MB per file).`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        setProofFiles((prev) => [
+          ...prev,
+          {
+            id: `pta-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            fileName: file.name,
+            fileType: file.type,
+            fileUrl: reader.result as string,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeProofFile = (id: string) => {
+    setProofFiles((prev) => prev.filter((f) => f.id !== id));
+  };
 
   const [isSplit, setIsSplit] = useState(false);
   const emptySplitRow = () => ({ toCompanyId: companyId === "all" ? "" : companyId, toAccountId: "", amount: "" });
@@ -56,7 +100,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
   }, [allAccounts, toCompanyId]);
 
   const splitTotal = useMemo(() => {
-    return splitDestinations.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+    return splitDestinations.reduce((sum, d) => sum + (parseAmountInput(d.amount) || 0), 0);
   }, [splitDestinations]);
 
   const updateSplitRow = (index: number, patch: Partial<{ toCompanyId: string; toAccountId: string; amount: string }>) => {
@@ -104,7 +148,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
         toast.error("Each destination account can only appear once.");
         return;
       }
-      if (splitDestinations.some(d => isNaN(parseFloat(d.amount)) || parseFloat(d.amount) <= 0)) {
+      if (splitDestinations.some(d => isNaN(parseAmountInput(d.amount)) || parseAmountInput(d.amount) <= 0)) {
         toast.error("Every split amount must be greater than zero.");
         return;
       }
@@ -122,7 +166,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
           fromAccountId,
           toCompanyId: d.toCompanyId,
           toAccountId: d.toAccountId,
-          amount: parseFloat(d.amount),
+          amount: parseAmountInput(d.amount),
           purpose,
           receivedAs,
           requestedBy: userId,
@@ -134,6 +178,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
           remarks: "",
           createdAt: new Date().toISOString(),
           splitGroupId,
+          proofOfTransferAttachments: proofFiles,
         };
         saveFundTransfer(newTransfer, newTransfer.id);
       });
@@ -150,7 +195,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
         return;
       }
 
-      const amt = parseFloat(amount);
+      const amt = parseAmountInput(amount);
       if (isNaN(amt) || amt <= 0) {
         toast.error("Amount must be greater than zero.");
         return;
@@ -178,7 +223,8 @@ export default function FundTransfers({ userId, companyId }: Props) {
         dateApproved: null,
         transferReferenceNumber: `TRF-${getNextControlNumber()}`,
         remarks: "",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        proofOfTransferAttachments: proofFiles,
       };
 
       saveFundTransfer(newTransfer, newTransfer.id);
@@ -191,6 +237,7 @@ export default function FundTransfers({ userId, companyId }: Props) {
     setReceivedAs("sales");
     setIsSplit(false);
     setSplitDestinations([emptySplitRow(), emptySplitRow()]);
+    setProofFiles([]);
     setForceRender(prev => prev + 1);
   };
 
@@ -361,6 +408,26 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         <div className="flex items-center gap-1 text-[9px] text-slate-500 mt-0.5">
                           <User className="w-3 h-3" /> {reqUser}
                         </div>
+                        {t.proofOfTransferAttachments && t.proofOfTransferAttachments.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {t.proofOfTransferAttachments.map((a) => (
+                              <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => setViewerAttachment(a)}
+                                title={a.fileName}
+                                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded px-1.5 py-0.5 text-[9px] text-slate-600 transition"
+                              >
+                                {a.fileType === "application/pdf" ? (
+                                  <FileText className="w-3 h-3 text-rose-500" />
+                                ) : (
+                                  <ImageIcon className="w-3 h-3 text-sky-500" />
+                                )}
+                                <span className="max-w-[70px] truncate">{a.fileName}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -572,10 +639,10 @@ export default function FundTransfers({ userId, companyId }: Props) {
                             <div>
                               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Amount</label>
                               <input
-                                type="number"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 value={row.amount}
-                                onChange={(e) => updateSplitRow(i, { amount: e.target.value })}
+                                onChange={(e) => updateSplitRow(i, { amount: formatAmountInput(e.target.value) })}
                                 className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
                                 placeholder="0.00"
                                 required
@@ -614,10 +681,10 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         </div>
                       ) : (
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
+                          onChange={(e) => setAmount(formatAmountInput(e.target.value))}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden font-mono"
                           placeholder="0.00"
                           required
@@ -649,6 +716,50 @@ export default function FundTransfers({ userId, companyId }: Props) {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1">
+                      Proof of Transfer (Optional)
+                    </label>
+                    <label className="flex items-center gap-2 w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl p-3 text-sm text-slate-600 cursor-pointer hover:bg-slate-100 transition">
+                      <Paperclip className="w-4 h-4 text-slate-400" />
+                      <span>Attach receipt(s), bank/GCash screenshots, or PDFs</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          handleProofFilesSelected(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {proofFiles.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {proofFiles.map((f) => (
+                          <div
+                            key={f.id}
+                            className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700"
+                          >
+                            {f.fileType === "application/pdf" ? (
+                              <FileText className="w-3.5 h-3.5 text-rose-500" />
+                            ) : (
+                              <ImageIcon className="w-3.5 h-3.5 text-sky-500" />
+                            )}
+                            <span className="max-w-[140px] truncate">{f.fileName}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeProofFile(f.id)}
+                              className="text-slate-400 hover:text-rose-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                 </form>
               </div>
               
@@ -666,6 +777,60 @@ export default function FundTransfers({ userId, companyId }: Props) {
                   className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition uppercase tracking-wider shadow-sm"
                 >
                   Submit Request
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Attachment Viewer */}
+      <AnimatePresence>
+        {viewerAttachment && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setViewerAttachment(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 className="text-sm font-bold text-slate-900 truncate">{viewerAttachment.fileName}</h3>
+                <button
+                  onClick={() => setViewerAttachment(null)}
+                  className="p-2 hover:bg-slate-200 rounded-lg transition"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center p-4">
+                {viewerAttachment.fileType === "application/pdf" ? (
+                  <iframe
+                    src={viewerAttachment.fileUrl}
+                    title={viewerAttachment.fileName}
+                    className="w-full h-[75vh] rounded-lg border border-slate-200 bg-white"
+                  />
+                ) : (
+                  <img
+                    src={viewerAttachment.fileUrl}
+                    alt={viewerAttachment.fileName}
+                    className="max-w-full max-h-[75vh] object-contain rounded-lg"
+                  />
+                )}
+              </div>
+              <div className="p-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+                <button
+                  onClick={() => window.open(viewerAttachment.fileUrl, '_blank')}
+                  className="text-xs text-sky-600 hover:text-sky-700 font-medium"
+                >
+                  Open full size in new tab
                 </button>
               </div>
             </motion.div>

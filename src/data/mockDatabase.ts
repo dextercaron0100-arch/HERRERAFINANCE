@@ -26,7 +26,8 @@ import {
   PayrollStatus,
   Deductions,
   DailyBalance,
-  FundTransfer
+  FundTransfer,
+  CustomDeadline
 } from "../types";
 
 // Storage keys
@@ -55,6 +56,7 @@ const KEYS = {
   CASH_COUNTS: `${DB_PREFIX}cash_counts`,
   BANK_DEPOSITS: `${DB_PREFIX}bank_deposits`,
   FUND_TRANSFERS: `${DB_PREFIX}fund_transfers`,
+  CUSTOM_DEADLINES: `${DB_PREFIX}custom_deadlines`,
   CURRENT_USER_ID: `${DB_PREFIX}current_user_id`,
   SELECTED_COMPANY_ID: `${DB_PREFIX}selected_company_id`,
   CONTROL_NUMBER: `${DB_PREFIX}control_numbers`,
@@ -136,9 +138,29 @@ export const SEED_PROFILES: Profile[] = [
     isGroupAdmin: true,
     createdAt: "2026-01-01T08:00:00Z",
   },
+  {
+    id: "u-claine",
+    fullName: "Claine",
+    email: "claineaccounting@herrera.com",
+    isGroupAdmin: false,
+    createdAt: "2026-07-07T08:00:00Z",
+  },
+  {
+    id: "u-kayla",
+    fullName: "Kayla",
+    email: "kaylaaccounting@herrera.com",
+    isGroupAdmin: false,
+    createdAt: "2026-07-07T08:00:00Z",
+  },
 ];
 
-export const SEED_ROLES: UserCompanyRole[] = [];
+export const SEED_ROLES: UserCompanyRole[] = [
+  { userId: "u-claine", companyId: "c-bgs", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine", companyId: "c-frh", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine", companyId: "c-hbp", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla", companyId: "c-bls", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-kayla", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+];
 
 const SHARED_CATEGORIES = [
   "Capital",
@@ -272,6 +294,13 @@ const load = <T>(key: string, def: T): T => {
         if (item.receiptPath && typeof item.receiptPath === 'string' && item.receiptPath.length > 30000) { item.receiptPath = null; changed = true; }
         if (item.fileUrl && typeof item.fileUrl === 'string' && item.fileUrl.length > 30000) { item.fileUrl = null; changed = true; }
         if (item.proofOfDepositAttachment && typeof item.proofOfDepositAttachment === 'string' && item.proofOfDepositAttachment.length > 30000) { item.proofOfDepositAttachment = null; changed = true; }
+        if (Array.isArray(item.proofOfTransferAttachments)) {
+          const before = item.proofOfTransferAttachments.length;
+          item.proofOfTransferAttachments = item.proofOfTransferAttachments.filter(
+            (a: any) => !(a && typeof a.fileUrl === 'string' && a.fileUrl.length > 30000)
+          );
+          if (item.proofOfTransferAttachments.length !== before) changed = true;
+        }
       }
     });
     if (changed) {
@@ -292,9 +321,14 @@ const sanitizeForFirestore = (data: any) => {
         if (item.receiptPath && typeof item.receiptPath === 'string' && item.receiptPath.length > 50000) item.receiptPath = null;
         if (item.fileUrl && typeof item.fileUrl === 'string' && item.fileUrl.length > 50000) item.fileUrl = null;
         if (item.proofOfDepositAttachment && typeof item.proofOfDepositAttachment === 'string' && item.proofOfDepositAttachment.length > 50000) item.proofOfDepositAttachment = null;
+        if (Array.isArray(item.proofOfTransferAttachments)) {
+          item.proofOfTransferAttachments = item.proofOfTransferAttachments.filter(
+            (a: any) => !(a && typeof a.fileUrl === 'string' && a.fileUrl.length > 50000)
+          );
+        }
       }
     });
-    
+
     // 2. Iteratively drop attachments from oldest to newest if the total payload is too large for Firestore
     let size = new Blob([JSON.stringify(cleaned)]).size;
     let indexToClear = 0;
@@ -304,6 +338,7 @@ const sanitizeForFirestore = (data: any) => {
         if (item.receiptPath) item.receiptPath = null;
         if (item.fileUrl) item.fileUrl = null;
         if (item.proofOfDepositAttachment) item.proofOfDepositAttachment = null;
+        if (Array.isArray(item.proofOfTransferAttachments)) item.proofOfTransferAttachments = [];
       }
       indexToClear++;
       size = new Blob([JSON.stringify(cleaned)]).size;
@@ -3001,5 +3036,39 @@ export function saveFundTransfer(payload: Omit<FundTransfer, "id" | "createdAt">
     } as FundTransfer);
   }
   save(KEYS.FUND_TRANSFERS, all);
+  return { success: true };
+}
+
+export function getCustomDeadlines(userId: string, companyId: string): CustomDeadline[] {
+  initDB();
+  const all = load<CustomDeadline[]>(KEYS.CUSTOM_DEADLINES, []);
+  if (companyId === "all") {
+    return all.filter((d) => canAccessCompany(userId, d.companyId));
+  }
+  if (!canAccessCompany(userId, companyId)) return [];
+  return all.filter((d) => d.companyId === companyId);
+}
+
+export function saveCustomDeadline(payload: Omit<CustomDeadline, "id">, id?: string) {
+  initDB();
+  const all = load<CustomDeadline[]>(KEYS.CUSTOM_DEADLINES, []);
+  if (id) {
+    const idx = all.findIndex((d) => d.id === id);
+    if (idx > -1) {
+      all[idx] = { ...all[idx], ...payload } as CustomDeadline;
+    } else {
+      all.push({ ...payload, id } as CustomDeadline);
+    }
+  } else {
+    all.push({ ...payload, id: `c-dl-${Date.now()}` } as CustomDeadline);
+  }
+  save(KEYS.CUSTOM_DEADLINES, all);
+  return { success: true };
+}
+
+export function deleteCustomDeadline(id: string) {
+  initDB();
+  const all = load<CustomDeadline[]>(KEYS.CUSTOM_DEADLINES, []);
+  save(KEYS.CUSTOM_DEADLINES, all.filter((d) => d.id !== id));
   return { success: true };
 }
