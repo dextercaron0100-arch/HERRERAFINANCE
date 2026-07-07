@@ -78,6 +78,7 @@ import {
   isAccountingUser,
   canWriteFinance,
   canManagePayroll,
+  canAccessCompany,
   getTransactions,
   writeAuditLog,
 } from "./data/mockDatabase";
@@ -190,6 +191,10 @@ export default function App() {
 
   // LOAD DB METRICS
   const companies = getCompanies();
+  const accessibleCompanies = isGroupAdmin(activeUserId)
+    ? companies
+    : companies.filter((c) => canAccessCompany(activeUserId, c.id));
+  const canViewConsolidated = isGroupAdmin(activeUserId) || accessibleCompanies.length > 1;
   const profiles = getProfiles();
   const currentCompany =
     activeCompanyId === "all"
@@ -201,6 +206,21 @@ export default function App() {
         }
       : companies.find((c) => c.id === activeCompanyId) || companies[0];
   const currentProfile = profiles.find((p) => p.id === activeUserId);
+
+  // If the active company context isn't one this user can actually access
+  // (e.g. defaulted to "all" but they're scoped to a single company, or
+  // their access changed), snap them into the first company they can see.
+  useEffect(() => {
+    if (!activeUserId) return;
+    const stillValid =
+      activeCompanyId === "all"
+        ? canViewConsolidated
+        : accessibleCompanies.some((c) => c.id === activeCompanyId);
+    if (!stillValid && accessibleCompanies.length > 0) {
+      setActiveCompanyId(accessibleCompanies[0].id);
+    }
+  }, [activeUserId, activeCompanyId, canViewConsolidated, accessibleCompanies]);
+
   // Also fetch data on mount and refresh
   useEffect(() => {
     const handleDbUpdate = () => {
@@ -366,6 +386,10 @@ export default function App() {
   };
 
   const handleCompanySwap = (companyId: string) => {
+    if (companyId === "all" ? !canViewConsolidated : !canAccessCompany(activeUserId, companyId)) {
+      toast.error("You do not have access to that company.");
+      return;
+    }
     setActiveCompanyId(companyId);
     setMobileSidebarOpen(false);
     const company = companies.find((c) => c.id === companyId);
@@ -539,10 +563,12 @@ export default function App() {
               onChange={(e) => handleCompanySwap(e.target.value)}
               className="px-2 sm:px-3 py-1 sm:py-1.5 bg-white text-slate-900 text-[10px] sm:text-xs focus:ring-1 focus:ring-[#00B67A] focus:outline-hidden font-medium border border-slate-200 rounded-lg cursor-pointer max-w-[100px] sm:max-w-[120px] lg:max-w-none text-ellipsis transition-all hover:bg-slate-50 font-semibold"
             >
-              <option value="all" className="font-bold text-[#00B67A]">
-                Consolidated (ALL)
-              </option>
-              {companies.map((c) => (
+              {canViewConsolidated && (
+                <option value="all" className="font-bold text-[#00B67A]">
+                  Consolidated (ALL)
+                </option>
+              )}
+              {accessibleCompanies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.code})
                 </option>
@@ -627,24 +653,26 @@ export default function App() {
                   CORPORATE ENTITY SWITCHER
                 </span>
                 <div className="space-y-1.5">
-                  <button
-                    onClick={() => handleCompanySwap("all")}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border font-sans font-medium text-[11px] transition-all flex items-center justify-between cursor-pointer ${
-                      activeCompanyId === "all"
-                        ? "bg-[#00B67A] text-white border-transparent shadow-[0_4px_12px_rgba(0,182,122,0.25)] font-bold"
-                        : "bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Consolidated (ALL)</span>
-                    </div>
-                    <span className="font-mono text-[8px] px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 uppercase shrink-0">
-                      ALL
-                    </span>
-                  </button>
+                  {canViewConsolidated && (
+                    <button
+                      onClick={() => handleCompanySwap("all")}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl border font-sans font-medium text-[11px] transition-all flex items-center justify-between cursor-pointer ${
+                        activeCompanyId === "all"
+                          ? "bg-[#00B67A] text-white border-transparent shadow-[0_4px_12px_rgba(0,182,122,0.25)] font-bold"
+                          : "bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>Consolidated (ALL)</span>
+                      </div>
+                      <span className="font-mono text-[8px] px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 uppercase shrink-0">
+                        ALL
+                      </span>
+                    </button>
+                  )}
                   <div className="grid grid-cols-2 gap-1.5">
-                    {companies.map((c) => {
+                    {accessibleCompanies.map((c) => {
                       const isSelected = activeCompanyId === c.id;
 
                       let baseColorClass =
