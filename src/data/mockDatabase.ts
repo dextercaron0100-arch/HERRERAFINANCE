@@ -631,42 +631,27 @@ export function initDB() {
 
 
 
-  // Ensure ONLY Herrera brothers accounts exist
+  // Ensure only known seed accounts exist (dev-only reconciliation, driven by SEED_PROFILES
+  // so it never drifts out of sync with the actual seed list)
   let currentProfiles = load<Profile[]>(KEYS.PROFILES, SEED_PROFILES);
   let profilesChanged = false;
 
-  const validEmails = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com", "accounting@herrera.com", "it@herrera.com"];
+  const validEmails = SEED_PROFILES.map(p => p.email);
   const invalidProfiles = currentProfiles.filter(p => !validEmails.includes(p.email));
-  
+
   if (invalidProfiles.length > 0) {
     currentProfiles = currentProfiles.filter(p => validEmails.includes(p.email));
     profilesChanged = true;
   }
 
-  const newHerreras = [
-    { id: "u-mark", name: "Mark Herrera", email: "mark@herrera.com" },
-    { id: "u-ryan", name: "Ryan Herrera", email: "ryan@herrera.com" },
-    { id: "u-marvin", name: "Marvin Herrera", email: "marvin@herrera.com" },
-    { id: "u-accounting", name: "Accounting", email: "accounting@herrera.com" },
-    { id: "u-it", name: "IT Support", email: "it@herrera.com" }
-  ];
-
-  newHerreras.forEach(u => {
-    const existing = currentProfiles.find(p => p.id === u.id);
+  SEED_PROFILES.forEach(seed => {
+    const existing = currentProfiles.find(p => p.id === seed.id);
     if (!existing) {
-      currentProfiles.push({
-        id: u.id,
-        fullName: u.name,
-        email: u.email,
-        isGroupAdmin: u.id !== "u-accounting",
-        createdAt: new Date().toISOString(),
-      });
+      currentProfiles.push({ ...seed, createdAt: new Date().toISOString() });
       profilesChanged = true;
-    } else {
-      if (u.id === "u-accounting" && existing.isGroupAdmin) {
-        existing.isGroupAdmin = false;
-        profilesChanged = true;
-      }
+    } else if (existing.isGroupAdmin !== seed.isGroupAdmin && seed.id === "u-accounting") {
+      existing.isGroupAdmin = seed.isGroupAdmin;
+      profilesChanged = true;
     }
   });
 

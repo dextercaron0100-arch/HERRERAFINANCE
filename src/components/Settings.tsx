@@ -468,7 +468,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                       </tr>
                     )}
                     {profiles.map(profile => {
-                      const userRole = roles.find(r => r.userId === profile.id && r.companyId === (companyId === 'all' ? editRoleCompanyId : companyId));
+                      const userRoles = roles.filter(r => r.userId === profile.id);
                       const isEditing = editingUserId === profile.id;
                       
                       return (
@@ -506,18 +506,21 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                           <td className="p-3">
                             {isEditing ? (
                               <div className="flex items-center gap-2">
-                                {companyId === 'all' && (
-                                  <select 
-                                    value={editRoleCompanyId}
-                                    onChange={(e) => setEditRoleCompanyId(e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
-                                  >
-                                    {companies.map(c => (
-                                      <option key={c.id} value={c.id}>{c.code}</option>
-                                    ))}
-                                  </select>
-                                )}
-                                <select 
+                                <select
+                                  value={editRoleCompanyId}
+                                  onChange={(e) => {
+                                    setEditRoleCompanyId(e.target.value);
+                                    const existing = roles.find(r => r.userId === profile.id && r.companyId === e.target.value);
+                                    setEditRoleValue(existing?.role || 'viewer');
+                                    setEditAllowedSections(existing?.allowedSections || []);
+                                  }}
+                                  className="bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                                >
+                                  {companies.map(c => (
+                                    <option key={c.id} value={c.id}>{c.code}</option>
+                                  ))}
+                                </select>
+                                <select
                                   value={editRoleValue}
                                   onChange={(e) => setEditRoleValue(e.target.value as CompanyRole | 'remove')}
                                   className="bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
@@ -531,17 +534,41 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                                 </select>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-mono px-2 py-0.5 rounded ${
-                                  userRole ? 'bg-slate-50 text-slate-700' : 'bg-transparent text-zinc-600 border border-slate-200'
-                                }`}>
-                                  {userRole ? userRole.role : 'No specific access'}
-                                </span>
-                                {userRole && companyId === 'all' && (
-                                  <span className="text-[10px] text-slate-500 bg-slate-50 px-1 rounded border border-slate-200 flex items-center gap-1">
-                                    <Building2 className="w-3 h-3" />
-                                    {companies.find(c => c.id === userRole.companyId)?.code || userRole.companyId}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {userRoles.length === 0 ? (
+                                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-transparent text-zinc-600 border border-slate-200">
+                                    No specific access
                                   </span>
+                                ) : (
+                                  userRoles.map(r => (
+                                    <span
+                                      key={r.companyId}
+                                      className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (userId === 'u-it' || profile.id === 'u-it') return;
+                                          setEditingUserId(profile.id);
+                                          setEditRoleCompanyId(r.companyId);
+                                          setEditRoleValue(r.role);
+                                          setEditAllowedSections(r.allowedSections || []);
+                                        }}
+                                        className="hover:text-indigo-500 transition-colors"
+                                        title="Edit this company's access"
+                                      >
+                                        {companies.find(c => c.id === r.companyId)?.code || r.companyId}: {r.role}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateRole(profile.id, r.companyId, 'remove', [])}
+                                        className="text-slate-400 hover:text-rose-500 transition-colors"
+                                        title="Remove access to this company"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </span>
+                                  ))
                                 )}
                               </div>
                             )}
@@ -570,10 +597,10 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                               </div>
                             ) : (
                               <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                {userRole?.allowedSections && userRole.allowedSections.length > 0 ? (
-                                  userRole.allowedSections.map(section => (
-                                    <span key={section} className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/50 truncate max-w-[120px]" title={NAV_LABELS[section] || section}>
-                                      {NAV_LABELS[section] || section}
+                                {userRoles.some(r => r.allowedSections && r.allowedSections.length > 0) ? (
+                                  userRoles.filter(r => r.allowedSections && r.allowedSections.length > 0).map(r => (
+                                    <span key={r.companyId} className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/50 truncate max-w-[180px]" title={r.allowedSections!.map(s => NAV_LABELS[s] || s).join(', ')}>
+                                      {companies.find(c => c.id === r.companyId)?.code}: {r.allowedSections!.length} section{r.allowedSections!.length > 1 ? 's' : ''}
                                     </span>
                                   ))
                                 ) : (
@@ -587,7 +614,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => {
-                                    handleUpdateRole(profile.id, companyId === 'all' ? editRoleCompanyId : companyId, editRoleValue, editAllowedSections);
+                                    handleUpdateRole(profile.id, editRoleCompanyId, editRoleValue, editAllowedSections);
                                     setEditingUserId(null);
                                   }}
                                   className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
@@ -606,10 +633,13 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                                 onClick={() => {
                                   if (userId === 'u-it') return;
                                   if (profile.id === 'u-it') return;
+                                  const unassigned = companies.find(c => !userRoles.some(r => r.companyId === c.id));
+                                  const defaultCompanyId = unassigned?.id || companies[0]?.id;
+                                  const existing = roles.find(r => r.userId === profile.id && r.companyId === defaultCompanyId);
                                   setEditingUserId(profile.id);
-                                  setEditRoleCompanyId(userRole?.companyId || (companyId === 'all' ? companies[0]?.id : companyId));
-                                  setEditRoleValue(userRole?.role || 'viewer');
-                                  setEditAllowedSections(userRole?.allowedSections || []);
+                                  setEditRoleCompanyId(defaultCompanyId);
+                                  setEditRoleValue(existing?.role || 'viewer');
+                                  setEditAllowedSections(existing?.allowedSections || []);
                                 }}
                                 disabled={userId === 'u-it' || profile.id === 'u-it'}
                                 className={`p-1.5 bg-transparent border rounded transition-colors ${
@@ -617,6 +647,7 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                                   ? 'opacity-50 cursor-not-allowed border-slate-200 text-zinc-600'
                                   : 'text-slate-500 border-slate-200 hover:text-indigo-400 hover:border-indigo-500/50'
                                 }`}
+                                title="Add or edit company access"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
