@@ -84,9 +84,9 @@ export default function Reports({ userId, companyId }: ReportsProps) {
   const plReport = useMemo(() => {
     const approved = txns.filter(t => t.status === 'approved' && t.txnDate.startsWith(selectedMonth.substring(0, 7)));
     
-    // Revenue categories
+    // Revenue categories (excludes fund transfers - balance-sheet movement, not new revenue)
     const salesCatIds = categories.filter(c => c.type === 'cash_in' && (c.name.includes('sales') || c.name.includes('collection'))).map(c => c.id);
-    const revenue = approved.filter(t => salesCatIds.includes(t.categoryId)).reduce((s, t) => s + t.amount, 0);
+    const revenue = approved.filter(t => salesCatIds.includes(t.categoryId) && !t.transferRef).reduce((s, t) => s + t.amount, 0);
 
     // COGS
     const cogsCatIds = categories.filter(c => c.name.includes('supplies') || c.name.includes('inventory')).map(c => c.id);

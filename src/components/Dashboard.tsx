@@ -230,6 +230,10 @@ export default function Dashboard({
 
     txns.forEach(t => {
       const catName = categoryMap[t.categoryId] || "";
+      // Moving money between company accounts (fund transfers) is a
+      // balance-sheet movement, not new revenue or an operating expense.
+      if (t.transferRef) return;
+
       if (t.type === "cash_in") {
         if (catName.toLowerCase().includes("capital")) {
           capital += t.amount;
@@ -237,9 +241,6 @@ export default function Dashboard({
           sales += t.amount;
         }
       } else if (t.type === "cash_out") {
-        // Moving money between company accounts is a balance-sheet movement,
-        // not an operating expense or a reduction in profit.
-        if (t.transferRef) return;
         if (catName.toLowerCase().includes("capital")) {
           capital -= t.amount;
         } else {
@@ -266,6 +267,10 @@ export default function Dashboard({
         monthMap[month] = { month, sales: 0, expenses: 0, profit: 0, capital: 0, totalFund: 0 };
       }
       
+      // Keep transfers in cash-flow/account balances, but exclude them from
+      // sales/expense/profit reporting entirely (both legs).
+      if (t.transferRef) return;
+
       const catName = categoryMap[t.categoryId] || "";
       if (t.type === "cash_in") {
         if (catName.toLowerCase().includes("capital")) {
@@ -274,9 +279,6 @@ export default function Dashboard({
           monthMap[month].sales += t.amount;
         }
       } else if (t.type === "cash_out") {
-        // Keep transfers in cash-flow/account balances, but exclude them from
-        // expense and profit reporting.
-        if (t.transferRef) return;
         if (catName.toLowerCase().includes("capital")) {
           monthMap[month].capital -= t.amount;
         } else {
