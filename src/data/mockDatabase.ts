@@ -139,9 +139,23 @@ export const SEED_PROFILES: Profile[] = [
     createdAt: "2026-01-01T08:00:00Z",
   },
   {
-    id: "u-claine",
-    fullName: "Claine",
-    email: "claineaccounting@herrera.com",
+    id: "u-claine-bgs",
+    fullName: "Claine (Bigstop)",
+    email: "claineaccountingbgstop@herrera.com",
+    isGroupAdmin: false,
+    createdAt: "2026-07-07T08:00:00Z",
+  },
+  {
+    id: "u-claine-frh",
+    fullName: "Claine (Franchise Hub)",
+    email: "claineaccountingfanchiseHub@herrera.com",
+    isGroupAdmin: false,
+    createdAt: "2026-07-07T08:00:00Z",
+  },
+  {
+    id: "u-claine-hbp",
+    fullName: "Claine (Herrera Building Property)",
+    email: "claineaccountingHerrerabuildingproperty@herrera.com",
     isGroupAdmin: false,
     createdAt: "2026-07-07T08:00:00Z",
   },
@@ -155,9 +169,9 @@ export const SEED_PROFILES: Profile[] = [
 ];
 
 export const SEED_ROLES: UserCompanyRole[] = [
-  { userId: "u-claine", companyId: "c-bgs", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-claine", companyId: "c-frh", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
-  { userId: "u-claine", companyId: "c-hbp", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-bgs", companyId: "c-bgs", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-frh", companyId: "c-frh", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
+  { userId: "u-claine-hbp", companyId: "c-hbp", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
   { userId: "u-kayla", companyId: "c-bls", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
   { userId: "u-kayla", companyId: "c-sct", role: "finance_officer", createdAt: "2026-07-07T08:00:00Z" },
 ];
