@@ -488,14 +488,33 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   }, [rawTxns, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate, selectedPaymentMethod]);
 
   // 3. CALCULATE FILTERED SUMMARY
+  // Only approved/completed transactions count toward the balance. Pending and
+  // rejected transactions are tracked separately so they don't inflate Net Balance.
   const filteredSummary = useMemo(() => {
     let inflow = 0;
     let outflow = 0;
+    let pendingInflow = 0;
+    let pendingOutflow = 0;
+    let rejectedInflow = 0;
+    let rejectedOutflow = 0;
     filteredTransactions.forEach(t => {
-      if (t.type === 'cash_in') inflow += t.amount;
-      if (t.type === 'cash_out') outflow += t.amount;
+      const isPosted = t.status === 'approved' || t.status === 'completed';
+      const isPending = t.status === 'pending';
+      if (t.type === 'cash_in') {
+        if (isPosted) inflow += t.amount;
+        else if (isPending) pendingInflow += t.amount;
+        else rejectedInflow += t.amount;
+      } else if (t.type === 'cash_out') {
+        if (isPosted) outflow += t.amount;
+        else if (isPending) pendingOutflow += t.amount;
+        else rejectedOutflow += t.amount;
+      }
     });
-    return { inflow, outflow, net: inflow - outflow };
+    return {
+      inflow, outflow, net: inflow - outflow,
+      pendingInflow, pendingOutflow,
+      rejectedInflow, rejectedOutflow
+    };
   }, [filteredTransactions]);
 
   const uniquePaymentMethods = useMemo(() => {
@@ -1195,20 +1214,29 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl rounded-full"></div>
         <div className="text-slate-600 font-mono text-xs max-w-sm">
           <strong className="text-sky-400 block uppercase tracking-wider mb-1">Displayed Search Results</strong>
-          Calculating aggregated totals strictly across currently filtered table transactions. Adjust filters above to change this summary.
+          Totals below include APPROVED / COMPLETED transactions only from the currently filtered table. Pending and rejected entries are excluded from Net Balance and shown separately.
         </div>
         <div className="grid grid-cols-3 gap-6 sm:gap-12 relative z-10 w-full sm:w-auto text-center sm:text-right">
           <div>
-            <div className="text-[10px] font-bold text-[#00B67A] uppercase tracking-widest font-mono">Total Inflow</div>
+            <div className="text-[10px] font-bold text-[#00B67A] uppercase tracking-widest font-mono">Posted Inflow</div>
             <div className="font-mono text-lg text-[#00B67A] font-bold">{formatPeso(filteredSummary.inflow)}</div>
+            {filteredSummary.pendingInflow > 0 && (
+              <div className="text-[9px] text-amber-500 font-mono mt-0.5">+{formatPeso(filteredSummary.pendingInflow)} pending</div>
+            )}
           </div>
           <div>
-            <div className="text-[10px] font-bold text-rose-450 uppercase tracking-widest font-mono">Total Outflow</div>
+            <div className="text-[10px] font-bold text-rose-450 uppercase tracking-widest font-mono">Posted Outflow</div>
             <div className="font-mono text-lg text-rose-450 font-bold">{formatPeso(filteredSummary.outflow)}</div>
+            {filteredSummary.pendingOutflow > 0 && (
+              <div className="text-[9px] text-amber-500 font-mono mt-0.5">+{formatPeso(filteredSummary.pendingOutflow)} pending</div>
+            )}
           </div>
           <div className="border-l border-slate-200 pl-6 sm:pl-12">
             <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest font-mono">Net Balance</div>
             <div className={`font-mono text-xl font-bold ${filteredSummary.net >= 0 ? 'text-slate-900' : 'text-rose-400'}`}>{formatPeso(filteredSummary.net)}</div>
+            {(filteredSummary.rejectedInflow > 0 || filteredSummary.rejectedOutflow > 0) && (
+              <div className="text-[9px] text-slate-400 font-mono mt-0.5">{formatPeso(filteredSummary.rejectedInflow + filteredSummary.rejectedOutflow)} rejected (excluded)</div>
+            )}
           </div>
         </div>
       </div>
