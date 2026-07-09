@@ -32,14 +32,11 @@ import {
   CheckCircle2,
   CloudLightning,
   AlertTriangle,
-  Globe,
   Plus,
-  Sliders,
   Percent,
   Sun,
   Moon,
   RefreshCw,
-  Notebook,
   PanelLeftClose,
   PanelLeftOpen,
   Wallet,
@@ -53,15 +50,12 @@ import AccountingOfficerWorkbench from "./components/AccountingOfficerWorkbench"
 import MoneyFlowProfitCenter from "./components/MoneyFlowProfitCenter";
 import Ledger from "./components/Ledger";
 import Approvals from "./components/Approvals";
-import WorkspaceSyncCenter from "./components/WorkspaceSyncCenter";
 import Budgets from "./components/Budgets";
 import PayablesReceivables from "./components/PayablesReceivables";
 import Payroll from "./components/Payroll";
 import DueDates from "./components/DueDates";
 import Reports from "./components/Reports";
-import CashBankModule from "./components/CashBankModule";
 import AuditLog from "./components/AuditLog";
-import EnterpriseSuite from "./components/EnterpriseSuite";
 import TaxComplianceDashboard from "./components/TaxComplianceDashboard";
 import AlertsMenu from "./components/AlertsMenu";
 import FinancialAssistant from "./components/FinancialAssistant";
@@ -98,12 +92,9 @@ type ActivePage =
   | "payroll"
   | "due_dates"
   | "reports"
-  | "cash_acc"
   | "vault"
-  | "enterprise"
   | "tax_compliance"
   | "audit_log"
-  | "workspace"
   | "assistant"
   | "owner_dashboard"
   | "settings";
@@ -129,12 +120,9 @@ export default function App() {
     "payroll",
     "due_dates",
     "reports",
-    "cash_acc",
     "vault",
-    "enterprise",
     "tax_compliance",
     "audit_log",
-    "workspace",
     "assistant",
     "owner_dashboard",
     "settings",
@@ -255,13 +243,10 @@ export default function App() {
         "payroll",
         "due_dates",
         "reports",
-        "cash_acc",
         "assistant",
         "vault",
-        "enterprise",
         "tax_compliance",
         "audit_log",
-        "workspace",
         "settings",
       ];
       const newOrder = [...currentProfile.dashboardLayout];
@@ -285,13 +270,10 @@ export default function App() {
         "payroll",
         "due_dates",
         "reports",
-        "cash_acc",
         "assistant",
         "vault",
-        "enterprise",
         "tax_compliance",
         "audit_log",
-        "workspace",
         "settings",
       ]);
     }
@@ -369,7 +351,7 @@ export default function App() {
     setActiveUserId(userId);
     if (
       isAccountingUser(userId) &&
-      ["audit_log", "workspace"].includes(activePage)
+      ["audit_log"].includes(activePage)
     ) {
       setActivePage("dashboard");
     }
@@ -813,20 +795,9 @@ export default function App() {
                       icon: FileText,
                     },
                     {
-                      id: "cash_acc",
-                      label: "Cash & Bank",
-                      icon: Notebook,
-                    },
-                    {
                       id: "vault",
                       label: "Document Vault",
                       icon: FileText,
-                    },
-                    {
-                      id: "enterprise",
-                      label: "Enterprise Suite",
-                      icon: Sliders,
-                      pulse: true,
                     },
                     {
                       id: "tax_compliance",
@@ -837,12 +808,6 @@ export default function App() {
                       id: "audit_log",
                       label: "Security & Audit",
                       icon: ShieldCheck,
-                    },
-                    {
-                      id: "workspace",
-                      label: "Workspace Sync",
-                      icon: Globe,
-                      pulse: true,
                     },
                     {
                       id: "settings",
@@ -896,7 +861,6 @@ export default function App() {
                       if (isAccountingUser(activeUserId)) {
                         if (
                           item.id === "audit_log" ||
-                          item.id === "workspace" ||
                           item.id === "settings"
                         ) {
                           return false;
@@ -1160,13 +1124,6 @@ export default function App() {
                 <Reports userId={activeUserId} companyId={activeCompanyId} />
               )}
 
-              {activePage === "cash_acc" && (
-                <CashBankModule
-                  userId={activeUserId}
-                  companyId={activeCompanyId}
-                />
-              )}
-
               {activePage === "assistant" && (
                 <FinancialAssistant companyId={activeCompanyId} />
               )}
@@ -1175,14 +1132,6 @@ export default function App() {
                 <DocumentVault
                   userId={activeUserId}
                   companyId={activeCompanyId}
-                />
-              )}
-
-              {activePage === "enterprise" && (
-                <EnterpriseSuite
-                  userId={activeUserId}
-                  companyId={activeCompanyId}
-                  onAuditLogged={forceTriggerAuditTrail}
                 />
               )}
 
@@ -1198,14 +1147,6 @@ export default function App() {
                 <AuditLog userId={activeUserId} companyId={activeCompanyId} />
               )}
 
-              {activePage === "workspace" && (
-                <WorkspaceSyncCenter
-                  userId={activeUserId}
-                  companyId={activeCompanyId}
-                  onAuditLogged={forceTriggerAuditTrail}
-                  onRequestOAuth={handleOAuthSetup}
-                />
-              )}
               {activePage === "settings" && (
                 <SettingsPage
                   userId={activeUserId}

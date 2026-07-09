@@ -24,12 +24,9 @@ const NAV_LABELS: Record<string, string> = {
   "pay_rec": "Corporate AP/AR",
   "payroll": "Wages & Payroll",
   "reports": "Executive Sheets",
-  "cash_acc": "Cash & Bank",
   "vault": "Document Vault",
-  "enterprise": "Enterprise Suite",
   "tax_compliance": "Tax Compliance",
   "audit_log": "Security & Audit",
-  "workspace": "Workspace Sync",
   "settings": "Settings"
 };
 
