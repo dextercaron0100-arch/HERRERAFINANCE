@@ -979,12 +979,25 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                     >
                       {/* Title & Description */}
                       <td className="p-3 max-w-sm">
-                        <div className="font-bold text-slate-900 leading-tight">{item.title}</div>
-                        {item.description && (
-                          <div className="text-[10px] text-slate-600 font-mono mt-0.5 line-clamp-2">
-                            {item.description}
+                        <div className="flex items-start gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-slate-900 leading-tight">{item.title}</div>
+                            {item.description && (
+                              <div className="text-[10px] text-slate-600 font-mono mt-0.5 line-clamp-2">
+                                {item.description}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          {item.type === "compliance" && isAdmin && (
+                            <button
+                              onClick={() => handleDeleteCustom(item.id, item.title)}
+                              className="p-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer border border-transparent hover:border-rose-200 shrink-0"
+                              title="Delete this scheduled event"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
 
                       {/* Type Badge */}
@@ -1055,16 +1068,6 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                               title="Settle or mark as complete"
                             >
                               Settle
-                            </button>
-                          )}
-                          
-                          {item.type === "compliance" && isAdmin && (
-                            <button
-                              onClick={() => handleDeleteCustom(item.id, item.title)}
-                              className="p-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer border border-transparent hover:border-rose-200"
-                              title="Delete scheduled event"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
