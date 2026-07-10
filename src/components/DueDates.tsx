@@ -26,6 +26,7 @@ import {
   deletePayable,
   deleteReceivable,
   canWriteFinance,
+  isGroupAdmin,
   writeAuditLog,
   getCustomDeadlines,
   saveCustomDeadline,
@@ -63,6 +64,7 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
   const rawPayrollRuns = getPayrollRuns(userId, companyId);
 
   const isAdmin = canWriteFinance(userId, companyId);
+  const isOwner = isGroupAdmin(userId);
 
   // Custom Deadlines - shared/synced storage (Firestore-backed), scoped by company access
   const customDeadlines = useMemo(
@@ -357,8 +359,8 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
 
   // Action: Delete a schedule item (compliance, payable, or receivable)
   const handleDeleteItem = (item: any) => {
-    if (!isAdmin) {
-      toast.error("Permission denied.");
+    if (!isOwner) {
+      toast.error("Only the owner can delete due date items.");
       return;
     }
     if (item.type === "payroll") {
@@ -527,19 +529,21 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
 
         {isAdmin && (
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to empty all visible custom due date details?")) {
-                  customDeadlines.forEach((cd) => deleteCustomDeadline(cd.id));
-                  toast.success("Due date details have been emptied.");
-                  onAuditLogged();
-                }
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-sm cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Empty Details</span>
-            </button>
+            {isOwner && (
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to empty all visible custom due date details?")) {
+                    customDeadlines.forEach((cd) => deleteCustomDeadline(cd.id));
+                    toast.success("Due date details have been emptied.");
+                    onAuditLogged();
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-sm cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Empty Details</span>
+              </button>
+            )}
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-1.5 px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-sm cursor-pointer"
@@ -1012,7 +1016,7 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                               </div>
                             )}
                           </div>
-                          {isAdmin && item.type !== "payroll" && (item.type === "compliance" || item.status !== "completed") && (
+                          {isOwner && item.type !== "payroll" && (item.type === "compliance" || item.status !== "completed") && (
                             <button
                               onClick={() => handleDeleteItem(item)}
                               className="p-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer border border-transparent hover:border-rose-200 shrink-0"

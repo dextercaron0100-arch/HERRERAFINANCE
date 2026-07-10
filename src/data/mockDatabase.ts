@@ -1837,10 +1837,9 @@ export function deletePayable(
 
   const payable = payables[idx];
 
-  if (!canWriteFinance(userId, payable.companyId)) {
+  if (!isGroupAdmin(userId)) {
     return {
-      error:
-        "Access Denied: Insufficient authorization to remove accounts payable liabilities.",
+      error: "Access Denied: Only the owner can delete accounts payable liabilities.",
     };
   }
 
@@ -1987,10 +1986,9 @@ export function deleteReceivable(
 
   const receivable = receivables[idx];
 
-  if (!canWriteFinance(userId, receivable.companyId)) {
+  if (!isGroupAdmin(userId)) {
     return {
-      error:
-        "Access Denied: Insufficient roles to remove accounts receivable claims.",
+      error: "Access Denied: Only the owner can delete accounts receivable claims.",
     };
   }
 
