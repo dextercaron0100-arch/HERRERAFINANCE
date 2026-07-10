@@ -23,6 +23,8 @@ import {
   getCompanies,
   markPayableAsPaid,
   markReceivableAsCollected,
+  deletePayable,
+  deleteReceivable,
   canWriteFinance,
   writeAuditLog,
   getCustomDeadlines,
@@ -353,25 +355,47 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
     }
   };
 
-  // Action: Delete custom item
-  const handleDeleteCustom = (id: string, title: string) => {
+  // Action: Delete a schedule item (compliance, payable, or receivable)
+  const handleDeleteItem = (item: any) => {
     if (!isAdmin) {
       toast.error("Permission denied.");
       return;
     }
-    const confirm = window.confirm(`Are you sure you want to delete '${title}'?`);
-    if (confirm) {
-      deleteCustomDeadline(id);
+    if (item.type === "payroll") {
+      toast.info("Please use the Wages & Payroll module to manage payroll schedules.");
+      return;
+    }
+    const confirm = window.confirm(`Are you sure you want to delete '${item.title}'?`);
+    if (!confirm) return;
+
+    if (item.type === "compliance") {
+      deleteCustomDeadline(item.id);
       writeAuditLog(
         userId,
-        null,
-        `Deleted Custom Compliance Due Date: ${title}`,
+        item.companyId,
+        `Deleted Custom Compliance Due Date: ${item.title}`,
         "compliance",
-        id,
-        { title }
+        item.id,
+        { title: item.title }
       );
       toast.success("Deadline deleted.");
       onAuditLogged();
+    } else if (item.type === "payable") {
+      const { error } = deletePayable(userId, item.originalItem.id);
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success("Payable deleted.");
+        onAuditLogged();
+      }
+    } else if (item.type === "receivable") {
+      const { error } = deleteReceivable(userId, item.originalItem.id);
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success("Receivable deleted.");
+        onAuditLogged();
+      }
     }
   };
 
@@ -988,9 +1012,9 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
                               </div>
                             )}
                           </div>
-                          {item.type === "compliance" && isAdmin && (
+                          {isAdmin && item.type !== "payroll" && (item.type === "compliance" || item.status !== "completed") && (
                             <button
-                              onClick={() => handleDeleteCustom(item.id, item.title)}
+                              onClick={() => handleDeleteItem(item)}
                               className="p-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer border border-transparent hover:border-rose-200 shrink-0"
                               title="Delete this scheduled event"
                             >

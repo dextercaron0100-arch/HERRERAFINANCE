@@ -1827,6 +1827,43 @@ export function markPayableAsPaid(
   return { payable, txn: txnRes.transaction };
 }
 
+export function deletePayable(
+  userId: string,
+  payableId: string,
+): { error?: string; success?: boolean } {
+  const payables = load<Payable[]>(KEYS.PAYABLES, []);
+  const idx = payables.findIndex((p) => p.id === payableId);
+  if (idx === -1) return { error: "Invoice payable not found." };
+
+  const payable = payables[idx];
+
+  if (!canWriteFinance(userId, payable.companyId)) {
+    return {
+      error:
+        "Access Denied: Insufficient authorization to remove accounts payable liabilities.",
+    };
+  }
+
+  if (payable.status === "paid") {
+    return {
+      error: "This liability is already settled and tied to a ledger transaction; it cannot be deleted.",
+    };
+  }
+
+  save(KEYS.PAYABLES, payables.filter((p) => p.id !== payableId));
+
+  writeAuditLog(
+    userId,
+    payable.companyId,
+    "DELETE_PAYABLE",
+    "payable",
+    payable.id,
+    { amount: payable.amount, payee: payable.payee },
+  );
+
+  return { success: true };
+}
+
 // ACCOUNTS RECEIVABLE
 export function getReceivables(
   userId: string,
@@ -1938,6 +1975,43 @@ export function markReceivableAsCollected(
   );
 
   return { receivable, txn: txnRes.transaction };
+}
+
+export function deleteReceivable(
+  userId: string,
+  receivableId: string,
+): { error?: string; success?: boolean } {
+  const receivables = load<Receivable[]>(KEYS.RECEIVABLES, []);
+  const idx = receivables.findIndex((r) => r.id === receivableId);
+  if (idx === -1) return { error: "Receivable asset not found." };
+
+  const receivable = receivables[idx];
+
+  if (!canWriteFinance(userId, receivable.companyId)) {
+    return {
+      error:
+        "Access Denied: Insufficient roles to remove accounts receivable claims.",
+    };
+  }
+
+  if (receivable.status === "collected") {
+    return {
+      error: "This asset is already collected and tied to a ledger transaction; it cannot be deleted.",
+    };
+  }
+
+  save(KEYS.RECEIVABLES, receivables.filter((r) => r.id !== receivableId));
+
+  writeAuditLog(
+    userId,
+    receivable.companyId,
+    "DELETE_RECEIVABLE",
+    "receivable",
+    receivable.id,
+    { amount: receivable.amount, payer: receivable.payer },
+  );
+
+  return { success: true };
 }
 
 // EMPLOYEES (ADMINS ONLY CONTROLS)
