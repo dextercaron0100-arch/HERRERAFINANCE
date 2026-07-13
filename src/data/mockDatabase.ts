@@ -1287,6 +1287,50 @@ export async function emptyDashboardData(userId: string) {
   }
 }
 
+export async function addCategoriesByName(userId: string, entries: { name: string; type: CashflowType }[]): Promise<{ addedCount: number }> {
+  requireGroupAdmin(userId);
+  const allCats = load<Category[]>(KEYS.CATEGORIES, []);
+  const companies = load<Company[]>(KEYS.COMPANIES, []);
+  let idCounter = Date.now();
+  let addedCount = 0;
+
+  companies.forEach((comp) => {
+    entries.forEach(({ name, type }) => {
+      const exists = allCats.some(
+        (c) => c.companyId === comp.id && c.type === type && c.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!exists) {
+        allCats.push({
+          id: `cat-${type === "cash_in" ? "in" : "out"}-${idCounter++}-${Math.floor(Math.random() * 1000)}`,
+          companyId: comp.id,
+          name,
+          type,
+          createdAt: new Date().toISOString(),
+        });
+        addedCount++;
+      }
+    });
+  });
+
+  if (addedCount === 0) return { addedCount: 0 };
+
+  save(KEYS.CATEGORIES, allCats);
+
+  if (db) {
+    try {
+      const docRef = doc(db, "appData", KEYS.CATEGORIES);
+      await safeSetDoc(docRef, { data: allCats }, { merge: true });
+    } catch (e: any) {
+      if (e?.code !== 'resource-exhausted') {
+        console.error("Failed to write categories to Firestore:", e);
+      }
+      throw e;
+    }
+  }
+
+  return { addedCount };
+}
+
 export async function removeCategoriesByName(userId: string, names: string[]): Promise<{ removedCount: number }> {
   requireGroupAdmin(userId);
   const lowerNames = names.map((n) => n.toLowerCase());
