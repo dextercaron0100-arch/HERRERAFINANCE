@@ -172,12 +172,8 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   const vaultAttachments = getAttachments(companyId);
 
   const allCashAccounts = useMemo(() => {
-    const accs: CashAccount[] = [];
-    companies.forEach(c => {
-      accs.push(...getCashAccounts(c.id));
-    });
-    return accs;
-  }, [companies]);
+    return getCashAccounts(companyId);
+  }, [companies, companyId]);
 
   // Filter Categories on selected type for encode form
   const formCategories = useMemo(() => {
