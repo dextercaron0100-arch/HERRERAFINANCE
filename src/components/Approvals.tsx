@@ -39,6 +39,26 @@ interface ApprovalsProps {
   onAuditLogged?: () => void;
 }
 
+// Distinct, stable badge colors per company so companies don't get confused with each other.
+const COMPANY_BADGE_COLORS = [
+  "text-violet-500 bg-violet-500/10 border-violet-500/20",
+  "text-orange-500 bg-orange-500/10 border-orange-500/20",
+  "text-fuchsia-500 bg-fuchsia-500/10 border-fuchsia-500/20",
+  "text-lime-600 bg-lime-500/10 border-lime-500/20",
+  "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
+  "text-pink-500 bg-pink-500/10 border-pink-500/20",
+  "text-cyan-600 bg-cyan-500/10 border-cyan-500/20",
+  "text-yellow-600 bg-yellow-500/10 border-yellow-500/20",
+];
+
+function getCompanyBadgeColor(companyId: string): string {
+  let hash = 0;
+  for (let i = 0; i < companyId.length; i++) {
+    hash = (hash * 31 + companyId.charCodeAt(i)) >>> 0;
+  }
+  return COMPANY_BADGE_COLORS[hash % COMPANY_BADGE_COLORS.length];
+}
+
 export default function Approvals({
   userId,
   companyId,
@@ -684,7 +704,7 @@ export default function Approvals({
                             Receipt Found
                           </button>
                         )}
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                        <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border ${getCompanyBadgeColor(txn.companyId)}`}>
                           {company?.name || company?.code || txn.companyId}
                         </span>
                         <span className="text-[10px] uppercase font-bold tracking-widest text-sky-400 bg-sky-500/10 px-2 py-1 rounded border border-sky-500/20 truncate max-w-[200px]" title={`${account?.accountType || 'Wallet'} • ${account?.bankName || 'Unknown'} - ${account?.accountName || txn.cashAccountId}`}>
