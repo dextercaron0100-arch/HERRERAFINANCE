@@ -215,6 +215,7 @@ const SHARED_CATEGORIES = [
   "Repair & Maintenance",
   "Bank Fee",
   "Shipping Fee",
+  "Purchases",
 ];
 
 export const DEFAULT_CASH_IN_CATEGORIES = [...SHARED_CATEGORIES];
