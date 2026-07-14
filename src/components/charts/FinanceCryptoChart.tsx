@@ -24,7 +24,7 @@ function TooltipCard({ active, payload, metric }: any) {
   if (!active || !payload?.length) return null;
   const config = metrics[metric as Metric];
   return <div className="min-w-48 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
-    <p className="mb-2 text-xs text-slate-500">{new Date(payload[0].payload.timestamp).toLocaleDateString("en-PH", { dateStyle: "medium" })}</p>
+    <p className="mb-2 text-xs text-slate-500">{new Date(payload[0].payload.timestamp).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</p>
     <div className="flex items-center justify-between gap-5 text-sm">
       <span className="flex items-center gap-2 text-slate-700"><i className="h-2.5 w-2.5 rounded-full" style={{ background: config.color }} />{config.label}</span>
       <strong className="text-slate-900">{peso.format(Number(payload[0].value ?? 0))}</strong>
@@ -53,7 +53,13 @@ export function FinanceCryptoChart({ data, loading = false }: { data: FinanceCha
     <header className="border-b border-slate-200 p-5">
       <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
         <div>
-          <p className="mb-1 text-sm font-medium text-slate-400">{config.label}</p>
+          <div className="mb-1 flex items-center gap-2">
+            <p className="text-sm font-medium text-slate-500">{config.label}</p>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              Live
+            </span>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <motion.h2 key={`${metric}-${current}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-3xl font-semibold tracking-tight text-slate-900">{peso.format(current)}</motion.h2>
             <span className={`mb-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${positive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
@@ -76,7 +82,17 @@ export function FinanceCryptoChart({ data, loading = false }: { data: FinanceCha
           <YAxis orientation="right" axisLine={false} tickLine={false} width={76} tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={value => compactPeso.format(value)} />
           <Tooltip content={<TooltipCard metric={metric} />} cursor={{ stroke: "#64748b", strokeDasharray: "4 4" }} />
           <ReferenceLine y={current} stroke={config.color} strokeOpacity={0.45} strokeDasharray="5 5" />
-          <Area key={metric} type="monotone" dataKey={metric} stroke={config.color} strokeWidth={2.5} fill={`url(#${gradient})`} dot={false} activeDot={{ r: 5, strokeWidth: 3, stroke: "#ffffff", fill: config.color }} animationDuration={450} />
+          <Area
+            key={metric}
+            type="monotone"
+            dataKey={metric}
+            stroke={config.color}
+            strokeWidth={2.5}
+            fill={`url(#${gradient})`}
+            dot={filtered.length === 1 ? { r: 5, strokeWidth: 3, stroke: "#ffffff", fill: config.color } : false}
+            activeDot={{ r: 5, strokeWidth: 3, stroke: "#ffffff", fill: config.color }}
+            animationDuration={450}
+          />
         </AreaChart></ResponsiveContainer>}
     </div>
   </motion.section>;
