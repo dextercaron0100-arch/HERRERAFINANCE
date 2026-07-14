@@ -348,7 +348,37 @@ export default function Dashboard({
       daily.set(timestamp, point);
     });
 
-    return [...daily.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const points = [...daily.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const todayPoints = points.filter(point => {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(point.timestamp)) === today;
+    });
+
+    if (todayPoints.length === 0) return points;
+
+    let runningSales = 0;
+    let runningExpenses = 0;
+    const cumulativeToday = todayPoints.map(point => {
+      runningSales += point.sales;
+      runningExpenses += point.expenses;
+      return {
+        ...point,
+        sales: runningSales,
+        expenses: runningExpenses,
+        netProfit: runningSales - runningExpenses,
+      };
+    });
+
+    const historicalPoints = points.filter(point => !todayPoints.includes(point));
+    return [
+      ...historicalPoints,
+      { timestamp: `${today}T00:00:00+08:00`, sales: 0, expenses: 0, netProfit: 0 },
+      ...cumulativeToday,
+    ].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
 
   const generateSparkline = (currentValue: number) => {
