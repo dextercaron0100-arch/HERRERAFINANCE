@@ -5,19 +5,18 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { motion, Reorder } from "motion/react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { 
   getTransactions, getAllCategories, useDBUpdate, 
   getProfiles, getCashAccounts, getAttachments, getCompanies, createReversalTransaction 
 } from "../data/mockDatabase";
-import { 
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend 
-} from "recharts";
 import { 
   TrendingUp, TrendingDown, Wallet, PhilippinePeso, Activity, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, X, GripVertical, Calendar, ChevronDown, Download,
   ArrowUpRight, ArrowDownLeft, Paperclip, User, CheckCircle2, XCircle, Clock, RefreshCcw
 } from "lucide-react";
 import { Transaction } from "../types";
 import AttachmentViewer from "./AttachmentViewer";
+import { FinanceCryptoChart, type FinanceChartPoint } from "./charts/FinanceCryptoChart";
 
 interface DashboardProps {
   userId: string;
@@ -318,6 +317,31 @@ export default function Dashboard({
     return sorted;
   }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
 
+  const financeHistory = useMemo<FinanceChartPoint[]>(() => {
+    const daily = new Map<string, FinanceChartPoint>();
+    const historical = getTransactions(userId, isConsolidated ? null : companyId)
+      .filter(t => t.status === "approved" || t.status === "completed")
+      .filter(t => !t.transferRef);
+
+    historical.forEach(transaction => {
+      const dateKey = transaction.txnDate.slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+
+      const timestamp = `${dateKey}T00:00:00+08:00`;
+      const point = daily.get(timestamp) ?? { timestamp, sales: 0, expenses: 0, netProfit: 0 };
+      const category = (categoryMap[transaction.categoryId] || "").toLowerCase();
+
+      if (!category.includes("capital")) {
+        if (transaction.type === "cash_in") point.sales += transaction.amount;
+        if (transaction.type === "cash_out") point.expenses += transaction.amount;
+      }
+      point.netProfit = point.sales - point.expenses;
+      daily.set(timestamp, point);
+    });
+
+    return [...daily.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
+
   const generateSparkline = (currentValue: number) => {
     // Generate dummy historical points for a nice looking sparkline
     if (currentValue === 0) return Array(7).fill({ value: 0 });
@@ -525,7 +549,12 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Graph Area */}
+      {/* Interactive finance performance chart */}
+      <FinanceCryptoChart data={financeHistory} />
+
+      {/* Legacy chart retained temporarily for easy data-shape comparison. */}
+      {false && (
+      /* Graph Area */
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-inner flex-1 min-h-[400px] flex flex-col">
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-slate-900 font-mono uppercase tracking-widest">Revenue & Profit Trend</h3>
@@ -588,6 +617,8 @@ export default function Dashboard({
           )}
         </div>
       </div>
+
+      )}
 
       {/* Recent Transactions */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-inner flex-1 flex flex-col overflow-hidden">
