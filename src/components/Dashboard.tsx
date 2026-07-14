@@ -319,6 +319,12 @@ export default function Dashboard({
 
   const financeHistory = useMemo<FinanceChartPoint[]>(() => {
     const daily = new Map<string, FinanceChartPoint>();
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
     const historical = getTransactions(userId, isConsolidated ? null : companyId)
       .filter(t => t.status === "approved" || t.status === "completed")
       .filter(t => !t.transferRef);
@@ -327,7 +333,10 @@ export default function Dashboard({
       const dateKey = transaction.txnDate.slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
 
-      const timestamp = `${dateKey}T00:00:00+08:00`;
+      const createdAt = new Date(transaction.createdAt);
+      const timestamp = dateKey === today && !Number.isNaN(createdAt.getTime())
+        ? `${createdAt.toISOString().slice(0, 13)}:00:00.000Z`
+        : `${dateKey}T00:00:00+08:00`;
       const point = daily.get(timestamp) ?? { timestamp, sales: 0, expenses: 0, netProfit: 0 };
       const category = (categoryMap[transaction.categoryId] || "").toLowerCase();
 
