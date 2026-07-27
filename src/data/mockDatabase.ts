@@ -259,7 +259,37 @@ const pendingWriteTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 // overwrite the whole collection on its next unrelated save, silently
 // reverting that change — surfacing as an approved transaction "reappearing"
 // back in the Pending queue.
-const mergeArraysByFreshness = (localArr: any[], remoteArr: any[]): any[] => {
+//
+// This union-by-id approach has one blind spot: it can't tell "this id was
+// never on this client" apart from "this id was just deleted here" — both
+// look like "absent locally, present remotely/elsewhere" and would
+// otherwise resurrect a deleted record. recentDeletions is a short-lived
+// per-key tombstone set that delete*() functions populate so this merge
+// (and the realtime listener below) can exclude those ids regardless of
+// what a stale writer still has.
+const recentDeletions: Record<string, Map<string, number>> = {};
+const DELETION_TOMBSTONE_MS = 3 * 60 * 1000; // 3 minutes — comfortably longer than the write/echo/re-render cycle
+
+const recordDeletions = (key: string, ids: (string | null | undefined)[]) => {
+  if (!recentDeletions[key]) recentDeletions[key] = new Map();
+  const now = Date.now();
+  ids.forEach((id) => {
+    if (id) recentDeletions[key]!.set(id, now);
+  });
+};
+
+const stripTombstonedIds = (key: string, arr: any[]): any[] => {
+  const tomb = recentDeletions[key];
+  if (!tomb || tomb.size === 0) return arr;
+  const now = Date.now();
+  for (const [id, ts] of tomb) {
+    if (now - ts > DELETION_TOMBSTONE_MS) tomb.delete(id);
+  }
+  if (tomb.size === 0) return arr;
+  return arr.filter((item) => !(item && tomb.has(item.id)));
+};
+
+const mergeArraysByFreshness = (key: string, localArr: any[], remoteArr: any[]): any[] => {
   const remoteById = new Map(remoteArr.filter((i) => i && i.id != null).map((i) => [i.id, i]));
   const localById = new Map(localArr.filter((i) => i && i.id != null).map((i) => [i.id, i]));
   const allIds = new Set([...remoteById.keys(), ...localById.keys()]);
@@ -275,7 +305,7 @@ const mergeArraysByFreshness = (localArr: any[], remoteArr: any[]): any[] => {
       merged.push(localItem || remoteItem);
     }
   });
-  return merged;
+  return stripTombstonedIds(key, merged);
 };
 
 const scheduleFirestoreWrite = (key: string) => {
@@ -290,11 +320,12 @@ const scheduleFirestoreWrite = (key: string) => {
     let cleanVal = localVal;
 
     if (Array.isArray(localVal)) {
+      cleanVal = stripTombstonedIds(key, localVal);
       try {
         const remoteSnap = await getDoc(docRef);
         const remoteVal = remoteSnap.exists() ? remoteSnap.data()?.data : null;
         if (Array.isArray(remoteVal)) {
-          cleanVal = mergeArraysByFreshness(localVal, remoteVal);
+          cleanVal = mergeArraysByFreshness(key, cleanVal, remoteVal);
         }
       } catch {
         // Couldn't read the latest snapshot (offline, etc.) — fall back to
@@ -959,14 +990,19 @@ export function initDB() {
                    if (remoteData) {
                      const lValStr = localStorage.getItem(k);
                      let incomingData = remoteData;
-                     if (Array.isArray(remoteData) && lValStr) {
-                       try {
-                         const localArr = JSON.parse(lValStr);
-                         if (Array.isArray(localArr)) {
-                           incomingData = mergeArraysByFreshness(localArr, remoteData);
+                     if (Array.isArray(remoteData)) {
+                       if (lValStr) {
+                         try {
+                           const localArr = JSON.parse(lValStr);
+                           incomingData = Array.isArray(localArr)
+                             ? mergeArraysByFreshness(k, localArr, remoteData)
+                             : stripTombstonedIds(k, remoteData);
+                         } catch {
+                           // Malformed local cache — fall back to the remote copy as-is.
+                           incomingData = stripTombstonedIds(k, remoteData);
                          }
-                       } catch {
-                         // Malformed local cache — fall back to the remote copy as-is.
+                       } else {
+                         incomingData = stripTombstonedIds(k, remoteData);
                        }
                      }
                      const rValStr = JSON.stringify(incomingData);
@@ -1388,11 +1424,13 @@ export async function removeCategoriesByName(userId: string, names: string[]): P
   requireGroupAdmin(userId);
   const lowerNames = names.map((n) => n.toLowerCase());
   const allCats = load<Category[]>(KEYS.CATEGORIES, []);
+  const removedIds = allCats.filter((c) => lowerNames.includes(c.name.toLowerCase())).map((c) => c.id);
   const kept = allCats.filter((c) => !lowerNames.includes(c.name.toLowerCase()));
   const removedCount = allCats.length - kept.length;
 
   if (removedCount === 0) return { removedCount: 0 };
 
+  recordDeletions(KEYS.CATEGORIES, removedIds);
   save(KEYS.CATEGORIES, kept);
 
   if (db) {
@@ -1616,15 +1654,24 @@ export function deleteTransaction(userId: string, transactionId: string): { erro
   }
 
   allTxns.splice(index, 1);
+  recordDeletions(KEYS.TRANSACTIONS, [transactionId]);
   save(KEYS.TRANSACTIONS, allTxns);
 
   const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  const removedLedgerIds = ledgerEntries.filter(e => e.referenceNo === transactionId).map(e => e.id);
   const remainingLedgerEntries = ledgerEntries.filter(e => e.referenceNo !== transactionId);
-  if (remainingLedgerEntries.length !== ledgerEntries.length) save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+  if (remainingLedgerEntries.length !== ledgerEntries.length) {
+    recordDeletions(KEYS.CASH_LEDGER_ENTRIES, removedLedgerIds);
+    save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+  }
 
   const approvals = load<Approval[]>(KEYS.APPROVALS, []);
+  const removedApprovalIds = approvals.filter(a => a.transactionId === transactionId).map(a => a.id);
   const remainingApprovals = approvals.filter(a => a.transactionId !== transactionId);
-  if (remainingApprovals.length !== approvals.length) save(KEYS.APPROVALS, remainingApprovals);
+  if (remainingApprovals.length !== approvals.length) {
+    recordDeletions(KEYS.APPROVALS, removedApprovalIds);
+    save(KEYS.APPROVALS, remainingApprovals);
+  }
 
   writeAuditLog(userId, txn.companyId, "DELETE_TRANSACTION", "transaction", transactionId, {
     amount: txn.amount,
@@ -1976,6 +2023,7 @@ export function deletePayable(
     };
   }
 
+  recordDeletions(KEYS.PAYABLES, [payableId]);
   save(KEYS.PAYABLES, payables.filter((p) => p.id !== payableId));
 
   writeAuditLog(
@@ -2125,6 +2173,7 @@ export function deleteReceivable(
     };
   }
 
+  recordDeletions(KEYS.RECEIVABLES, [receivableId]);
   save(KEYS.RECEIVABLES, receivables.filter((r) => r.id !== receivableId));
 
   writeAuditLog(
@@ -2886,6 +2935,7 @@ export function deleteCashAccount(userId: string, companyId: string, accountId: 
   
   const accountName = all[idx].accountName;
   all.splice(idx, 1);
+  recordDeletions(KEYS.CASH_ACCOUNTS, [accountId]);
   save(KEYS.CASH_ACCOUNTS, all);
   writeAuditLog(userId, companyId, "DELETE_CASH_ACCOUNT", "cash_account", accountId, { name: accountName });
   return {};
@@ -3267,15 +3317,24 @@ export function deleteFundTransfer(userId: string, companyId: string, transferId
 
   const removed = all[idx];
   all.splice(idx, 1);
+  recordDeletions(KEYS.FUND_TRANSFERS, [transferId]);
   save(KEYS.FUND_TRANSFERS, all);
 
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const removedTxnIds = allTxns.filter(t => t.transferRef === transferId).map(t => t.id);
   const remainingTxns = allTxns.filter(t => t.transferRef !== transferId);
-  if (remainingTxns.length !== allTxns.length) save(KEYS.TRANSACTIONS, remainingTxns);
+  if (remainingTxns.length !== allTxns.length) {
+    recordDeletions(KEYS.TRANSACTIONS, removedTxnIds);
+    save(KEYS.TRANSACTIONS, remainingTxns);
+  }
 
   const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  const removedLedgerIds = ledgerEntries.filter(e => e.referenceNo === transferId).map(e => e.id);
   const remainingLedgerEntries = ledgerEntries.filter(e => e.referenceNo !== transferId);
-  if (remainingLedgerEntries.length !== ledgerEntries.length) save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+  if (remainingLedgerEntries.length !== ledgerEntries.length) {
+    recordDeletions(KEYS.CASH_LEDGER_ENTRIES, removedLedgerIds);
+    save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+  }
 
   writeAuditLog(userId, companyId, "DELETE_FUND_TRANSFER", "fund_transfer", transferId, {
     amount: removed.amount,
@@ -3340,6 +3399,7 @@ export function saveCustomDeadline(payload: Omit<CustomDeadline, "id">, id?: str
 export function deleteCustomDeadline(id: string) {
   initDB();
   const all = load<CustomDeadline[]>(KEYS.CUSTOM_DEADLINES, []);
+  recordDeletions(KEYS.CUSTOM_DEADLINES, [id]);
   save(KEYS.CUSTOM_DEADLINES, all.filter((d) => d.id !== id));
   return { success: true };
 }
