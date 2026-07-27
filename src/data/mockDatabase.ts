@@ -208,6 +208,7 @@ const SHARED_CATEGORIES = [
   "Internet Utility",
   "Transportation",
   "Office Supplies",
+  "Store Supplies",
   "Cleaning Materials",
   "Office Equipment",
   "Fix & Furnitures",
