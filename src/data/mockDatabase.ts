@@ -208,6 +208,7 @@ const SHARED_CATEGORIES = [
   "Internet Utility",
   "Transportation",
   "Office Supplies",
+  "Store Supplies",
   "Cleaning Materials",
   "Office Equipment",
   "Fix & Furnitures",
@@ -3175,6 +3176,32 @@ export function executeFundTransferToLedger(
   }
 
   return { success: true, alreadyPosted: postedOut && postedIn };
+}
+
+export function deleteFundTransfer(userId: string, companyId: string, transferId: string): { error?: string } {
+  initDB();
+  const all = load<FundTransfer[]>(KEYS.FUND_TRANSFERS, []);
+  const idx = all.findIndex(t => t.id === transferId);
+  if (idx === -1) return { error: "Transfer not found." };
+
+  const removed = all[idx];
+  all.splice(idx, 1);
+  save(KEYS.FUND_TRANSFERS, all);
+
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const remainingTxns = allTxns.filter(t => t.transferRef !== transferId);
+  if (remainingTxns.length !== allTxns.length) save(KEYS.TRANSACTIONS, remainingTxns);
+
+  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  const remainingLedgerEntries = ledgerEntries.filter(e => e.referenceNo !== transferId);
+  if (remainingLedgerEntries.length !== ledgerEntries.length) save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+
+  writeAuditLog(userId, companyId, "DELETE_FUND_TRANSFER", "fund_transfer", transferId, {
+    amount: removed.amount,
+    purpose: removed.purpose,
+    status: removed.status,
+  });
+  return {};
 }
 
 export function saveFundTransfer(payload: Omit<FundTransfer, "id" | "createdAt">, id?: string) {
