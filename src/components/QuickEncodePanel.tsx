@@ -14,12 +14,13 @@ import {
   ListTodo,
   HelpCircle
 } from 'lucide-react';
-import { 
-  getCompanies, 
-  getCategories, 
-  getCashAccounts, 
+import {
+  getCompanies,
+  getCategories,
+  getCashAccounts,
   insertTransaction,
-  getTransactions
+  getTransactions,
+  useDBUpdate
 } from '../data/mockDatabase';
 import { compressImage } from '../lib/imageUtils';
 import { uploadPrivateDocument } from '../lib/privateDocuments';
@@ -37,6 +38,7 @@ export default function QuickEncodePanel({
   isConsolidated: boolean,
   onClose?: () => void
 }) {
+  const dbTick = useDBUpdate();
   const companies = getCompanies();
   const today = new Date().toISOString().split("T")[0];
 
@@ -61,9 +63,9 @@ export default function QuickEncodePanel({
 
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
-  const categories = useMemo(() => getCategories(formCompanyId).filter(c => c.type === type), [formCompanyId, type]);
-  const cashAccounts = useMemo(() => getCashAccounts(formCompanyId), [formCompanyId]);
-  const recentTransactions = useMemo(() => getTransactions(userId, formCompanyId), [userId, formCompanyId]);
+  const categories = useMemo(() => getCategories(formCompanyId).filter(c => c.type === type), [formCompanyId, type, dbTick]);
+  const cashAccounts = useMemo(() => getCashAccounts(formCompanyId), [formCompanyId, dbTick]);
+  const recentTransactions = useMemo(() => getTransactions(userId, formCompanyId), [userId, formCompanyId, dbTick]);
 
   const formatInput = (val: string) => {
     let cleaned = val.replace(/[^0-9.]/g, '');
