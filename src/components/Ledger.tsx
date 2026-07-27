@@ -24,7 +24,8 @@ import {
   FileCheck2,
   Paperclip,
   Sparkles,
-  Camera
+  Camera,
+  Trash2
 } from 'lucide-react';
 import { motion, animate } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -44,7 +45,9 @@ import {
   getAttachments,
   saveAttachment,
   getCashAccounts,
-  markTransactionCompleted
+  markTransactionCompleted,
+  deleteTransaction,
+  canAdminCompany
 } from '../data/mockDatabase';
 import { compressImage } from '../lib/imageUtils';
 import { uploadPrivateDocument } from '../lib/privateDocuments';
@@ -276,6 +279,19 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       toast.error(res.error);
     } else {
       toast.success("Transaction successfully marked as completed (Money Moved).");
+      window.dispatchEvent(new Event('db-update'));
+    }
+  };
+
+  const handleDeleteTransaction = (txn: Transaction) => {
+    if (!window.confirm(`Permanently delete transaction ${txn.id} (${txn.type === 'cash_in' ? '+' : '-'}₱${txn.amount})? This also removes its posted ledger entry and cannot be undone.`)) {
+      return;
+    }
+    const res = deleteTransaction(userId, txn.id);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Transaction deleted.");
       window.dispatchEvent(new Event('db-update'));
     }
   };
@@ -1448,7 +1464,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                               <span>Mark Completed</span>
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleReversal(t.id)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-slate-200 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
                             >
@@ -1459,6 +1475,16 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                         )}
                         {t.status !== 'approved' && (
                           <span className="text-[10px] text-zinc-600 font-mono">N/A</span>
+                        )}
+                        {canAdminCompany(userId, t.companyId) && (
+                          <button
+                            onClick={() => handleDeleteTransaction(t)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] border border-rose-200 text-rose-600 hover:bg-rose-50 bg-white rounded-lg transition-all font-mono uppercase tracking-wider cursor-pointer"
+                            title="Permanently delete this transaction"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-500" />
+                            <span>Delete</span>
+                          </button>
                         )}
                       </td>
                     </tr>
