@@ -225,7 +225,7 @@ export const DEFAULT_CASH_OUT_CATEGORIES = [...SHARED_CATEGORIES];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { collection, doc, getDocs, setDoc, disableNetwork } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, disableNetwork } from "firebase/firestore";
 import { toast } from "sonner";
 
 let hasNotifiedQuota = false;
@@ -252,15 +252,56 @@ const IS_PRODUCTION = import.meta.env.PROD;
 const FIRESTORE_WRITE_DEBOUNCE_MS = 800;
 const pendingWriteTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+// Merges a local array with the latest remote array record-by-record, keeping
+// whichever copy of each id was modified most recently (by updatedAt/createdAt).
+// Without this, a client whose in-memory copy predates someone else's change
+// (e.g. another approver clearing a transaction moments ago) would blindly
+// overwrite the whole collection on its next unrelated save, silently
+// reverting that change — surfacing as an approved transaction "reappearing"
+// back in the Pending queue.
+const mergeArraysByFreshness = (localArr: any[], remoteArr: any[]): any[] => {
+  const remoteById = new Map(remoteArr.filter((i) => i && i.id != null).map((i) => [i.id, i]));
+  const localById = new Map(localArr.filter((i) => i && i.id != null).map((i) => [i.id, i]));
+  const allIds = new Set([...remoteById.keys(), ...localById.keys()]);
+  const merged: any[] = [];
+  allIds.forEach((id) => {
+    const localItem = localById.get(id);
+    const remoteItem = remoteById.get(id);
+    if (localItem && remoteItem) {
+      const localTime = Date.parse(localItem.updatedAt || localItem.createdAt || "") || 0;
+      const remoteTime = Date.parse(remoteItem.updatedAt || remoteItem.createdAt || "") || 0;
+      merged.push(remoteTime > localTime ? remoteItem : localItem);
+    } else {
+      merged.push(localItem || remoteItem);
+    }
+  });
+  return merged;
+};
+
 const scheduleFirestoreWrite = (key: string) => {
   if (pendingWriteTimers[key]) clearTimeout(pendingWriteTimers[key]);
-  pendingWriteTimers[key] = setTimeout(() => {
+  pendingWriteTimers[key] = setTimeout(async () => {
     delete pendingWriteTimers[key];
     if (localStorage.getItem("quota_exceeded") === "true") return;
     const latest = localStorage.getItem(key);
     if (latest === null) return;
     const docRef = doc(db, "appData", key);
-    const cleanVal = JSON.parse(latest);
+    const localVal = JSON.parse(latest);
+    let cleanVal = localVal;
+
+    if (Array.isArray(localVal)) {
+      try {
+        const remoteSnap = await getDoc(docRef);
+        const remoteVal = remoteSnap.exists() ? remoteSnap.data()?.data : null;
+        if (Array.isArray(remoteVal)) {
+          cleanVal = mergeArraysByFreshness(localVal, remoteVal);
+        }
+      } catch {
+        // Couldn't read the latest snapshot (offline, etc.) — fall back to
+        // writing the local copy as-is rather than blocking the save.
+      }
+    }
+
     safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true }).catch(() => {
       if (!IS_PRODUCTION) return;
       window.dispatchEvent(new Event("db-update"));
@@ -916,12 +957,23 @@ export function initDB() {
                 if (change.type === "added" || change.type === "modified") {
                    const remoteData = change.doc.data().data;
                    if (remoteData) {
-                     const rValStr = JSON.stringify(remoteData);
                      const lValStr = localStorage.getItem(k);
+                     let incomingData = remoteData;
+                     if (Array.isArray(remoteData) && lValStr) {
+                       try {
+                         const localArr = JSON.parse(lValStr);
+                         if (Array.isArray(localArr)) {
+                           incomingData = mergeArraysByFreshness(localArr, remoteData);
+                         }
+                       } catch {
+                         // Malformed local cache — fall back to the remote copy as-is.
+                       }
+                     }
+                     const rValStr = JSON.stringify(incomingData);
                      if (rValStr !== lValStr) {
                        localStorage.setItem(k, rValStr);
                        if (!memoryDb) memoryDb = {};
-                       memoryDb[k] = remoteData;
+                       memoryDb[k] = incomingData;
                        changed = true;
                      }
                    }
