@@ -1098,6 +1098,35 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                   Add Purchases Category
                 </button>
               </div>
+
+              <div className="p-5 border border-emerald-500/20 bg-emerald-500/5 rounded-xl">
+                <h3 className="text-sm font-bold text-emerald-500 mb-2 font-mono flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Store Supplies Category
+                </h3>
+                <p className="text-xs text-slate-600 mb-4 font-mono max-w-xl">
+                  Adds a "Store Supplies" category (Cash In and Cash Out) to every company, for use in Quick Encode.
+                  Skips any company that already has it.
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { addedCount } = await addCategoriesByName(userId, [
+                        { name: "Store Supplies", type: "cash_in" },
+                        { name: "Store Supplies", type: "cash_out" },
+                      ]);
+                      toast.success(addedCount > 0 ? `Added ${addedCount} category entries.` : "Store Supplies category already exists everywhere.");
+                      refreshData();
+                    } catch (e: any) {
+                      toast.error("Failed to add category", { description: e.message });
+                    }
+                  }}
+                  className="inline-flex items-center justify-center w-fit gap-2 text-xs font-mono uppercase font-bold text-emerald-500 hover:text-slate-900 bg-emerald-500/10 hover:bg-emerald-500/80 border border-emerald-500/20 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Store Supplies Category
+                </button>
+              </div>
             </div>
           </div>
         )}
