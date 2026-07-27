@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User, Split, X, Paperclip, FileText, Image as ImageIcon
+  ArrowRightLeft, FileCheck2, Plus, Clock, Search, ShieldCheck, User, Split, X, Paperclip, FileText, Image as ImageIcon, Trash2
 } from "lucide-react";
 import {
   FundTransfer, CashAccount, Company, Profile, FundTransferAttachment
 } from "../types";
 import {
-  getFundTransfers, saveFundTransfer, getCashAccounts, getCompanies, getProfiles, getUserRole,
+  getFundTransfers, saveFundTransfer, deleteFundTransfer, getCashAccounts, getCompanies, getProfiles, getUserRole,
   getAllCashAccounts, useDBUpdate, executeFundTransferToLedger, isGroupAdmin, getNextControlNumber
 } from "../data/mockDatabase";
 import { toast } from "sonner";
@@ -274,6 +274,19 @@ export default function FundTransfers({ userId, companyId }: Props) {
     setForceRender(prev => prev + 1);
   };
 
+  const handleDeleteTransfer = (t: FundTransfer) => {
+    if (!window.confirm(`Delete this ${formatPeso(t.amount)} transfer (${t.id})? This also removes any posted ledger entries and cannot be undone.`)) {
+      return;
+    }
+    const result = deleteFundTransfer(userId, t.fromCompanyId, t.id);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Transfer deleted.");
+    setForceRender(prev => prev + 1);
+  };
+
   const handleSaveReference = (t: FundTransfer) => {
     if (!refValue.trim()) {
       toast.error("Reference number cannot be empty.");
@@ -440,44 +453,55 @@ export default function FundTransfers({ userId, companyId }: Props) {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        {t.status === "Pending" && isApprover(t.fromCompanyId) && (
-                          <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleUpdateStatus(t.id, 'Approved')} className="text-emerald-600 hover:underline">Approve</button>
-                            <button onClick={() => handleUpdateStatus(t.id, 'Rejected')} className="text-rose-600 hover:underline">Reject</button>
-                          </div>
-                        )}
-                        {t.status === "Approved" && isApprover(t.fromCompanyId) && (
-                          <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-emerald-600 hover:underline">Mark Completed</button>
-                        )}
-                        {t.status === "Completed" && isApprover(t.fromCompanyId) && (
-                          <div className="flex flex-col gap-1.5 items-end">
-                            <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-sky-600 hover:underline">Sync Posting</button>
-                            {!t.transferReferenceNumber && (
-                              editingRefId === t.id ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    autoFocus
-                                    type="text"
-                                    value={refValue}
-                                    onChange={(e) => setRefValue(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveReference(t); if (e.key === 'Escape') { setEditingRefId(null); setRefValue(""); } }}
-                                    placeholder="Bank/GCash ref #"
-                                    className="w-28 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
-                                  />
-                                  <button onClick={() => handleSaveReference(t)} className="text-emerald-600 hover:underline text-[11px]">Save</button>
-                                  <button onClick={() => { setEditingRefId(null); setRefValue(""); }} className="text-slate-400 hover:text-slate-600 text-[11px]">Cancel</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => { setEditingRefId(t.id); setRefValue(""); }}
-                                  className="text-amber-600 hover:underline text-[11px]"
-                                >
-                                  + Add Reference #
-                                </button>
-                              )
-                            )}
-                          </div>
-                        )}
+                        <div className="flex flex-col gap-1.5 items-end">
+                          {t.status === "Pending" && isApprover(t.fromCompanyId) && (
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => handleUpdateStatus(t.id, 'Approved')} className="text-emerald-600 hover:underline">Approve</button>
+                              <button onClick={() => handleUpdateStatus(t.id, 'Rejected')} className="text-rose-600 hover:underline">Reject</button>
+                            </div>
+                          )}
+                          {t.status === "Approved" && isApprover(t.fromCompanyId) && (
+                            <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-emerald-600 hover:underline">Mark Completed</button>
+                          )}
+                          {t.status === "Completed" && isApprover(t.fromCompanyId) && (
+                            <>
+                              <button onClick={() => handleUpdateStatus(t.id, 'Completed')} className="text-sky-600 hover:underline">Sync Posting</button>
+                              {!t.transferReferenceNumber && (
+                                editingRefId === t.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={refValue}
+                                      onChange={(e) => setRefValue(e.target.value)}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveReference(t); if (e.key === 'Escape') { setEditingRefId(null); setRefValue(""); } }}
+                                      placeholder="Bank/GCash ref #"
+                                      className="w-28 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                                    />
+                                    <button onClick={() => handleSaveReference(t)} className="text-emerald-600 hover:underline text-[11px]">Save</button>
+                                    <button onClick={() => { setEditingRefId(null); setRefValue(""); }} className="text-slate-400 hover:text-slate-600 text-[11px]">Cancel</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setEditingRefId(t.id); setRefValue(""); }}
+                                    className="text-amber-600 hover:underline text-[11px]"
+                                  >
+                                    + Add Reference #
+                                  </button>
+                                )
+                              )}
+                            </>
+                          )}
+                          {isApprover(t.fromCompanyId) && (
+                            <button
+                              onClick={() => handleDeleteTransfer(t)}
+                              className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition text-[11px]"
+                              title="Delete transfer"
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
