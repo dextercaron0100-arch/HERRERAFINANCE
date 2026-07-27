@@ -1605,6 +1605,35 @@ export function markTransactionCompleted(userId: string, transactionId: string):
   return {};
 }
 
+export function deleteTransaction(userId: string, transactionId: string): { error?: string } {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const index = allTxns.findIndex(t => t.id === transactionId);
+  if (index === -1) return { error: "Transaction not found." };
+
+  const txn = allTxns[index];
+  if (!canAdminCompany(userId, txn.companyId)) {
+    return { error: "Access Denied: Only a Company Administrator or Group Admin can delete a transaction." };
+  }
+
+  allTxns.splice(index, 1);
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
+  const remainingLedgerEntries = ledgerEntries.filter(e => e.referenceNo !== transactionId);
+  if (remainingLedgerEntries.length !== ledgerEntries.length) save(KEYS.CASH_LEDGER_ENTRIES, remainingLedgerEntries);
+
+  const approvals = load<Approval[]>(KEYS.APPROVALS, []);
+  const remainingApprovals = approvals.filter(a => a.transactionId !== transactionId);
+  if (remainingApprovals.length !== approvals.length) save(KEYS.APPROVALS, remainingApprovals);
+
+  writeAuditLog(userId, txn.companyId, "DELETE_TRANSACTION", "transaction", transactionId, {
+    amount: txn.amount,
+    purpose: txn.purpose,
+    status: txn.status,
+  });
+  return {};
+}
+
 export function reviewTransaction(
   userId: string,
   targetTransactionId: string,
