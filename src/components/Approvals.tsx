@@ -12,6 +12,7 @@ import {
   Filter,
   Eye,
   X,
+  MessageSquare,
 } from "lucide-react";
 import {
   getTransactions,
@@ -32,6 +33,7 @@ import { FundTransfer, Transaction } from "../types";
 import { toast } from "sonner";
 
 import AttachmentViewer from "./AttachmentViewer";
+import TransactionNotesModal from "./TransactionNotesModal";
 
 interface ApprovalsProps {
   userId: string;
@@ -79,6 +81,7 @@ export default function Approvals({
   const [reviewRemarks, setReviewRemarks] = useState("");
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+  const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
 
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
@@ -380,6 +383,11 @@ export default function Approvals({
 
     return items;
   }, [selectedTxn, profiles]);
+
+  const liveNotesTxn = useMemo(() => {
+    if (!notesTxn) return null;
+    return transactions.find((t) => t.id === notesTxn.id) || notesTxn;
+  }, [notesTxn, transactions]);
 
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -704,6 +712,18 @@ export default function Approvals({
                             Receipt Found
                           </button>
                         )}
+                        <button
+                          onClick={() => setNotesTxn(txn)}
+                          className={`flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border transition ${
+                            (txn.notes?.length || 0) > 0
+                              ? "text-amber-600 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20"
+                              : "text-slate-500 bg-white border-slate-200 hover:bg-slate-50"
+                          }`}
+                          title="Notes for accounting"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          Notes{(txn.notes?.length || 0) > 0 ? ` (${txn.notes!.length})` : ""}
+                        </button>
                         <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border ${getCompanyBadgeColor(txn.companyId)}`}>
                           {company?.name || company?.code || txn.companyId}
                         </span>
@@ -1017,6 +1037,16 @@ export default function Approvals({
             </div>
           </div>
         </div>
+      )}
+
+      {/* NOTES POPUP MODAL */}
+      {liveNotesTxn && (
+        <TransactionNotesModal
+          transaction={liveNotesTxn}
+          userId={userId}
+          canAdd={isAuthorizedApprover}
+          onClose={() => setNotesTxn(null)}
+        />
       )}
     </div>
   );

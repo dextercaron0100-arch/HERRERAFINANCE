@@ -25,7 +25,8 @@ import {
   Paperclip,
   Sparkles,
   Camera,
-  Trash2
+  Trash2,
+  MessageSquare
 } from 'lucide-react';
 import { motion, animate } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -53,6 +54,7 @@ import { compressImage } from '../lib/imageUtils';
 import { uploadPrivateDocument } from '../lib/privateDocuments';
 import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '../types';
 import { toast } from 'sonner';
+import TransactionNotesModal from './TransactionNotesModal';
 
 function AnimatedCounter({ value, className }: { value: number, className?: string }) {
   const nodeRef = useRef<HTMLSpanElement>(null);
@@ -161,6 +163,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
   // Attachment/Metadata Drawer State
   const [activeMetadataTxn, setActiveMetadataTxn] = useState<Transaction | null>(null);
+  const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
   const [metaScanRef, setMetaScanRef] = useState('');
   const [metaTimestamp, setMetaTimestamp] = useState('');
   const [metaReceiptUrl, setMetaReceiptUrl] = useState('');
@@ -1450,6 +1453,18 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                           >
                             <Paperclip className="w-3.5 h-3.5 mx-auto" />
                           </button>
+                          {/* Owner notes viewer */}
+                          <button
+                            onClick={() => setNotesTxn(t)}
+                            className={`p-1 border rounded-lg cursor-pointer transition-all ${
+                              (t.notes?.length || 0) > 0
+                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
+                            }`}
+                            title="View notes from owner"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 mx-auto" />
+                          </button>
                         </div>
                       </td>
 
@@ -1702,6 +1717,15 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
             </div>
           </motion.div>
         </div>
+      )}
+
+      {notesTxn && (
+        <TransactionNotesModal
+          transaction={rawTxns.find((t) => t.id === notesTxn.id) || notesTxn}
+          userId={userId}
+          canAdd={false}
+          onClose={() => setNotesTxn(null)}
+        />
       )}
     </div>
   );

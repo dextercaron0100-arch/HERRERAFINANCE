@@ -238,6 +238,7 @@ export interface Transaction {
   remarks?: string | null;
   receiptPath: string | null;
   annotations?: { id: string; x: number; y: number; text: string; authorId: string; createdAt: string }[];
+  notes?: { id: string; text: string; authorId: string; createdAt: string }[];
   mockMetadata?: { scanRef: string; timestamp: string; controlNumber?: string } | null;
   status: TransactionStatus;
   paymentMethod?: string;
