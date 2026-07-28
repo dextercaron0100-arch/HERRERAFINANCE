@@ -9,3 +9,8 @@ coverage/
 
 .vercel
 .vercel-build/
+
+secrets/
+*.serviceaccount.json
+*-service-account.json
+fix-*.mjs
