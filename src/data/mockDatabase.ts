@@ -2741,6 +2741,70 @@ export function removeTransactionAnnotation(
   return { transaction: txn };
 }
 
+// Freeform owner notes on a transaction — separate from the receipt-pin annotations
+// above and from approval remarks, so an approver can leave a comment for the
+// encoder to see without approving/rejecting or requiring an attached receipt.
+export function addTransactionNote(
+  userId: string,
+  txnId: string,
+  text: string
+): { error?: string; transaction?: Transaction } {
+  if (!text || !text.trim()) {
+    return { error: "Note text cannot be empty." };
+  }
+
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+  const txn = allTxns[idx];
+
+  const role = getUserRole(userId, txn.companyId);
+  const canComment = role === "approver" || role === "company_admin" || isGroupAdmin(userId);
+  if (!canComment) {
+    return { error: "Access Denied: Only Approvers or Admins can leave notes on transactions." };
+  }
+
+  const newNote = {
+    id: `note-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    text: text.trim(),
+    authorId: userId,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!txn.notes) txn.notes = [];
+  txn.notes.push(newNote);
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  return { transaction: txn };
+}
+
+export function removeTransactionNote(
+  userId: string,
+  txnId: string,
+  noteId: string
+): { error?: string; transaction?: Transaction } {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+  const txn = allTxns[idx];
+
+  if (!txn.notes) return { error: "No notes found." };
+  const note = txn.notes.find(n => n.id === noteId);
+  if (!note) return { error: "Note not found." };
+  if (note.authorId !== userId) {
+    return { error: "Access Denied: You can only delete your own notes." };
+  }
+
+  txn.notes = txn.notes.filter(n => n.id !== noteId);
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  return { transaction: txn };
+}
+
 export function updatePayrollRunMetadata(
   userId: string,
   runId: string,
