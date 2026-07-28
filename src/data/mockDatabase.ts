@@ -1502,16 +1502,6 @@ export function insertTransaction(
     };
   }
 
-  if (data.type === "cash_out" && data.cashAccountId) {
-    const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
-    const acc = accs.find(a => a.id === data.cashAccountId);
-    if (acc && data.amount > acc.currentBalance) {
-      return {
-        error: `Insufficient funds in ${acc.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(acc.currentBalance)}, Required: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(data.amount)}`,
-      };
-    }
-  }
-
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   const newTxn: Transaction = {
     ...data,
