@@ -1,10 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, ArrowRightLeft, Building2, BookOpen, AlertTriangle, Clock, ShieldCheck, Coins, Banknote } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRightLeft,
+  BookOpen,
+  Building2,
+  Landmark,
+  Smartphone,
+  TrendingUp,
+  Wallet,
+  WalletCards
+} from "lucide-react";
 import CashAccounts from "./CashAccounts";
 import FundTransfers from "./FundTransfers";
 import CashLedger from "./CashLedger";
-import { getCashAccounts, getFundTransfers, getCashLedgerEntries, useDBUpdate } from "../data/mockDatabase";
+import { getCashAccounts, getFundTransfers, useDBUpdate } from "../data/mockDatabase";
 
 interface MoneyFlowProfitCenterProps {
   userId: string;
@@ -19,7 +29,6 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
 
   const allAccounts = getCashAccounts(scopeCompanyId);
   const allTransfers = getFundTransfers(scopeCompanyId);
-  const allLedgers = getCashLedgerEntries(scopeCompanyId);
 
   const warnings = useMemo(() => {
     const issues: { id: string; message: string; type: "error" | "warning" }[] = [];
@@ -100,41 +109,36 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
   };
 
-  const buildLiquidityTrend = (accountTypes: string[], currentTotal: number) => {
-    const accountIds = new Set(
-      allAccounts.filter(account => accountTypes.includes(account.accountType)).map(account => account.id)
-    );
-    const recentEntries = allLedgers
-      .filter(entry => accountIds.has(entry.cashAccountId))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      .slice(-7);
+  const totalPosition = stats.totalCash + stats.totalBank + stats.totalEWallet;
+  const totalTransferVolume =
+    stats.pendingTransfers + stats.approvedTransfers + stats.completedTransfers;
+  const liquidityShare = (value: number) =>
+    totalPosition > 0 ? Math.min(100, Math.max(0, (value / totalPosition) * 100)) : 0;
+  const transferShare = (value: number) =>
+    totalTransferVolume > 0
+      ? Math.min(100, Math.max(0, (value / totalTransferVolume) * 100))
+      : 0;
 
-    const recentMovement = recentEntries.reduce(
-      (total, entry) => total + entry.cashIn - entry.cashOut,
-      0
-    );
-    let runningBalance = currentTotal - recentMovement;
-    const values = [{ value: runningBalance }];
-    recentEntries.forEach(entry => {
-      runningBalance += entry.cashIn - entry.cashOut;
-      values.push({ value: runningBalance });
-    });
-    while (values.length < 8) values.unshift({ value: values[0]?.value ?? 0 });
-    return values;
-  };
-
-  const chartData1 = useMemo(
-    () => buildLiquidityTrend(["Cash on Hand", "Main Vault"], stats.totalCash),
-    [allAccounts, allLedgers, stats.totalCash]
-  );
-  const chartData2 = useMemo(
-    () => buildLiquidityTrend(["Bank"], stats.totalBank),
-    [allAccounts, allLedgers, stats.totalBank]
-  );
-  const chartData3 = useMemo(
-    () => buildLiquidityTrend(["E-Wallet"], stats.totalEWallet),
-    [allAccounts, allLedgers, stats.totalEWallet]
-  );
+  const liquidityMetrics = [
+    {
+      label: "Total Cash",
+      value: stats.totalCash,
+      icon: WalletCards,
+      barClass: "bg-slate-950"
+    },
+    {
+      label: "Total Bank",
+      value: stats.totalBank,
+      icon: Landmark,
+      barClass: "bg-slate-700"
+    },
+    {
+      label: "Total E-Wallet",
+      value: stats.totalEWallet,
+      icon: Smartphone,
+      barClass: "bg-slate-300"
+    }
+  ];
 
   return (
     <div className="w-full space-y-6">
@@ -178,106 +182,132 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
       <div className="min-h-[500px]">
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-8 relative overflow-hidden shadow-2xl mb-6 border border-slate-200">
-              
-              <div className="flex flex-col md:flex-row justify-between items-start mb-10 relative z-10 gap-4">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
-                Modern Liquidity<br/>Pro Dashboard
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
-              {/* Left Panel - Consolidated Liquidity */}
-              <div className="lg:col-span-5 bg-[#f0f2f5] border border-emerald-200/50 rounded-3xl p-6 shadow-sm">
-                <div className="bg-slate-200/50 text-slate-800 font-bold px-6 py-4 rounded-2xl mb-8">
-                  Consolidated Liquidity
+            <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 sm:px-7">
+                <div className="flex h-8 w-8 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600">
+                  <Activity className="h-4 w-4" aria-hidden="true" />
                 </div>
-                <div className="px-2 space-y-8 flex-1 py-2 mb-8">
-                  <div className="flex justify-between items-center group">
-                    <div>
-                      <div className="text-sm text-slate-500 mb-1 font-medium">Total Cash</div>
-                      <div className="text-xl sm:text-2xl font-bold text-slate-800 tracking-wide truncate">{formatPeso(stats.totalCash)}</div>
-                    </div>
-                    <div className="w-24 h-12">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData1}>
-                          <YAxis domain={[0, 'dataMax']} hide />
-                          <Line type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center group">
-                    <div>
-                      <div className="text-sm text-slate-500 mb-1 font-medium">Total Bank</div>
-                      <div className="text-xl sm:text-2xl font-bold text-slate-800 tracking-wide truncate">{formatPeso(stats.totalBank)}</div>
-                    </div>
-                    <div className="w-24 h-12">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData2}>
-                          <YAxis domain={[0, 'dataMax']} hide />
-                          <Line type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center group">
-                    <div>
-                      <div className="text-sm text-slate-500 mb-1 font-medium">Total E-Wallet</div>
-                      <div className="text-xl sm:text-2xl font-bold text-slate-800 tracking-wide truncate">{formatPeso(stats.totalEWallet)}</div>
-                    </div>
-                    <div className="w-24 h-12">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData3}>
-                          <YAxis domain={[0, 'dataMax']} hide />
-                          <Line type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-slate-200/50 rounded-2xl p-6 mt-4">
-                  <div className="text-sm text-slate-500 mb-2 font-medium">Total Position</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-emerald-500 tracking-wide truncate">{formatPeso(stats.totalCash + stats.totalBank + stats.totalEWallet)}</div>
+                <div>
+                  <h2 className="text-base font-bold tracking-tight text-slate-950">
+                    Liquidity
+                  </h2>
+                  <p className="text-xs font-semibold text-slate-600">Pro</p>
                 </div>
               </div>
 
-              {/* Right Panel - Transfer Summaries */}
-              <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-                <h3 className="text-slate-800 font-semibold mb-6 text-lg tracking-wide">Transfer Summaries</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 h-32">
-                  <div className="bg-white border border-amber-200 rounded-xl p-4 shadow-sm text-center flex flex-col items-center justify-center relative overflow-hidden group hover:border-amber-300 transition-all">
-                    <div className="absolute inset-0 bg-amber-50/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <Clock className="w-10 h-10 text-amber-500 mb-2" strokeWidth={1.5} />
-                    <div className="text-[10px] text-slate-500 mb-1 z-10 font-medium">Pending Approval</div>
-                    <div className="text-sm sm:text-base font-bold text-amber-600 z-10 tracking-wide truncate text-center">{formatPeso(stats.pendingTransfers)}</div>
-                  </div>
-                  <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm text-center flex flex-col items-center justify-center relative overflow-hidden group hover:border-blue-300 transition-all">
-                    <div className="absolute inset-0 bg-blue-50/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <ShieldCheck className="w-10 h-10 text-blue-500 mb-2" strokeWidth={1.5} />
-                    <div className="text-[10px] text-slate-500 mb-1 z-10 font-medium">Approved & Posted</div>
-                    <div className="text-sm sm:text-base font-bold text-blue-600 z-10 tracking-wide truncate text-center">{formatPeso(stats.approvedTransfers)}</div>
-                  </div>
-                  <div className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm text-center flex flex-col items-center justify-center relative overflow-hidden group hover:border-emerald-300 transition-all">
-                    <div className="absolute inset-0 bg-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <Coins className="w-10 h-10 text-emerald-500 mb-2" strokeWidth={1.5} />
-                    <div className="text-[10px] text-slate-500 mb-1 z-10 font-medium">Completed Transfers</div>
-                    <div className="text-sm sm:text-base font-bold text-emerald-600 z-10 tracking-wide truncate text-center">{formatPeso(stats.completedTransfers)}</div>
-                  </div>
+              <div className="space-y-6 p-5 sm:p-7">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                  {liquidityMetrics.map(metric => {
+                    const MetricIcon = metric.icon;
+                    const share = liquidityShare(metric.value);
+
+                    return (
+                      <article
+                        key={metric.label}
+                        className="flex min-h-48 flex-col justify-between border border-slate-200 bg-white p-7"
+                      >
+                        <div>
+                          <div className="mb-4 flex h-10 w-10 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600">
+                            <MetricIcon className="h-5 w-5" aria-hidden="true" />
+                          </div>
+                          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                            {metric.label}
+                          </p>
+                          <p className="mt-2 break-words font-mono text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                            {formatPeso(metric.value)}
+                          </p>
+                        </div>
+                        <div className="mt-7 h-1.5 w-full bg-slate-100" aria-hidden="true">
+                          <div
+                            className={`h-full ${metric.barClass}`}
+                            style={{ width: `${share}%` }}
+                          />
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-                <div className="bg-cyan-50/50 border border-cyan-200 rounded-xl p-6 shadow-sm flex items-center justify-center gap-6 relative overflow-hidden group hover:border-cyan-300 transition-all mt-4">
-                  <div className="absolute inset-0 bg-cyan-100/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <Banknote className="w-12 h-12 text-cyan-600 z-10" strokeWidth={1.5} />
-                  <div className="z-10 flex flex-col items-center sm:items-start">
-                    <div className="text-[11px] text-slate-500 mb-1 font-medium">Total Transfer Volume</div>
-                    <div className="text-xl sm:text-2xl font-bold text-cyan-700 tracking-wide truncate">
-                      {formatPeso(stats.pendingTransfers + stats.approvedTransfers + stats.completedTransfers)}
+
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                  <article className="border border-slate-200 bg-white p-7 lg:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      Total Position
+                    </p>
+                    <div className="mt-6 flex flex-wrap items-center gap-4">
+                      <p className="break-words font-mono text-3xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl">
+                        {formatPeso(totalPosition)}
+                      </p>
+                      <span className="inline-flex items-center gap-1.5 border border-slate-900 px-3 py-2 text-xs font-bold text-slate-800">
+                        <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+                        Live
+                      </span>
                     </div>
-                  </div>
+
+                    <div className="mt-16 border-t border-slate-200 pt-8">
+                      <div className="mb-4 flex flex-col justify-between gap-3 text-xs text-slate-500 sm:flex-row sm:items-center">
+                        <span>Liquidity Breakdown</span>
+                        <div className="flex flex-wrap gap-x-5 gap-y-2">
+                          {liquidityMetrics.map(metric => (
+                            <span key={metric.label} className="inline-flex items-center gap-2">
+                              <span className={`h-2 w-2 ${metric.barClass}`} aria-hidden="true" />
+                              {metric.label.replace("Total ", "")}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div
+                        className="flex h-3 w-full overflow-hidden bg-slate-100"
+                        aria-label="Liquidity breakdown"
+                      >
+                        {liquidityMetrics.map(metric => (
+                          <div
+                            key={metric.label}
+                            className={metric.barClass}
+                            style={{ width: `${liquidityShare(metric.value)}%` }}
+                            title={`${metric.label}: ${formatPeso(metric.value)}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+
+                  <article className="border border-slate-200 bg-white p-7">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      Total Transfer Volume
+                    </p>
+                    <p className="mt-6 break-words font-mono text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                      {formatPeso(totalTransferVolume)}
+                    </p>
+
+                    <div className="mt-8 space-y-7">
+                      {[
+                        { label: "Pending", value: stats.pendingTransfers },
+                        { label: "Approved", value: stats.approvedTransfers },
+                        { label: "Completed", value: stats.completedTransfers }
+                      ].map(transfer => (
+                        <div key={transfer.label}>
+                          <div className="mb-3 flex items-center justify-between gap-4 text-xs text-slate-600">
+                            <span className="inline-flex items-center gap-2">
+                              <span className="h-2 w-2 bg-slate-300" aria-hidden="true" />
+                              {transfer.label}
+                            </span>
+                            <span className="font-mono font-semibold text-slate-900">
+                              {formatPeso(transfer.value)}
+                            </span>
+                          </div>
+                          <div className="h-1 w-full bg-slate-100">
+                            <div
+                              className="h-full bg-slate-300"
+                              style={{ width: `${transferShare(transfer.value)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
                 </div>
               </div>
-            </div>
-          </div>
+            </section>
           
             {/* Warnings/Alerts */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
