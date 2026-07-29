@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Sparkles, Send, TerminalSquare } from 'lucide-react';
 import { answerFinanceQuestion } from '../lib/financeBot';
+import type { FinanceBotContext, FinanceBotEvidence } from '../lib/financeBot';
 
 interface AssistantMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  evidence?: FinanceBotEvidence;
 }
 
 export default function AIAccountingAssistant({ userId, companyId }: { userId: string, companyId: string }) {
@@ -21,6 +23,7 @@ export default function AIAccountingAssistant({ userId, companyId }: { userId: s
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationContextRef = useRef<FinanceBotContext>({});
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,6 +32,10 @@ export default function AIAccountingAssistant({ userId, companyId }: { userId: s
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    conversationContextRef.current = {};
+  }, [userId, companyId]);
 
   const handleSend = async (e?: React.FormEvent, presetMsg?: string) => {
     e?.preventDefault();
@@ -51,13 +58,16 @@ export default function AIAccountingAssistant({ userId, companyId }: { userId: s
          userId,
          companyId,
          question: userMsg.content,
+         context: conversationContextRef.current,
        });
+       conversationContextRef.current = reply.context;
        
        setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: reply,
-          timestamp: new Date()
+          content: reply.content,
+          timestamp: new Date(),
+          evidence: reply.evidence,
        }]);
     } catch {
        setMessages(prev => [...prev, {
@@ -93,6 +103,20 @@ export default function AIAccountingAssistant({ userId, companyId }: { userId: s
                <div className={`px-3 py-2 rounded-xl text-xs leading-relaxed font-mono whitespace-pre-wrap ${msg.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}`}>
                   {msg.content}
                </div>
+               {msg.role === 'assistant' && msg.evidence ? (
+                 <details className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 font-mono text-[9px] leading-relaxed text-slate-600">
+                   <summary className="cursor-pointer select-none font-bold uppercase tracking-wider text-indigo-700">
+                     How calculated
+                   </summary>
+                   <div className="mt-1.5 space-y-1">
+                     <p><span className="font-bold text-slate-700">Scope:</span> {msg.evidence.scope}</p>
+                     {msg.evidence.period ? <p><span className="font-bold text-slate-700">Period:</span> {msg.evidence.period}</p> : null}
+                     <p><span className="font-bold text-slate-700">Method:</span> {msg.evidence.method}</p>
+                     <p><span className="font-bold text-slate-700">Records:</span> {msg.evidence.records.join(' • ')}</p>
+                     <p><span className="font-bold text-slate-700">Calculated:</span> {msg.evidence.calculatedAt}</p>
+                   </div>
+                 </details>
+               ) : null}
             </div>
           </div>
         ))}

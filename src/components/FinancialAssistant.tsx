@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, TerminalSquare } from 'lucide-react';
 import { answerFinanceQuestion } from '../lib/financeBot';
+import type { FinanceBotContext, FinanceBotEvidence } from '../lib/financeBot';
 
 interface FinancialAssistantProps {
   userId: string;
@@ -12,6 +13,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  evidence?: FinanceBotEvidence;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -33,6 +35,7 @@ export default function FinancialAssistant({ userId, companyId }: FinancialAssis
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationContextRef = useRef<FinanceBotContext>({});
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,6 +44,10 @@ export default function FinancialAssistant({ userId, companyId }: FinancialAssis
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    conversationContextRef.current = {};
+  }, [userId, companyId]);
 
   const handleSend = async (e?: React.FormEvent, presetQuestion?: string) => {
     e?.preventDefault();
@@ -63,13 +70,16 @@ export default function FinancialAssistant({ userId, companyId }: FinancialAssis
          userId,
          companyId,
          question: userMessage.content,
+         context: conversationContextRef.current,
        });
+       conversationContextRef.current = reply.context;
        
        const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: reply,
-          timestamp: new Date()
+          content: reply.content,
+          timestamp: new Date(),
+          evidence: reply.evidence,
        };
 
        setMessages(prev => [...prev, assistantMessage]);
@@ -111,6 +121,20 @@ export default function FinancialAssistant({ userId, companyId }: FinancialAssis
                  <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-[#00B67A] text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none font-mono whitespace-pre-wrap'}`}>
                     {msg.content}
                  </div>
+                 {msg.role === 'assistant' && msg.evidence ? (
+                   <details className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[10px] text-slate-600">
+                     <summary className="cursor-pointer select-none font-bold uppercase tracking-wider text-indigo-700">
+                       How this was calculated
+                     </summary>
+                     <div className="mt-2 space-y-1.5 leading-relaxed">
+                       <p><span className="font-bold text-slate-700">Scope:</span> {msg.evidence.scope}</p>
+                       {msg.evidence.period ? <p><span className="font-bold text-slate-700">Period:</span> {msg.evidence.period}</p> : null}
+                       <p><span className="font-bold text-slate-700">Method:</span> {msg.evidence.method}</p>
+                       <p><span className="font-bold text-slate-700">Records checked:</span> {msg.evidence.records.join(' • ')}</p>
+                       <p><span className="font-bold text-slate-700">Calculated:</span> {msg.evidence.calculatedAt}</p>
+                     </div>
+                   </details>
+                 ) : null}
                  <span className="text-[10px] text-slate-500 font-mono mt-1.5 px-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                  </span>
