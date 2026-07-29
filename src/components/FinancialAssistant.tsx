@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, TerminalSquare, Search } from 'lucide-react';
-import { getTransactions, getBudgets, getPayables, getReceivables } from '../data/mockDatabase';
-import { toast } from 'sonner';
+import { Send, Bot, User, Sparkles, TerminalSquare } from 'lucide-react';
+import { answerFinanceQuestion } from '../lib/financeBot';
 
 interface FinancialAssistantProps {
+  userId: string;
   companyId: string;
 }
 
@@ -14,12 +14,19 @@ interface Message {
   timestamp: Date;
 }
 
-export default function FinancialAssistant({ companyId }: FinancialAssistantProps) {
+const SUGGESTED_QUESTIONS = [
+  "Summarize this month",
+  "What is our cash balance?",
+  "Which approvals are pending?",
+  "What should we collect first?",
+] as const;
+
+export default function FinancialAssistant({ userId, companyId }: FinancialAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Hello. I am your specialized Herrera Financial Intelligence Assistant. How can I help you analyze your treasury data, budgets, or AP/AR today?',
+      content: 'Hello! I am your built-in Herrera Finance Bot. I can check cash, approvals, AP/AR, receipts, budgets, expenses, recent transactions, and finance risks without sending your question to an external AI service. Type “help” to see examples.',
       timestamp: new Date()
     }
   ]);
@@ -35,14 +42,15 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent, presetQuestion?: string) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const question = presetQuestion || input;
+    if (!question.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: question.trim(),
       timestamp: new Date()
     };
 
@@ -51,47 +59,25 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
     setIsLoading(true);
 
     try {
-       // Gather some context data to send to the backend
-       // Fetching last 50 transactions to give the assistant context
-       // We only pass minimal context to avoid huge payload, but enough for meaningful answers
-       const allTxns = getTransactions('u-mark', companyId).slice(0, 100); 
-       
-       const payload = {
-          message: userMessage.content,
-          context: {
-             companyId,
-             recentTransactions: allTxns,
-             // Could include budgets, payables etc.
-          }
-       };
-
-       const res = await fetch('/api/financial-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+       const reply = await answerFinanceQuestion({
+         userId,
+         companyId,
+         question: userMessage.content,
        });
-
-       if (!res.ok) {
-         const errData = await res.json().catch(() => null);
-         throw new Error(errData?.error || 'Failed to communicate with the intelligence API.');
-       }
-
-       const data = await res.json();
        
        const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.reply,
+          content: reply,
           timestamp: new Date()
        };
 
        setMessages(prev => [...prev, assistantMessage]);
-    } catch (err: any) {
-       toast.error('Assistant Error', { description: err.message });
+    } catch {
        setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: 'Error: Could not process the request. Please check your network or try again.',
+          content: 'I could not read the finance records for that request. Please refresh the dashboard and try again.',
           timestamp: new Date()
        }]);
     } finally {
@@ -105,10 +91,10 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
         <div>
           <h2 className="text-xl font-bold font-display text-slate-900 flex items-center gap-2 tracking-tight">
             <Sparkles className="w-5 h-5 text-indigo-400" />
-            Herrera Financial Intelligence Assistant
+            Herrera Finance Bot
           </h2>
           <p className="text-sm text-slate-600 font-mono mt-1">
-            Analyze trends, query ledgers, and ask about AP/AR anomalies.
+            Private, rule-based finance answers from your permitted company records.
           </p>
         </div>
       </div>
@@ -148,6 +134,19 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
 
         {/* Input Area */}
         <div className="p-4 bg-white border-t border-slate-200">
+           <div className="mb-3 flex max-w-4xl flex-wrap gap-2 mx-auto">
+             {SUGGESTED_QUESTIONS.map((question) => (
+               <button
+                 key={question}
+                 type="button"
+                 onClick={() => handleSend(undefined, question)}
+                 disabled={isLoading}
+                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-mono text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+               >
+                 {question}
+               </button>
+             ))}
+           </div>
            <form onSubmit={handleSend} className="relative flex items-center max-w-4xl mx-auto">
              <TerminalSquare className="absolute left-4 w-5 h-5 text-slate-500" />
              <input
@@ -161,13 +160,16 @@ export default function FinancialAssistant({ companyId }: FinancialAssistantProp
              <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 text-slate-900 rounded-lg transition-colors"
+                aria-label="Send question"
+                className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 text-white rounded-lg transition-colors"
              >
                 <Send className="w-4 h-4" />
              </button>
            </form>
            <div className="text-center mt-3 flex items-center justify-center gap-2">
-              <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">Powered by Google Gemini</span>
+              <span className="text-[10px] text-emerald-700 font-mono font-bold uppercase tracking-widest">
+                Runs inside Herrera Finance • No external AI API
+              </span>
            </div>
         </div>
       </div>

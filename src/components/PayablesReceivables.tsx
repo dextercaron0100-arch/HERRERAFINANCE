@@ -47,6 +47,11 @@ const TONE_STYLES = {
   success: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
 } as const;
 
+const FORM_LABEL_CLASS =
+  "mb-1 block text-[10px] font-mono font-medium uppercase tracking-widest text-slate-500";
+const FORM_CONTROL_CLASS =
+  "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 font-mono placeholder:text-slate-400 transition focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
+
 const accountLabel = (account: CashAccount) =>
   `${account.bankName || account.accountType} — ${account.accountName} ••••${account.accountNumber.slice(-4)}`;
 
@@ -574,382 +579,428 @@ export default function PayablesReceivables({
 
       {/* RENDER ADD POPUP ACCORDION */}
       {showAddForm && (
-        <div className="bg-white border border-slate-200 p-5 shadow-2xl animate-fadeIn space-y-4 rounded-xl">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+        <div className="animate-fadeIn overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-200 p-4">
             <div>
-              <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+              <h3 className="font-mono text-sm font-bold uppercase tracking-widest text-emerald-600">
                 Quick Encode —{" "}
                 {activeSegment === "ap"
                   ? "Accounts Payable"
                   : "Accounts Receivable"}
               </h3>
-              <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mt-0.5 font-semibold">
-                Add the due-date limit and planned cash account for forecasting.
+              <p className="mt-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                {activeSegment === "ap"
+                  ? "Record the liability and account that will fund payment."
+                  : "Record the claim and account that will receive collection."}
               </p>
             </div>
             <button
               onClick={() => setShowAddForm(false)}
               aria-label="Close form"
-              className="p-1 text-slate-500 hover:bg-slate-50 rounded-2xl cursor-pointer hover:text-slate-900"
+              className="cursor-pointer rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
             >
-              <XCircle className="w-4.5 h-4.5" />
+              <XCircle className="h-4 w-4" />
             </button>
           </div>
 
-          {activeSegment === "ap" ? (
-            <form
-              onSubmit={handleAddAP}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4"
-            >
-              {companyId === "all" && (
-                <div className="md:col-span-4 space-y-1.5">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                    Target Company
-                  </span>
-                  <select
-                    value={targetCompany}
-                    onChange={(e) =>
-                      handleTargetCompanyChange(e.target.value)
-                    }
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
-                    required
-                  >
-                    <option value="" disabled className="bg-white text-slate-500">Select a company</option>
-                    {companies.filter(c => c.id !== "all").map(c => (
-                      <option key={c.id} value={c.id} className="bg-white">
-                        {c.name} ({c.code})
-                      </option>
-                    ))}
-                  </select>
+          <div className="p-4">
+            <div className="mx-auto max-w-3xl">
+              {activeSegment === "ap" ? (
+              <form
+                onSubmit={handleAddAP}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+              >
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Type</span>
+                  <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                    <span className="flex-1 rounded-md py-1.5 text-center text-xs font-mono text-slate-500">
+                      Cash In
+                    </span>
+                    <span className="flex-1 rounded-md bg-rose-500 py-1.5 text-center text-xs font-mono font-bold text-white">
+                      Cash Out
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Creditor / Payee Company
-                </span>
-                <input
-                  type="text"
-                  value={apPayee}
-                  onChange={(e) => setApPayee(e.target.value)}
-                  placeholder="e.g., Prime Logistics Group"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Invoice Description
-                </span>
-                <input
-                  type="text"
-                  value={apDesc}
-                  onChange={(e) => setApDesc(e.target.value)}
-                  placeholder="e.g., Branch bulk raw materials warehousing invoice"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  QTY
-                </span>
-                <input
-                  type="number"
-                  value={apQty}
-                  onChange={(e) => {
-                    setApQty(e.target.value);
-                    if (e.target.value && apUnitPrice) {
-                      setApAmount((parseFloat(e.target.value) * parseFloat(apUnitPrice)).toFixed(2));
-                    }
-                  }}
-                  placeholder="0"
-                  step="0.01"
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  UOM
-                </span>
-                <input
-                  type="text"
-                  value={apUom}
-                  onChange={(e) => setApUom(e.target.value)}
-                  placeholder="e.g., pcs, kg"
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  UNIT PRICE
-                </span>
-                <input
-                  type="number"
-                  value={apUnitPrice}
-                  onChange={(e) => {
-                    setApUnitPrice(e.target.value);
-                    if (apQty && e.target.value) {
-                      setApAmount((parseFloat(apQty) * parseFloat(e.target.value)).toFixed(2));
-                    }
-                  }}
-                  placeholder="0.00"
-                  step="0.01"
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Settlement PHP Amount
-                </span>
-                <input
-                  type="number"
-                  value={apAmount}
-                  onChange={(e) => setApAmount(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Payment Source Account
-                </span>
-                <select
-                  value={apSettlementAccountId}
-                  onChange={(e) => setApSettlementAccountId(e.target.value)}
-                  disabled={!formCompanyId}
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {formCompanyId
-                      ? "Select account to pay from"
-                      : "Select a company first"}
-                  </option>
-                  {formAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {accountLabel(account)} — {formatPeso(account.currentBalance)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Cash-Out Category
-                </span>
-                <select
-                  value={apCategoryId}
-                  onChange={(e) => setApCategoryId(e.target.value)}
-                  disabled={!formCompanyId}
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {formCompanyId
-                      ? "Select payment category"
-                      : "Select a company first"}
-                  </option>
-                  {apCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Due Date Limits
-                </span>
-                <input
-                  type="date"
-                  value={apDueDate}
-                  onChange={(e) => setApDueDate(e.target.value)}
-                  required
-                  className="w-full text-xs p-2 px-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Remarks
-                </span>
-                <input
-                  type="text"
-                  value={apRemarks}
-                  onChange={(e) => setApRemarks(e.target.value)}
-                  placeholder="Optional remarks"
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-mono uppercase tracking-wider text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  Write Liability entry
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form
-              onSubmit={handleAddAR}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4"
-            >
-              {companyId === "all" && (
-                <div className="md:col-span-4 space-y-1.5">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                    Target Company
-                  </span>
-                  <select
-                    value={targetCompany}
-                    onChange={(e) =>
-                      handleTargetCompanyChange(e.target.value)
-                    }
-                    className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
-                    required
-                  >
-                    <option value="" disabled className="bg-white text-slate-500">Select a company</option>
-                    {companies.filter(c => c.id !== "all").map(c => (
-                      <option key={c.id} value={c.id} className="bg-white">
-                        {c.name} ({c.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Client / Debtor Company
-                </span>
-                <input
-                  type="text"
-                  value={arPayer}
-                  onChange={(e) => setArPayer(e.target.value)}
-                  placeholder="e.g., Robinson Mall Franchise branch"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Invoice Description
-                </span>
-                <input
-                  type="text"
-                  value={arDesc}
-                  onChange={(e) => setArDesc(e.target.value)}
-                  placeholder="e.g., Materials distribution rent consignment percentage"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Collection PHP Amount
-                </span>
-                <input
-                  type="number"
-                  value={arAmount}
-                  onChange={(e) => setArAmount(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Limits claims due Date
-                </span>
-                <input
-                  type="date"
-                  value={arDueDate}
-                  onChange={(e) => setArDueDate(e.target.value)}
-                  required
-                  className="w-full text-xs p-2 px-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Collection Destination Account
-                </span>
-                <select
-                  value={arCollectionAccountId}
-                  onChange={(e) => setArCollectionAccountId(e.target.value)}
-                  disabled={!formCompanyId}
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {formCompanyId
-                      ? "Select account to receive funds"
-                      : "Select a company first"}
-                  </option>
-                  {formAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {accountLabel(account)} — {formatPeso(account.currentBalance)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
-                  Cash-In Category
-                </span>
-                <select
-                  value={arCategoryId}
-                  onChange={(e) => setArCategoryId(e.target.value)}
-                  disabled={!formCompanyId}
-                  required
-                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {formCompanyId
-                      ? "Select collection category"
-                      : "Select a company first"}
-                  </option>
-                  {arCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-2xl text-xs font-mono uppercase tracking-wider text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  Write Claims Asset
-                </button>
-              </div>
-            </form>
-          )}
 
-          {formError && (
-            <p className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono font-semibold rounded-2xl">
-              {formError}
-            </p>
-          )}
-          {formSuccess && (
-            <p className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-2xl animate-pulse">
-              {formSuccess}
-            </p>
-          )}
+                {companyId === "all" && (
+                  <div className="sm:col-span-2">
+                    <span className={FORM_LABEL_CLASS}>Target Company</span>
+                    <select
+                      value={targetCompany}
+                      onChange={(e) =>
+                        handleTargetCompanyChange(e.target.value)
+                      }
+                      className={FORM_CONTROL_CLASS}
+                      required
+                    >
+                      <option value="" disabled>
+                        Select a company
+                      </option>
+                      {companies
+                        .filter((company) => company.id !== "all")
+                        .map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name} ({company.code})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <span className={FORM_LABEL_CLASS}>Due Date Limit</span>
+                  <input
+                    type="date"
+                    value={apDueDate}
+                    onChange={(e) => setApDueDate(e.target.value)}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+                <div>
+                  <span className={FORM_LABEL_CLASS}>PHP Amount</span>
+                  <input
+                    type="number"
+                    value={apAmount}
+                    onChange={(e) => setApAmount(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Purpose / Payee</span>
+                  <input
+                    type="text"
+                    value={apPayee}
+                    onChange={(e) => setApPayee(e.target.value)}
+                    placeholder="e.g., Prime Logistics Group"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>
+                    Invoice Description
+                  </span>
+                  <input
+                    type="text"
+                    value={apDesc}
+                    onChange={(e) => setApDesc(e.target.value)}
+                    placeholder="e.g., Branch bulk raw materials warehousing invoice"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-3">
+                  <div>
+                    <span className={FORM_LABEL_CLASS}>Qty</span>
+                    <input
+                      type="number"
+                      value={apQty}
+                      onChange={(e) => {
+                        setApQty(e.target.value);
+                        if (e.target.value && apUnitPrice) {
+                          setApAmount(
+                            (
+                              parseFloat(e.target.value) *
+                              parseFloat(apUnitPrice)
+                            ).toFixed(2),
+                          );
+                        }
+                      }}
+                      placeholder="0"
+                      step="0.01"
+                      className={FORM_CONTROL_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <span className={FORM_LABEL_CLASS}>UOM</span>
+                    <input
+                      type="text"
+                      value={apUom}
+                      onChange={(e) => setApUom(e.target.value)}
+                      placeholder="e.g., pcs, kg"
+                      className={FORM_CONTROL_CLASS}
+                    />
+                  </div>
+                  <div>
+                    <span className={FORM_LABEL_CLASS}>Unit Price</span>
+                    <input
+                      type="number"
+                      value={apUnitPrice}
+                      onChange={(e) => {
+                        setApUnitPrice(e.target.value);
+                        if (apQty && e.target.value) {
+                          setApAmount(
+                            (
+                              parseFloat(apQty) *
+                              parseFloat(e.target.value)
+                            ).toFixed(2),
+                          );
+                        }
+                      }}
+                      placeholder="0.00"
+                      step="0.01"
+                      className={FORM_CONTROL_CLASS}
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Category</span>
+                  <select
+                    value={apCategoryId}
+                    onChange={(e) => setApCategoryId(e.target.value)}
+                    disabled={!formCompanyId}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  >
+                    <option value="">
+                      {formCompanyId
+                        ? "Select payment category"
+                        : "Select a company first"}
+                    </option>
+                    {apCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>
+                    Payment Source Account
+                  </span>
+                  <select
+                    value={apSettlementAccountId}
+                    onChange={(e) => setApSettlementAccountId(e.target.value)}
+                    disabled={!formCompanyId}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  >
+                    <option value="">
+                      {formCompanyId
+                        ? "Select account to pay from"
+                        : "Select a company first"}
+                    </option>
+                    {formAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {accountLabel(account)} —{" "}
+                        {formatPeso(account.currentBalance)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] font-mono text-slate-400">
+                    The approved payment will be deducted from this account.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Remarks</span>
+                  <input
+                    type="text"
+                    value={apRemarks}
+                    onChange={(e) => setApRemarks(e.target.value)}
+                    placeholder="Optional remarks"
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="w-full rounded-lg bg-slate-50 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500"
+                  >
+                    Write Liability Entry
+                  </button>
+                </div>
+              </form>
+              ) : (
+              <form
+                onSubmit={handleAddAR}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+              >
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Type</span>
+                  <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                    <span className="flex-1 rounded-md bg-emerald-500 py-1.5 text-center text-xs font-mono font-bold text-white">
+                      Cash In
+                    </span>
+                    <span className="flex-1 rounded-md py-1.5 text-center text-xs font-mono text-slate-500">
+                      Cash Out
+                    </span>
+                  </div>
+                </div>
+
+                {companyId === "all" && (
+                  <div className="sm:col-span-2">
+                    <span className={FORM_LABEL_CLASS}>Target Company</span>
+                    <select
+                      value={targetCompany}
+                      onChange={(e) =>
+                        handleTargetCompanyChange(e.target.value)
+                      }
+                      className={FORM_CONTROL_CLASS}
+                      required
+                    >
+                      <option value="" disabled>
+                        Select a company
+                      </option>
+                      {companies
+                        .filter((company) => company.id !== "all")
+                        .map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name} ({company.code})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <span className={FORM_LABEL_CLASS}>
+                    Claim Due Date Limit
+                  </span>
+                  <input
+                    type="date"
+                    value={arDueDate}
+                    onChange={(e) => setArDueDate(e.target.value)}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+                <div>
+                  <span className={FORM_LABEL_CLASS}>PHP Amount</span>
+                  <input
+                    type="number"
+                    value={arAmount}
+                    onChange={(e) => setArAmount(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Purpose / Client</span>
+                  <input
+                    type="text"
+                    value={arPayer}
+                    onChange={(e) => setArPayer(e.target.value)}
+                    placeholder="e.g., Robinson Mall Franchise branch"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>
+                    Invoice Description
+                  </span>
+                  <input
+                    type="text"
+                    value={arDesc}
+                    onChange={(e) => setArDesc(e.target.value)}
+                    placeholder="e.g., Materials distribution rent consignment percentage"
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>Category</span>
+                  <select
+                    value={arCategoryId}
+                    onChange={(e) => setArCategoryId(e.target.value)}
+                    disabled={!formCompanyId}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  >
+                    <option value="">
+                      {formCompanyId
+                        ? "Select collection category"
+                        : "Select a company first"}
+                    </option>
+                    {arCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className={FORM_LABEL_CLASS}>
+                    Collection Destination Account
+                  </span>
+                  <select
+                    value={arCollectionAccountId}
+                    onChange={(e) => setArCollectionAccountId(e.target.value)}
+                    disabled={!formCompanyId}
+                    required
+                    className={FORM_CONTROL_CLASS}
+                  >
+                    <option value="">
+                      {formCompanyId
+                        ? "Select account to receive funds"
+                        : "Select a company first"}
+                    </option>
+                    {formAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {accountLabel(account)} —{" "}
+                        {formatPeso(account.currentBalance)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] font-mono text-slate-400">
+                    The approved collection will be posted to this account.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="w-full rounded-lg bg-slate-50 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500"
+                  >
+                    Write Claims Asset
+                  </button>
+                </div>
+              </form>
+              )}
+
+              {formError && (
+                <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-mono font-semibold text-rose-700">
+                  {formError}
+                </p>
+              )}
+              {formSuccess && (
+                <p className="mt-4 animate-pulse rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
+                  {formSuccess}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

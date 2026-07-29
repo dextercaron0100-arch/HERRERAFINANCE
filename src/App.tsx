@@ -1265,7 +1265,10 @@ export default function App() {
               )}
 
               {activePage === "assistant" && (
-                <FinancialAssistant companyId={activeCompanyId} />
+                <FinancialAssistant
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                />
               )}
 
               {activePage === "vault" && (
