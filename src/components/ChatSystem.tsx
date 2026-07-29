@@ -396,6 +396,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [conversationRetryAttempt, setConversationRetryAttempt] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const profileById = useMemo(
@@ -456,6 +457,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
 
   useEffect(() => {
     if (!currentProfile) return;
+    let retryTimer: number | undefined;
     setLoadingConversations(true);
     const unsubscribeConversations = subscribeToConversations(
       currentProfile.email,
@@ -466,11 +468,15 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
       },
       (error) => {
         setLoadingConversations(false);
-        setChatError(
-          error.code === "permission-denied"
-            ? "Chat access is waiting for the Firestore messaging rules to be deployed."
-            : error.message,
-        );
+        if (error.code === "permission-denied") {
+          setChatError("Chat authorization is being refreshed. Retrying...");
+          retryTimer = window.setTimeout(
+            () => setConversationRetryAttempt((attempt) => attempt + 1),
+            3000,
+          );
+          return;
+        }
+        setChatError(error.message);
       },
     );
     const unsubscribeReadStates = subscribeToReadStates(
@@ -478,10 +484,11 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
       (error) => setChatError(error.message),
     );
     return () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       unsubscribeConversations();
       unsubscribeReadStates();
     };
-  }, [currentProfile?.email]);
+  }, [conversationRetryAttempt, currentProfile?.email]);
 
   useEffect(() => {
     if (!selectedConversationId) {
