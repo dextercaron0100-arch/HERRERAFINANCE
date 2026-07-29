@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { animate, motion, useReducedMotion } from "motion/react";
 import {
   Activity,
   AlertTriangle,
@@ -22,9 +23,50 @@ interface MoneyFlowProfitCenterProps {
   isConsolidated: boolean;
 }
 
+const pesoFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP"
+});
+
+const formatPeso = (num: number) => pesoFormatter.format(num);
+
+function AnimatedPeso({ value, className }: { value: number; className?: string }) {
+  const amountRef = useRef<HTMLSpanElement>(null);
+  const previousValue = useRef(0);
+  const shouldReduceMotion = useReducedMotion();
+
+  useLayoutEffect(() => {
+    if (!amountRef.current) return;
+
+    if (shouldReduceMotion) {
+      amountRef.current.textContent = formatPeso(value);
+      previousValue.current = value;
+      return;
+    }
+
+    const controls = animate(previousValue.current, value, {
+      duration: 0.85,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: latest => {
+        if (amountRef.current) amountRef.current.textContent = formatPeso(latest);
+      }
+    });
+
+    previousValue.current = value;
+    return () => controls.stop();
+  }, [shouldReduceMotion, value]);
+
+  return (
+    <span ref={amountRef} className={className}>
+      {formatPeso(value)}
+    </span>
+  );
+}
+
 export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidated }: MoneyFlowProfitCenterProps) {
   useDBUpdate();
   const [activeTab, setActiveTab] = useState<"dashboard" | "accounts" | "transfers" | "ledger">("dashboard");
+  const shouldReduceMotion = useReducedMotion();
   const scopeCompanyId = isConsolidated || companyId === "all" ? "all" : companyId;
 
   const allAccounts = getCashAccounts(scopeCompanyId);
@@ -105,10 +147,6 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
     };
   }, [allAccounts, allTransfers]);
 
-  const formatPeso = (num: number) => {
-    return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
-  };
-
   const totalPosition = stats.totalCash + stats.totalBank + stats.totalEWallet;
   const totalTransferVolume =
     stats.pendingTransfers + stats.approvedTransfers + stats.completedTransfers;
@@ -182,65 +220,132 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
       <div className="min-h-[500px]">
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+            <motion.section
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden border border-slate-200 bg-white shadow-sm"
+            >
               <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 sm:px-7">
-                <div className="flex h-8 w-8 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600">
+                <motion.div
+                  initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.75 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.12, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.08, rotate: -4 }}
+                  className="flex h-8 w-8 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600"
+                >
                   <Activity className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <div>
+                </motion.div>
+                <motion.div
+                  initial={shouldReduceMotion ? false : { opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.16, duration: 0.4 }}
+                >
                   <h2 className="text-base font-bold tracking-tight text-slate-950">
                     Liquidity
                   </h2>
                   <p className="text-xs font-semibold text-slate-600">Pro</p>
-                </div>
+                </motion.div>
               </div>
 
               <div className="space-y-6 p-5 sm:p-7">
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  {liquidityMetrics.map(metric => {
+                  {liquidityMetrics.map((metric, index) => {
                     const MetricIcon = metric.icon;
                     const share = liquidityShare(metric.value);
 
                     return (
-                      <article
+                      <motion.article
                         key={metric.label}
-                        className="flex min-h-48 flex-col justify-between border border-slate-200 bg-white p-7"
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: 0.12 + index * 0.08,
+                          duration: 0.46,
+                          ease: [0.16, 1, 0.3, 1]
+                        }}
+                        whileHover={
+                          shouldReduceMotion
+                            ? undefined
+                            : {
+                                y: -4,
+                                boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)"
+                              }
+                        }
+                        className="group flex min-h-48 flex-col justify-between border border-slate-200 bg-white p-7 transition-colors duration-300 hover:border-slate-300"
                       >
                         <div>
-                          <div className="mb-4 flex h-10 w-10 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600">
+                          <motion.div
+                            whileHover={shouldReduceMotion ? undefined : { scale: 1.08, rotate: -3 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                            className="mb-4 flex h-10 w-10 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600 transition-colors duration-300 group-hover:bg-slate-100"
+                          >
                             <MetricIcon className="h-5 w-5" aria-hidden="true" />
-                          </div>
+                          </motion.div>
                           <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
                             {metric.label}
                           </p>
-                          <p className="mt-2 break-words font-mono text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                            {formatPeso(metric.value)}
-                          </p>
-                        </div>
-                        <div className="mt-7 h-1.5 w-full bg-slate-100" aria-hidden="true">
-                          <div
-                            className={`h-full ${metric.barClass}`}
-                            style={{ width: `${share}%` }}
+                          <AnimatedPeso
+                            value={metric.value}
+                            className="mt-2 block break-words font-mono text-xl font-bold tracking-tight text-slate-950 sm:text-2xl"
                           />
                         </div>
-                      </article>
+                        <div className="mt-7 h-1.5 w-full bg-slate-100" aria-hidden="true">
+                          <motion.div
+                            className={`h-full ${metric.barClass}`}
+                            initial={shouldReduceMotion ? false : { width: 0 }}
+                            animate={{ width: `${share}%` }}
+                            transition={{
+                              delay: 0.3 + index * 0.08,
+                              duration: 0.8,
+                              ease: [0.16, 1, 0.3, 1]
+                            }}
+                          />
+                        </div>
+                      </motion.article>
                     );
                   })}
                 </div>
 
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                  <article className="border border-slate-200 bg-white p-7 lg:col-span-2">
+                  <motion.article
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.34, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    whileHover={
+                      shouldReduceMotion
+                        ? undefined
+                        : { y: -3, boxShadow: "0 12px 28px rgba(15, 23, 42, 0.07)" }
+                    }
+                    className="border border-slate-200 bg-white p-7 transition-colors duration-300 hover:border-slate-300 lg:col-span-2"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                       Total Position
                     </p>
                     <div className="mt-6 flex flex-wrap items-center gap-4">
-                      <p className="break-words font-mono text-3xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl">
-                        {formatPeso(totalPosition)}
-                      </p>
-                      <span className="inline-flex items-center gap-1.5 border border-slate-900 px-3 py-2 text-xs font-bold text-slate-800">
+                      <AnimatedPeso
+                        value={totalPosition}
+                        className="break-words font-mono text-3xl font-bold tracking-[-0.04em] text-slate-950 sm:text-5xl"
+                      />
+                      <motion.span
+                        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.6, duration: 0.35 }}
+                        className="inline-flex items-center gap-1.5 border border-slate-900 px-3 py-2 text-xs font-bold text-slate-800"
+                      >
                         <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+                        <motion.span
+                          animate={
+                            shouldReduceMotion
+                              ? undefined
+                              : { opacity: [0.45, 1, 0.45], scale: [0.85, 1, 0.85] }
+                          }
+                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                          className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                          aria-hidden="true"
+                        />
                         Live
-                      </span>
+                      </motion.span>
                     </div>
 
                     <div className="mt-16 border-t border-slate-200 pt-8">
@@ -260,54 +365,83 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
                         aria-label="Liquidity breakdown"
                       >
                         {liquidityMetrics.map(metric => (
-                          <div
+                          <motion.div
                             key={metric.label}
                             className={metric.barClass}
-                            style={{ width: `${liquidityShare(metric.value)}%` }}
+                            initial={shouldReduceMotion ? false : { width: 0 }}
+                            animate={{ width: `${liquidityShare(metric.value)}%` }}
+                            transition={{
+                              delay: 0.52,
+                              duration: 0.9,
+                              ease: [0.16, 1, 0.3, 1]
+                            }}
                             title={`${metric.label}: ${formatPeso(metric.value)}`}
                           />
                         ))}
                       </div>
                     </div>
-                  </article>
+                  </motion.article>
 
-                  <article className="border border-slate-200 bg-white p-7">
+                  <motion.article
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.42, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    whileHover={
+                      shouldReduceMotion
+                        ? undefined
+                        : { y: -3, boxShadow: "0 12px 28px rgba(15, 23, 42, 0.07)" }
+                    }
+                    className="border border-slate-200 bg-white p-7 transition-colors duration-300 hover:border-slate-300"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                       Total Transfer Volume
                     </p>
-                    <p className="mt-6 break-words font-mono text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                      {formatPeso(totalTransferVolume)}
-                    </p>
+                    <AnimatedPeso
+                      value={totalTransferVolume}
+                      className="mt-6 block break-words font-mono text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl"
+                    />
 
                     <div className="mt-8 space-y-7">
                       {[
                         { label: "Pending", value: stats.pendingTransfers },
                         { label: "Approved", value: stats.approvedTransfers },
                         { label: "Completed", value: stats.completedTransfers }
-                      ].map(transfer => (
-                        <div key={transfer.label}>
+                      ].map((transfer, index) => (
+                        <motion.div
+                          key={transfer.label}
+                          initial={shouldReduceMotion ? false : { opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.54 + index * 0.08, duration: 0.4 }}
+                        >
                           <div className="mb-3 flex items-center justify-between gap-4 text-xs text-slate-600">
                             <span className="inline-flex items-center gap-2">
                               <span className="h-2 w-2 bg-slate-300" aria-hidden="true" />
                               {transfer.label}
                             </span>
-                            <span className="font-mono font-semibold text-slate-900">
-                              {formatPeso(transfer.value)}
-                            </span>
-                          </div>
-                          <div className="h-1 w-full bg-slate-100">
-                            <div
-                              className="h-full bg-slate-300"
-                              style={{ width: `${transferShare(transfer.value)}%` }}
+                            <AnimatedPeso
+                              value={transfer.value}
+                              className="font-mono font-semibold text-slate-900"
                             />
                           </div>
-                        </div>
+                          <div className="h-1 w-full bg-slate-100">
+                            <motion.div
+                              className="h-full bg-slate-300"
+                              initial={shouldReduceMotion ? false : { width: 0 }}
+                              animate={{ width: `${transferShare(transfer.value)}%` }}
+                              transition={{
+                                delay: 0.62 + index * 0.08,
+                                duration: 0.75,
+                                ease: [0.16, 1, 0.3, 1]
+                              }}
+                            />
+                          </div>
+                        </motion.div>
                       ))}
                     </div>
-                  </article>
+                  </motion.article>
                 </div>
               </div>
-            </section>
+            </motion.section>
           
             {/* Warnings/Alerts */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
