@@ -162,19 +162,19 @@ export default function MoneyFlowProfitCenter({ userId, companyId, isConsolidate
       label: "Total Cash",
       value: stats.totalCash,
       icon: WalletCards,
-      barClass: "bg-slate-950"
+      barClass: "bg-blue-500"
     },
     {
       label: "Total Bank",
       value: stats.totalBank,
       icon: Landmark,
-      barClass: "bg-slate-700"
+      barClass: "bg-red-500"
     },
     {
       label: "Total E-Wallet",
       value: stats.totalEWallet,
       icon: Smartphone,
-      barClass: "bg-slate-300"
+      barClass: "bg-emerald-500"
     }
   ];
 

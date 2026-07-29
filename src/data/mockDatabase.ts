@@ -1663,6 +1663,38 @@ export function deleteTransaction(userId: string, transactionId: string): { erro
     save(KEYS.APPROVALS, remainingApprovals);
   }
 
+  if (txn.sourceModule === "ap" && txn.sourceRecordId) {
+    const payables = load<Payable[]>(KEYS.PAYABLES, []);
+    const payableIndex = payables.findIndex(
+      (payable) => payable.id === txn.sourceRecordId,
+    );
+    if (payableIndex !== -1) {
+      payables[payableIndex] = {
+        ...payables[payableIndex],
+        status: "unpaid",
+        paidTransactionId: null,
+        updatedAt: new Date().toISOString(),
+      };
+      save(KEYS.PAYABLES, payables);
+    }
+  }
+
+  if (txn.sourceModule === "ar" && txn.sourceRecordId) {
+    const receivables = load<Receivable[]>(KEYS.RECEIVABLES, []);
+    const receivableIndex = receivables.findIndex(
+      (receivable) => receivable.id === txn.sourceRecordId,
+    );
+    if (receivableIndex !== -1) {
+      receivables[receivableIndex] = {
+        ...receivables[receivableIndex],
+        status: "uncollected",
+        collectedTransactionId: null,
+        updatedAt: new Date().toISOString(),
+      };
+      save(KEYS.RECEIVABLES, receivables);
+    }
+  }
+
   writeAuditLog(userId, txn.companyId, "DELETE_TRANSACTION", "transaction", transactionId, {
     amount: txn.amount,
     purpose: txn.purpose,
@@ -1761,6 +1793,43 @@ export function reviewTransaction(
   txn.updatedAt = new Date().toISOString();
   allTxns[index] = txn;
   save(KEYS.TRANSACTIONS, allTxns);
+
+  // Keep the source AP/AR record aligned with the approval result. A payment
+  // or collection is only final after the generated cash transaction is
+  // approved; rejection reopens the source record for another attempt.
+  if (txn.sourceModule === "ap" && txn.sourceRecordId) {
+    const payables = load<Payable[]>(KEYS.PAYABLES, []);
+    const payableIndex = payables.findIndex(
+      (payable) => payable.id === txn.sourceRecordId,
+    );
+    if (payableIndex !== -1) {
+      const payable = payables[payableIndex];
+      payable.status =
+        reviewAction === "approved" ? "paid" : "unpaid";
+      payable.paidTransactionId =
+        reviewAction === "approved" ? txn.id : null;
+      payable.updatedAt = new Date().toISOString();
+      payables[payableIndex] = payable;
+      save(KEYS.PAYABLES, payables);
+    }
+  }
+
+  if (txn.sourceModule === "ar" && txn.sourceRecordId) {
+    const receivables = load<Receivable[]>(KEYS.RECEIVABLES, []);
+    const receivableIndex = receivables.findIndex(
+      (receivable) => receivable.id === txn.sourceRecordId,
+    );
+    if (receivableIndex !== -1) {
+      const receivable = receivables[receivableIndex];
+      receivable.status =
+        reviewAction === "approved" ? "collected" : "uncollected";
+      receivable.collectedTransactionId =
+        reviewAction === "approved" ? txn.id : null;
+      receivable.updatedAt = new Date().toISOString();
+      receivables[receivableIndex] = receivable;
+      save(KEYS.RECEIVABLES, receivables);
+    }
+  }
 
   // If approved and has cashAccountId, reflect it in CashLedger
   if (txn.status === "approved" && txn.cashAccountId) {
@@ -1934,6 +2003,7 @@ export function markPayableAsPaid(
   userId: string,
   payableId: string,
   categoryId: string,
+  cashAccountId: string,
 ): { error?: string; payable?: Payable; txn?: Transaction } {
   const payables = load<Payable[]>(KEYS.PAYABLES, []);
   const idx = payables.findIndex((p) => p.id === payableId);
@@ -1952,10 +2022,34 @@ export function markPayableAsPaid(
   if (payable.status === "paid") {
     return { error: "Liability already completed." };
   }
+  if (payable.status === "payment_pending") {
+    return { error: "This liability already has a payment awaiting approval." };
+  }
+
+  const account = getCashAccounts(payable.companyId).find(
+    (cashAccount) =>
+      cashAccount.id === cashAccountId && cashAccount.isActive,
+  );
+  if (!account) {
+    return {
+      error:
+        "Select an active payment account belonging to the payable company.",
+    };
+  }
+
+  const category = getCategories(payable.companyId).find(
+    (entry) => entry.id === categoryId && entry.type === "cash_out",
+  );
+  if (!category) {
+    return {
+      error: "Select a valid cash-out category for this payment.",
+    };
+  }
 
   // Create a pending cash out transaction
   const txnRes = insertTransaction(userId, {
     companyId: payable.companyId,
+    cashAccountId,
     txnDate: new Date().toISOString().split("T")[0],
     type: "cash_out",
     amount: payable.amount,
@@ -1964,6 +2058,8 @@ export function markPayableAsPaid(
     responsiblePerson: payable.payee,
     receiptPath: null,
     reversalOf: null,
+    sourceModule: "ap",
+    sourceRecordId: payable.id,
   });
 
   if (txnRes.error || !txnRes.transaction) {
@@ -1973,7 +2069,9 @@ export function markPayableAsPaid(
     };
   }
 
-  payable.status = "paid";
+  payable.status = "payment_pending";
+  payable.settlementAccountId = cashAccountId;
+  payable.settlementCategoryId = categoryId;
   payable.paidTransactionId = txnRes.transaction.id;
   payable.updatedAt = new Date().toISOString();
   payables[idx] = payable;
@@ -1985,7 +2083,12 @@ export function markPayableAsPaid(
     "PAY_PAYABLE_SETTLEMENT",
     "payable",
     payable.id,
-    { amount: payable.amount, txnId: txnRes.transaction.id },
+    {
+      amount: payable.amount,
+      txnId: txnRes.transaction.id,
+      cashAccountId,
+      state: "payment_pending",
+    },
   );
 
   return { payable, txn: txnRes.transaction };
@@ -2007,9 +2110,10 @@ export function deletePayable(
     };
   }
 
-  if (payable.status === "paid") {
+  if (payable.status !== "unpaid") {
     return {
-      error: "This liability is already settled and tied to a ledger transaction; it cannot be deleted.",
+      error:
+        "This liability has an active or completed settlement transaction and cannot be deleted.",
     };
   }
 
@@ -2084,6 +2188,7 @@ export function markReceivableAsCollected(
   userId: string,
   receivableId: string,
   categoryId: string,
+  cashAccountId: string,
 ): { error?: string; receivable?: Receivable; txn?: Transaction } {
   const receivables = load<Receivable[]>(KEYS.RECEIVABLES, []);
   const idx = receivables.findIndex((r) => r.id === receivableId);
@@ -2102,10 +2207,34 @@ export function markReceivableAsCollected(
   if (receivable.status === "collected") {
     return { error: "Asset collections already completed." };
   }
+  if (receivable.status === "collection_pending") {
+    return { error: "This claim already has a collection awaiting approval." };
+  }
+
+  const account = getCashAccounts(receivable.companyId).find(
+    (cashAccount) =>
+      cashAccount.id === cashAccountId && cashAccount.isActive,
+  );
+  if (!account) {
+    return {
+      error:
+        "Select an active collection account belonging to the receivable company.",
+    };
+  }
+
+  const category = getCategories(receivable.companyId).find(
+    (entry) => entry.id === categoryId && entry.type === "cash_in",
+  );
+  if (!category) {
+    return {
+      error: "Select a valid cash-in category for this collection.",
+    };
+  }
 
   // Create pending cash in transaction
   const txnRes = insertTransaction(userId, {
     companyId: receivable.companyId,
+    cashAccountId,
     txnDate: new Date().toISOString().split("T")[0],
     type: "cash_in",
     amount: receivable.amount,
@@ -2114,6 +2243,8 @@ export function markReceivableAsCollected(
     responsiblePerson: receivable.payer,
     receiptPath: null,
     reversalOf: null,
+    sourceModule: "ar",
+    sourceRecordId: receivable.id,
   });
 
   if (txnRes.error || !txnRes.transaction) {
@@ -2123,7 +2254,9 @@ export function markReceivableAsCollected(
     };
   }
 
-  receivable.status = "collected";
+  receivable.status = "collection_pending";
+  receivable.collectionAccountId = cashAccountId;
+  receivable.collectionCategoryId = categoryId;
   receivable.collectedTransactionId = txnRes.transaction.id;
   receivable.updatedAt = new Date().toISOString();
   receivables[idx] = receivable;
@@ -2135,7 +2268,12 @@ export function markReceivableAsCollected(
     "COLLECT_RECEIVABLE_SETTLEMENT",
     "receivable",
     receivable.id,
-    { amount: receivable.amount, txnId: txnRes.transaction.id },
+    {
+      amount: receivable.amount,
+      txnId: txnRes.transaction.id,
+      cashAccountId,
+      state: "collection_pending",
+    },
   );
 
   return { receivable, txn: txnRes.transaction };
@@ -2157,9 +2295,10 @@ export function deleteReceivable(
     };
   }
 
-  if (receivable.status === "collected") {
+  if (receivable.status !== "uncollected") {
     return {
-      error: "This asset is already collected and tied to a ledger transaction; it cannot be deleted.",
+      error:
+        "This claim has an active or completed collection transaction and cannot be deleted.",
     };
   }
 
@@ -2741,9 +2880,23 @@ export function removeTransactionAnnotation(
   return { transaction: txn };
 }
 
-// Freeform owner notes on a transaction — separate from the receipt-pin annotations
-// above and from approval remarks, so an approver can leave a comment for the
-// encoder to see without approving/rejecting or requiring an attached receipt.
+export function canCommentOnTransaction(
+  userId: string,
+  companyId: string,
+): boolean {
+  const role = getUserRole(userId, companyId);
+  return (
+    role === "approver" ||
+    role === "company_admin" ||
+    role === "finance_officer" ||
+    isGroupAdmin(userId) ||
+    isAccountingUser(userId)
+  );
+}
+
+// Approval conversation notes — separate from receipt-pin annotations and
+// approval remarks, so approvers and accounting can discuss a transaction
+// without changing its approval state.
 export function addTransactionNote(
   userId: string,
   txnId: string,
@@ -2758,10 +2911,11 @@ export function addTransactionNote(
   if (idx === -1) return { error: "Transaction not found." };
   const txn = allTxns[idx];
 
-  const role = getUserRole(userId, txn.companyId);
-  const canComment = role === "approver" || role === "company_admin" || isGroupAdmin(userId);
-  if (!canComment) {
-    return { error: "Access Denied: Only Approvers or Admins can leave notes on transactions." };
+  if (!canCommentOnTransaction(userId, txn.companyId)) {
+    return {
+      error:
+        "Access Denied: Only Approvers, Accounting, or Admins can join this conversation.",
+    };
   }
 
   const newNote = {

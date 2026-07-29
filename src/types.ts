@@ -7,8 +7,8 @@ export type CompanyRole = 'company_admin' | 'finance_officer' | 'approver' | 'vi
 export type CashflowType = 'cash_in' | 'cash_out';
 export type TransactionStatus = 'pending' | 'approved' | 'completed' | 'rejected';
 export type ApprovalAction = 'approved' | 'rejected';
-export type PayableStatus = 'unpaid' | 'paid';
-export type ReceivableStatus = 'uncollected' | 'collected';
+export type PayableStatus = 'unpaid' | 'payment_pending' | 'paid';
+export type ReceivableStatus = 'uncollected' | 'collection_pending' | 'collected';
 export type PayrollStatus = 'draft' | 'pending_approval' | 'processed' | 'cancelled';
 
 export interface Company {
@@ -245,6 +245,8 @@ export interface Transaction {
   encodedBy: string; // profile id
   reversalOf: string | null; // transaction id
   transferRef?: string | null;
+  sourceModule?: 'ap' | 'ar';
+  sourceRecordId?: string;
   tags?: string[] | null;
   createdAt: string;
   updatedAt: string;
@@ -280,6 +282,8 @@ export interface Payable {
   unitPrice?: number;
   remarks?: string;
   dueDate: string; // YYYY-MM-DD
+  settlementAccountId?: string;
+  settlementCategoryId?: string;
   status: PayableStatus;
   paidTransactionId: string | null;
   createdAt: string;
@@ -293,6 +297,8 @@ export interface Receivable {
   description: string;
   amount: number;
   dueDate: string; // YYYY-MM-DD
+  collectionAccountId?: string;
+  collectionCategoryId?: string;
   status: ReceivableStatus;
   collectedTransactionId: string | null;
   createdAt: string;

@@ -327,13 +327,33 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
         toast.info("Payable is already paid. Open the AP module to manage reversals.");
         return;
       }
-      const confirm = window.confirm(`Mark payable '${item.title}' as PAID?`);
+      if (item.originalItem.status === "payment_pending") {
+        toast.info("This payable is already awaiting approval.");
+        return;
+      }
+      if (
+        !item.originalItem.settlementCategoryId ||
+        !item.originalItem.settlementAccountId
+      ) {
+        toast.info(
+          "Open the AP module to choose the payment account and category.",
+        );
+        return;
+      }
+      const confirm = window.confirm(
+        `Send '${item.title}' for payment approval using its planned account?`,
+      );
       if (confirm) {
-        const { error } = markPayableAsPaid(userId, item.originalItem.id, "");
+        const { error } = markPayableAsPaid(
+          userId,
+          item.originalItem.id,
+          item.originalItem.settlementCategoryId,
+          item.originalItem.settlementAccountId,
+        );
         if (error) {
           toast.error(error);
         } else {
-          toast.success("Payable marked as paid.");
+          toast.success("Payable sent for approval.");
           onAuditLogged();
         }
       }
@@ -342,13 +362,33 @@ export default function DueDates({ userId, companyId, onAuditLogged }: DueDatesP
         toast.info("Receivable is already collected.");
         return;
       }
-      const confirm = window.confirm(`Mark receivable '${item.title}' as COLLECTED?`);
+      if (item.originalItem.status === "collection_pending") {
+        toast.info("This receivable is already awaiting approval.");
+        return;
+      }
+      if (
+        !item.originalItem.collectionCategoryId ||
+        !item.originalItem.collectionAccountId
+      ) {
+        toast.info(
+          "Open the AR module to choose the destination account and category.",
+        );
+        return;
+      }
+      const confirm = window.confirm(
+        `Send '${item.title}' for collection approval using its planned account?`,
+      );
       if (confirm) {
-        const { error } = markReceivableAsCollected(userId, item.originalItem.id, "");
+        const { error } = markReceivableAsCollected(
+          userId,
+          item.originalItem.id,
+          item.originalItem.collectionCategoryId,
+          item.originalItem.collectionAccountId,
+        );
         if (error) {
           toast.error(error);
         } else {
-          toast.success("Receivable marked as collected.");
+          toast.success("Receivable sent for approval.");
           onAuditLogged();
         }
       }

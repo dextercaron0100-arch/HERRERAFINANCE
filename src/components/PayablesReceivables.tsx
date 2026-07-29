@@ -22,9 +22,11 @@ import {
   markReceivableAsCollected,
   canWriteFinance,
   getCategories,
+  getCashAccounts,
   getCompanies,
+  useDBUpdate,
 } from "../data/mockDatabase";
-import { Payable, Receivable } from "../types";
+import { CashAccount, Payable, Receivable } from "../types";
 import { toast } from "sonner";
 
 interface PayablesReceivablesProps {
@@ -34,6 +36,9 @@ interface PayablesReceivablesProps {
 }
 
 type StatusFilter = "all" | "overdue" | "open" | "settled";
+type SettlementTarget =
+  | { kind: "ap"; record: Payable }
+  | { kind: "ar"; record: Receivable };
 
 const TONE_STYLES = {
   neutral: { bg: "bg-slate-50", text: "text-slate-900", border: "border-slate-200" },
@@ -41,6 +46,9 @@ const TONE_STYLES = {
   warning: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
   success: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
 } as const;
+
+const accountLabel = (account: CashAccount) =>
+  `${account.bankName || account.accountType} — ${account.accountName} ••••${account.accountNumber.slice(-4)}`;
 
 function StatCard({
   label,
@@ -74,6 +82,8 @@ export default function PayablesReceivables({
   companyId,
   onAuditLogged,
 }: PayablesReceivablesProps) {
+  useDBUpdate();
+
   // Tabs
   const [activeSegment, setActiveSegment] = useState<"ap" | "ar">("ap");
 
@@ -88,12 +98,22 @@ export default function PayablesReceivables({
   const [apUom, setApUom] = useState("");
   const [apUnitPrice, setApUnitPrice] = useState("");
   const [apRemarks, setApRemarks] = useState("");
+  const [apSettlementAccountId, setApSettlementAccountId] = useState("");
+  const [apCategoryId, setApCategoryId] = useState("");
 
   // AR form states
   const [arPayer, setArPayer] = useState("");
   const [arDesc, setArDesc] = useState("");
   const [arAmount, setArAmount] = useState("");
   const [arDueDate, setArDueDate] = useState("");
+  const [arCollectionAccountId, setArCollectionAccountId] = useState("");
+  const [arCategoryId, setArCategoryId] = useState("");
+
+  // Payment / collection confirmation
+  const [settlementTarget, setSettlementTarget] =
+    useState<SettlementTarget | null>(null);
+  const [settlementAccountId, setSettlementAccountId] = useState("");
+  const [settlementCategoryId, setSettlementCategoryId] = useState("");
 
   // Local errors
   const [formError, setFormError] = useState("");
@@ -105,8 +125,53 @@ export default function PayablesReceivables({
 
   const payables = getPayables(userId, companyId);
   const receivables = getReceivables(userId, companyId);
-  const categories = getCategories(companyId);
   const companies = getCompanies();
+  const formCompanyId =
+    targetCompany || (companyId === "all" ? "" : companyId);
+  const formAccounts = formCompanyId
+    ? getCashAccounts(formCompanyId).filter((account) => account.isActive)
+    : [];
+  const apCategories = formCompanyId
+    ? getCategories(formCompanyId).filter(
+        (category) => category.type === "cash_out",
+      )
+    : [];
+  const arCategories = formCompanyId
+    ? getCategories(formCompanyId).filter(
+        (category) => category.type === "cash_in",
+      )
+    : [];
+  const allCashAccounts = companies.flatMap((company) =>
+    getCashAccounts(company.id),
+  );
+  const cashAccountById = new Map(
+    allCashAccounts.map((account) => [account.id, account]),
+  );
+
+  const settlementCompanyId = settlementTarget?.record.companyId || "";
+  const settlementAccounts = settlementCompanyId
+    ? getCashAccounts(settlementCompanyId).filter(
+        (account) => account.isActive,
+      )
+    : [];
+  const settlementCategories = settlementCompanyId
+    ? getCategories(settlementCompanyId).filter((category) =>
+        settlementTarget?.kind === "ap"
+          ? category.type === "cash_out"
+          : category.type === "cash_in",
+      )
+    : [];
+  const selectedSettlementAccount =
+    settlementAccounts.find(
+      (account) => account.id === settlementAccountId,
+    ) || null;
+  const settlementAmount = settlementTarget?.record.amount || 0;
+  const projectedSettlementBalance = selectedSettlementAccount
+    ? selectedSettlementAccount.currentBalance +
+      (settlementTarget?.kind === "ap"
+        ? -settlementAmount
+        : settlementAmount)
+    : null;
 
   // PESO FORMATTER
   const formatPeso = (num: number) => {
@@ -138,7 +203,7 @@ export default function PayablesReceivables({
 
   // AP derived stats + filtered/sorted rows
   const apStats = useMemo(() => {
-    const outstanding = payables.filter((p) => p.status === "unpaid");
+    const outstanding = payables.filter((p) => p.status !== "paid");
     const overdue = outstanding.filter((p) => p.dueDate < todayStr);
     const dueSoon = outstanding.filter(
       (p) => p.dueDate >= todayStr && p.dueDate <= sevenDaysStr,
@@ -164,9 +229,9 @@ export default function PayablesReceivables({
           )
             return false;
         }
-        const isOverdue = p.status === "unpaid" && p.dueDate < todayStr;
+        const isOverdue = p.status !== "paid" && p.dueDate < todayStr;
         if (statusFilter === "overdue") return isOverdue;
-        if (statusFilter === "open") return p.status === "unpaid";
+        if (statusFilter === "open") return p.status !== "paid";
         if (statusFilter === "settled") return p.status === "paid";
         return true;
       })
@@ -180,7 +245,7 @@ export default function PayablesReceivables({
 
   // AR derived stats + filtered/sorted rows
   const arStats = useMemo(() => {
-    const outstanding = receivables.filter((r) => r.status === "uncollected");
+    const outstanding = receivables.filter((r) => r.status !== "collected");
     const overdue = outstanding.filter((r) => r.dueDate < todayStr);
     const dueSoon = outstanding.filter(
       (r) => r.dueDate >= todayStr && r.dueDate <= sevenDaysStr,
@@ -206,9 +271,9 @@ export default function PayablesReceivables({
           )
             return false;
         }
-        const isOverdue = r.status === "uncollected" && r.dueDate < todayStr;
+        const isOverdue = r.status !== "collected" && r.dueDate < todayStr;
         if (statusFilter === "overdue") return isOverdue;
-        if (statusFilter === "open") return r.status === "uncollected";
+        if (statusFilter === "open") return r.status !== "collected";
         if (statusFilter === "settled") return r.status === "collected";
         return true;
       })
@@ -246,6 +311,14 @@ export default function PayablesReceivables({
     setStatusFilter("all");
   };
 
+  const handleTargetCompanyChange = (nextCompanyId: string) => {
+    setTargetCompany(nextCompanyId);
+    setApSettlementAccountId("");
+    setApCategoryId("");
+    setArCollectionAccountId("");
+    setArCategoryId("");
+  };
+
   // Submit AP invoice
   const handleAddAP = (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,8 +332,16 @@ export default function PayablesReceivables({
       );
       return;
     }
-    if (!apPayee.trim() || !apDesc.trim() || !apDueDate) {
-      setFormError("All fields represent strictly mandatory auditing values.");
+    if (
+      !apPayee.trim() ||
+      !apDesc.trim() ||
+      !apDueDate ||
+      !apSettlementAccountId ||
+      !apCategoryId
+    ) {
+      setFormError(
+        "Payee, description, due date, payment account, and category are required.",
+      );
       return;
     }
     const finalCompanyId = targetCompany || companyId;
@@ -279,6 +360,8 @@ export default function PayablesReceivables({
       unitPrice: apUnitPrice ? parseFloat(apUnitPrice) : undefined,
       remarks: apRemarks ? apRemarks.trim() : undefined,
       dueDate: apDueDate,
+      settlementAccountId: apSettlementAccountId,
+      settlementCategoryId: apCategoryId,
     });
 
     if (error) {
@@ -293,6 +376,8 @@ export default function PayablesReceivables({
       setApUom("");
       setApUnitPrice("");
       setApRemarks("");
+      setApSettlementAccountId("");
+      setApCategoryId("");
       setTimeout(() => {
         setShowAddForm(false);
         setFormSuccess("");
@@ -314,8 +399,16 @@ export default function PayablesReceivables({
       );
       return;
     }
-    if (!arPayer.trim() || !arDesc.trim() || !arDueDate) {
-      setFormError("All fields represent strictly mandatory auditing values.");
+    if (
+      !arPayer.trim() ||
+      !arDesc.trim() ||
+      !arDueDate ||
+      !arCollectionAccountId ||
+      !arCategoryId
+    ) {
+      setFormError(
+        "Payer, description, claim due date, collection account, and category are required.",
+      );
       return;
     }
     const finalCompanyId = targetCompany || companyId;
@@ -330,6 +423,8 @@ export default function PayablesReceivables({
       description: arDesc,
       amount: amt,
       dueDate: arDueDate,
+      collectionAccountId: arCollectionAccountId,
+      collectionCategoryId: arCategoryId,
     });
 
     if (error) {
@@ -340,6 +435,8 @@ export default function PayablesReceivables({
       setArDesc("");
       setArAmount("");
       setArDueDate("");
+      setArCollectionAccountId("");
+      setArCategoryId("");
       setTimeout(() => {
         setShowAddForm(false);
         setFormSuccess("");
@@ -348,62 +445,68 @@ export default function PayablesReceivables({
     }
   };
 
-  // Mark Payable Paid Event (Triggers Pending cash_out)
-  const handleMarkPaid = (apId: string) => {
-    const defaultOutCategoryId =
-      categories.find((c) => c.name === "operations" && c.type === "cash_out")
-        ?.id || categories.filter((c) => c.type === "cash_out")[0]?.id;
-
-    if (!defaultOutCategoryId) {
-      toast.error("Operations category missing", {
-        description:
-          "Internal error: operations category could not be resolved.",
-      });
-      return;
-    }
-
-    const { error, payable, txn } = markPayableAsPaid(
-      userId,
-      apId,
-      defaultOutCategoryId,
+  const openSettlementConfirmation = (target: SettlementTarget) => {
+    const accounts = getCashAccounts(target.record.companyId).filter(
+      (account) => account.isActive,
     );
-    if (error) {
-      toast.error("Payment Failed", { description: error });
-    } else {
-      toast.success("Bill marked paid", {
-        description: `Generated pending cash outbound transaction #${txn?.id} awaiting reviews approval.`,
-      });
-      onAuditLogged();
-    }
+    const categoryType = target.kind === "ap" ? "cash_out" : "cash_in";
+    const categories = getCategories(target.record.companyId).filter(
+      (category) => category.type === categoryType,
+    );
+    const savedAccountId =
+      target.kind === "ap"
+        ? target.record.settlementAccountId
+        : target.record.collectionAccountId;
+    const savedCategoryId =
+      target.kind === "ap"
+        ? target.record.settlementCategoryId
+        : target.record.collectionCategoryId;
+
+    setSettlementTarget(target);
+    setSettlementAccountId(savedAccountId || accounts[0]?.id || "");
+    setSettlementCategoryId(savedCategoryId || categories[0]?.id || "");
   };
 
-  // Mark Receivable Collected Event (Triggers Pending cash_in)
-  const handleMarkCollected = (arId: string) => {
-    const defaultInCategoryId =
-      categories.find((c) => c.name === "collections" && c.type === "cash_in")
-        ?.id || categories.filter((c) => c.type === "cash_in")[0]?.id;
-
-    if (!defaultInCategoryId) {
-      toast.error("Collections category missing", {
-        description:
-          "Internal error: collections category could not be resolved.",
-      });
+  const handleConfirmSettlement = () => {
+    if (!settlementTarget || !settlementAccountId || !settlementCategoryId) {
+      toast.error("Account and category are required.");
       return;
     }
 
-    const { error, receivable, txn } = markReceivableAsCollected(
-      userId,
-      arId,
-      defaultInCategoryId,
-    );
-    if (error) {
-      toast.error("Collection Registration Failed", { description: error });
-    } else {
-      toast.success("Claims mark collected", {
-        description: `Generated pending cash inflows entry #${txn?.id} awaiting reviews approval.`,
+    if (settlementTarget.kind === "ap") {
+      const { error, txn } = markPayableAsPaid(
+        userId,
+        settlementTarget.record.id,
+        settlementCategoryId,
+        settlementAccountId,
+      );
+      if (error) {
+        toast.error("Payment request failed", { description: error });
+        return;
+      }
+      toast.success("Payment sent for approval", {
+        description: `Pending cash-out transaction #${txn?.id} will use the selected account after approval.`,
       });
-      onAuditLogged();
+    } else {
+      const { error, txn } = markReceivableAsCollected(
+        userId,
+        settlementTarget.record.id,
+        settlementCategoryId,
+        settlementAccountId,
+      );
+      if (error) {
+        toast.error("Collection request failed", { description: error });
+        return;
+      }
+      toast.success("Collection sent for approval", {
+        description: `Pending cash-in transaction #${txn?.id} will post to the selected account after approval.`,
+      });
     }
+
+    setSettlementTarget(null);
+    setSettlementAccountId("");
+    setSettlementCategoryId("");
+    onAuditLogged();
   };
 
   return (
@@ -471,17 +574,17 @@ export default function PayablesReceivables({
 
       {/* RENDER ADD POPUP ACCORDION */}
       {showAddForm && (
-        <div className="bg-white border border-slate-200 p-6 shadow-md animate-fadeIn space-y-4 rounded-2xl">
+        <div className="bg-white border border-slate-200 p-5 shadow-2xl animate-fadeIn space-y-4 rounded-xl">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <div>
-              <h3 className="font-display text-base text-slate-900 tracking-tight">
-                Log New Outstanding{" "}
+              <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+                Quick Encode —{" "}
                 {activeSegment === "ap"
-                  ? "Accounts Payable liability"
-                  : "Accounts Receivable asset"}
+                  ? "Accounts Payable"
+                  : "Accounts Receivable"}
               </h3>
               <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mt-0.5 font-semibold">
-                Values are tracked into monthly cash forecasts.
+                Add the due-date limit and planned cash account for forecasting.
               </p>
             </div>
             <button
@@ -505,7 +608,9 @@ export default function PayablesReceivables({
                   </span>
                   <select
                     value={targetCompany}
-                    onChange={(e) => setTargetCompany(e.target.value)}
+                    onChange={(e) =>
+                      handleTargetCompanyChange(e.target.value)
+                    }
                     className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                     required
                   >
@@ -608,6 +713,52 @@ export default function PayablesReceivables({
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
+                  Payment Source Account
+                </span>
+                <select
+                  value={apSettlementAccountId}
+                  onChange={(e) => setApSettlementAccountId(e.target.value)}
+                  disabled={!formCompanyId}
+                  required
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    {formCompanyId
+                      ? "Select account to pay from"
+                      : "Select a company first"}
+                  </option>
+                  {formAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {accountLabel(account)} — {formatPeso(account.currentBalance)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
+                  Cash-Out Category
+                </span>
+                <select
+                  value={apCategoryId}
+                  onChange={(e) => setApCategoryId(e.target.value)}
+                  disabled={!formCompanyId}
+                  required
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    {formCompanyId
+                      ? "Select payment category"
+                      : "Select a company first"}
+                  </option>
+                  {apCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
                   Due Date Limits
                 </span>
                 <input
@@ -658,7 +809,9 @@ export default function PayablesReceivables({
                   </span>
                   <select
                     value={targetCompany}
-                    onChange={(e) => setTargetCompany(e.target.value)}
+                    onChange={(e) =>
+                      handleTargetCompanyChange(e.target.value)
+                    }
                     className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer transition-all"
                     required
                   >
@@ -722,6 +875,52 @@ export default function PayablesReceivables({
                   required
                   className="w-full text-xs p-2 px-3 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono placeholder:text-slate-400"
                 />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
+                  Collection Destination Account
+                </span>
+                <select
+                  value={arCollectionAccountId}
+                  onChange={(e) => setArCollectionAccountId(e.target.value)}
+                  disabled={!formCompanyId}
+                  required
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    {formCompanyId
+                      ? "Select account to receive funds"
+                      : "Select a company first"}
+                  </option>
+                  {formAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {accountLabel(account)} — {formatPeso(account.currentBalance)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">
+                  Cash-In Category
+                </span>
+                <select
+                  value={arCategoryId}
+                  onChange={(e) => setArCategoryId(e.target.value)}
+                  disabled={!formCompanyId}
+                  required
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A] rounded-2xl font-mono cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">
+                    {formCompanyId
+                      ? "Select collection category"
+                      : "Select a company first"}
+                  </option>
+                  {arCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="md:col-span-4 flex justify-end gap-2 pt-3 border-t border-slate-200/50">
                 <button
@@ -806,6 +1005,9 @@ export default function PayablesReceivables({
                       Due Date
                     </th>
                     <th className="p-3 border-b border-slate-200">
+                      Payment Account
+                    </th>
+                    <th className="p-3 border-b border-slate-200">
                       Payment status
                     </th>
                     <th className="p-3 border-b border-slate-200 text-center">
@@ -820,7 +1022,10 @@ export default function PayablesReceivables({
                   {filteredPayables.length > 0 ? (
                     filteredPayables.map((p) => {
                       const isOverdue =
-                        p.status === "unpaid" && p.dueDate < todayStr;
+                        p.status !== "paid" && p.dueDate < todayStr;
+                      const plannedAccount = p.settlementAccountId
+                        ? cashAccountById.get(p.settlementAccountId)
+                        : undefined;
                       return (
                         <tr
                           key={p.id}
@@ -859,10 +1064,32 @@ export default function PayablesReceivables({
                               </span>
                             </span>
                           </td>
+                          <td className="p-3 min-w-52">
+                            {plannedAccount ? (
+                              <div>
+                                <div className="text-[11px] font-semibold text-slate-800">
+                                  {plannedAccount.accountName}
+                                </div>
+                                <div className="text-[9px] font-mono text-slate-500">
+                                  {plannedAccount.bankName ||
+                                    plannedAccount.accountType}{" "}
+                                  ••••{plannedAccount.accountNumber.slice(-4)}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-400">
+                                Not assigned
+                              </span>
+                            )}
+                          </td>
                           <td className="p-3 whitespace-nowrap">
                             {p.status === "paid" ? (
                               <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
                                 SETTLED PAID
+                              </span>
+                            ) : p.status === "payment_pending" ? (
+                              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
+                                PAYMENT PENDING
                               </span>
                             ) : (
                               <span
@@ -879,13 +1106,22 @@ export default function PayablesReceivables({
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
                             {p.status === "unpaid" &&
-                            canWriteFinance(userId, companyId) ? (
+                            canWriteFinance(userId, p.companyId) ? (
                               <button
-                                onClick={() => handleMarkPaid(p.id)}
+                                onClick={() =>
+                                  openSettlementConfirmation({
+                                    kind: "ap",
+                                    record: p,
+                                  })
+                                }
                                 className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
                               >
                                 Trigger Payment
                               </button>
+                            ) : p.status === "payment_pending" ? (
+                              <span className="text-sky-700 text-[10px] font-mono font-semibold">
+                                Awaiting approval
+                              </span>
                             ) : p.status === "paid" ? (
                               <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -902,7 +1138,7 @@ export default function PayablesReceivables({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="p-10 text-center">
+                      <td colSpan={8} className="p-10 text-center">
                         <FolderMinus className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         {hasAnyRecords && isFiltering ? (
                           <>
@@ -979,6 +1215,9 @@ export default function PayablesReceivables({
                       Due Date
                     </th>
                     <th className="p-3 border-b border-slate-200">
+                      Destination Account
+                    </th>
+                    <th className="p-3 border-b border-slate-200">
                       Collection status
                     </th>
                     <th className="p-3 border-b border-slate-200 text-center">
@@ -993,7 +1232,10 @@ export default function PayablesReceivables({
                   {filteredReceivables.length > 0 ? (
                     filteredReceivables.map((r) => {
                       const isOverdue =
-                        r.status === "uncollected" && r.dueDate < todayStr;
+                        r.status !== "collected" && r.dueDate < todayStr;
+                      const plannedAccount = r.collectionAccountId
+                        ? cashAccountById.get(r.collectionAccountId)
+                        : undefined;
                       return (
                         <tr
                           key={r.id}
@@ -1032,10 +1274,32 @@ export default function PayablesReceivables({
                               </span>
                             </span>
                           </td>
+                          <td className="p-3 min-w-52">
+                            {plannedAccount ? (
+                              <div>
+                                <div className="text-[11px] font-semibold text-slate-800">
+                                  {plannedAccount.accountName}
+                                </div>
+                                <div className="text-[9px] font-mono text-slate-500">
+                                  {plannedAccount.bankName ||
+                                    plannedAccount.accountType}{" "}
+                                  ••••{plannedAccount.accountNumber.slice(-4)}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-400">
+                                Not assigned
+                              </span>
+                            )}
+                          </td>
                           <td className="p-3 whitespace-nowrap">
                             {r.status === "collected" ? (
                               <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
                                 COMPLETED
+                              </span>
+                            ) : r.status === "collection_pending" ? (
+                              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 text-[9px] font-mono font-bold rounded-2xl uppercase tracking-wider">
+                                COLLECTION PENDING
                               </span>
                             ) : (
                               <span
@@ -1054,13 +1318,22 @@ export default function PayablesReceivables({
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
                             {r.status === "uncollected" &&
-                            canWriteFinance(userId, companyId) ? (
+                            canWriteFinance(userId, r.companyId) ? (
                               <button
-                                onClick={() => handleMarkCollected(r.id)}
+                                onClick={() =>
+                                  openSettlementConfirmation({
+                                    kind: "ar",
+                                    record: r,
+                                  })
+                                }
                                 className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
                               >
                                 Collect Funds
                               </button>
+                            ) : r.status === "collection_pending" ? (
+                              <span className="text-sky-700 text-[10px] font-mono font-semibold">
+                                Awaiting approval
+                              </span>
                             ) : r.status === "collected" ? (
                               <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1077,7 +1350,7 @@ export default function PayablesReceivables({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="p-10 text-center">
+                      <td colSpan={8} className="p-10 text-center">
                         <FolderPlus className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         {hasAnyRecords && isFiltering ? (
                           <>
@@ -1106,6 +1379,191 @@ export default function PayablesReceivables({
           </div>
         )}
       </div>
+
+      {settlementTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settlement-dialog-title"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setSettlementTarget(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl animate-fadeIn">
+            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <p className="text-[9px] font-mono font-bold uppercase tracking-[0.18em] text-[#00A86B]">
+                  Accounting Workbench
+                </p>
+                <h2
+                  id="settlement-dialog-title"
+                  className="mt-1 font-display text-lg font-semibold text-slate-900"
+                >
+                  {settlementTarget.kind === "ap"
+                    ? "Confirm AP Payment"
+                    : "Confirm AR Collection"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Review the account impact before sending this transaction for
+                  approval.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettlementTarget(null)}
+                aria-label="Close settlement confirmation"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 p-5">
+              <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                    {settlementTarget.kind === "ap" ? "Payee" : "Payer"}
+                  </p>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {settlementTarget.kind === "ap"
+                      ? settlementTarget.record.payee
+                      : settlementTarget.record.payer}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {settlementTarget.record.description}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                    Due-date limit
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-slate-900">
+                    {settlementTarget.record.dueDate}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">
+                    {settlementTarget.kind === "ap"
+                      ? "Debit From Account"
+                      : "Deposit To Account"}
+                  </span>
+                  <select
+                    value={settlementAccountId}
+                    onChange={(event) =>
+                      setSettlementAccountId(event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 outline-hidden transition focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A]"
+                  >
+                    <option value="">Select cash account</option>
+                    {settlementAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {accountLabel(account)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">
+                    Transaction Category
+                  </span>
+                  <select
+                    value={settlementCategoryId}
+                    onChange={(event) =>
+                      setSettlementCategoryId(event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 outline-hidden transition focus:border-[#00B67A] focus:ring-1 focus:ring-[#00B67A]"
+                  >
+                    <option value="">Select category</option>
+                    {settlementCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-3">
+                <div className="bg-white p-4">
+                  <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                    Transaction amount
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-bold text-slate-900">
+                    {formatPeso(settlementAmount)}
+                  </p>
+                </div>
+                <div className="bg-white p-4">
+                  <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                    Current balance
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-bold text-slate-900">
+                    {selectedSettlementAccount
+                      ? formatPeso(selectedSettlementAccount.currentBalance)
+                      : "—"}
+                  </p>
+                </div>
+                <div className="bg-white p-4">
+                  <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                    Projected balance
+                  </p>
+                  <p
+                    className={`mt-1 font-mono text-lg font-bold ${
+                      projectedSettlementBalance === null
+                        ? "text-slate-400"
+                        : settlementTarget.kind === "ap" &&
+                            projectedSettlementBalance < 0
+                          ? "text-rose-600"
+                          : "text-emerald-600"
+                    }`}
+                  >
+                    {projectedSettlementBalance === null
+                      ? "—"
+                      : formatPeso(projectedSettlementBalance)}
+                  </p>
+                </div>
+              </div>
+
+              {settlementTarget.kind === "ap" &&
+                projectedSettlementBalance !== null &&
+                projectedSettlementBalance < 0 && (
+                  <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      This account has insufficient funds. The approval check
+                      will block posting until the balance is sufficient or a
+                      different account is selected.
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setSettlementTarget(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSettlement}
+                disabled={!settlementAccountId || !settlementCategoryId}
+                className="rounded-xl bg-[#00B67A] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-[#009E6B] disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Send for Approval
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
