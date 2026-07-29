@@ -417,6 +417,13 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
     conversations.find(
       (conversation) => conversation.id === selectedConversationId,
     ) || null;
+  const unreadConversationCount = conversations.filter((conversation) =>
+    isConversationUnread(
+      conversation,
+      readStates[conversation.id],
+      userId,
+    ),
+  ).length;
 
   const getConversationTitle = (conversation: ChatConversation) => {
     if (conversation.type !== "direct") return conversation.title;
@@ -709,9 +716,22 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                 <p className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-emerald-600">
                   Internal Messenger
                 </p>
-                <h1 className="font-display text-xl font-semibold text-slate-900">
-                  Messages
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-display text-xl font-semibold text-slate-900">
+                    Messages
+                  </h1>
+                  {unreadConversationCount > 0 ? (
+                    <span
+                      className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                      aria-label={`${unreadConversationCount} unread conversations`}
+                      aria-live="polite"
+                    >
+                      {unreadConversationCount > 99
+                        ? "99+"
+                        : unreadConversationCount}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <button
                 type="button"
