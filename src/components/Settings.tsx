@@ -19,6 +19,7 @@ const NAV_LABELS: Record<string, string> = {
   "money_flow": "Cash Flow",
   "budgets": "Budget Monitor",
   "approvals": "Approvals Queue",
+  "messages": "Messages",
   "assistant": "Intelligence Assistant",
   "owner_dashboard": "Owner Action Summary",
   "pay_rec": "Corporate AP/AR",
