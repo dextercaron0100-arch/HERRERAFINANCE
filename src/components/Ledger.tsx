@@ -1461,7 +1461,7 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                                 ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
                                 : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
                             }`}
-                            title="View notes from owner"
+                            title="View or reply to approval notes"
                           >
                             <MessageSquare className="w-3.5 h-3.5 mx-auto" />
                           </button>
@@ -1723,7 +1723,6 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         <TransactionNotesModal
           transaction={rawTxns.find((t) => t.id === notesTxn.id) || notesTxn}
           userId={userId}
-          canAdd={false}
           onClose={() => setNotesTxn(null)}
         />
       )}

@@ -1044,7 +1044,6 @@ export default function Approvals({
         <TransactionNotesModal
           transaction={liveNotesTxn}
           userId={userId}
-          canAdd={isAuthorizedApprover}
           onClose={() => setNotesTxn(null)}
         />
       )}

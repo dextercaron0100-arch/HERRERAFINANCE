@@ -74,6 +74,7 @@ import {
   canManagePayroll,
   canAccessCompany,
   getTransactions,
+  getFundTransfers,
   writeAuditLog,
 } from "./data/mockDatabase";
 import { Company, Profile } from "./types";
@@ -225,6 +226,14 @@ export default function App() {
       : rolesState.find(
           (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
         );
+  const pendingApprovalCount = activeUserId
+    ? getTransactions(activeUserId, activeCompanyId).filter(
+        (transaction) => transaction.status === "pending",
+      ).length +
+      getFundTransfers(activeCompanyId).filter(
+        (transfer) => transfer.status === "Pending",
+      ).length
+    : 0;
 
   useEffect(() => {
     if (
@@ -897,7 +906,10 @@ export default function App() {
                           }`}
                           title={
                             sidebarMinimized && !mobileSidebarOpen
-                              ? item.label
+                              ? item.id === "approvals" &&
+                                pendingApprovalCount > 0
+                                ? `${item.label} (${pendingApprovalCount} pending)`
+                                : item.label
                               : undefined
                           }
                         >
@@ -905,7 +917,14 @@ export default function App() {
                             className={`flex items-center z-10 ${!sidebarMinimized || mobileSidebarOpen ? "gap-3" : ""}`}
                           >
                             <Icon
-                              className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isSelected ? "text-white drop-shadow-sm" : "text-slate-500 group-hover:text-slate-700"} ${item.pulse && !isSelected ? "animate-pulse text-amber-500 group-hover:text-amber-600" : ""}`}
+                              className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isSelected ? "text-white drop-shadow-sm" : "text-slate-500 group-hover:text-slate-700"} ${
+                                item.pulse &&
+                                !isSelected &&
+                                (item.id !== "approvals" ||
+                                  pendingApprovalCount > 0)
+                                  ? "animate-pulse text-amber-500 group-hover:text-amber-600"
+                                  : ""
+                              }`}
                             />
                             {(!sidebarMinimized || mobileSidebarOpen) && (
                               <span className="text-[13px] text-left leading-tight font-medium tracking-wide">
@@ -913,9 +932,44 @@ export default function App() {
                               </span>
                             )}
                           </div>
-                          {(!sidebarMinimized || mobileSidebarOpen) &&
-                            !isSelected && (
-                              <ChevronRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-40 group-hover:translate-x-0 text-slate-400" />
+                          {(!sidebarMinimized || mobileSidebarOpen) && (
+                            <div className="z-10 flex shrink-0 items-center gap-1.5">
+                              {item.id === "approvals" &&
+                                pendingApprovalCount > 0 && (
+                                  <motion.span
+                                    key={pendingApprovalCount}
+                                    initial={{ opacity: 0, scale: 0.7 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white/70"
+                                    aria-label={`${pendingApprovalCount} pending approvals`}
+                                    aria-live="polite"
+                                  >
+                                    {pendingApprovalCount > 99
+                                      ? "99+"
+                                      : pendingApprovalCount}
+                                  </motion.span>
+                                )}
+                              {!isSelected && (
+                                <ChevronRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-40 group-hover:translate-x-0 text-slate-400" />
+                              )}
+                            </div>
+                          )}
+                          {sidebarMinimized &&
+                            !mobileSidebarOpen &&
+                            item.id === "approvals" &&
+                            pendingApprovalCount > 0 && (
+                              <motion.span
+                                key={pendingApprovalCount}
+                                initial={{ opacity: 0, scale: 0.7 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="absolute right-1 top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[8px] font-bold leading-none text-white ring-2 ring-white"
+                                aria-label={`${pendingApprovalCount} pending approvals`}
+                                aria-live="polite"
+                              >
+                                {pendingApprovalCount > 99
+                                  ? "99+"
+                                  : pendingApprovalCount}
+                              </motion.span>
                             )}
                           {isSelected && (
                               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
