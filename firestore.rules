@@ -92,7 +92,7 @@ service cloud.firestore {
           !exists(/databases/$(database)/documents/chatConversations/$(conversationId))
           || isConversationMember(resource.data)
         );
-      allow list: if isConversationMember(resource.data);
+      allow list: if signedInWithEmail();
 
       allow update: if (
           isConversationMember(resource.data)
