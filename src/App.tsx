@@ -41,6 +41,7 @@ import {
   PanelLeftOpen,
   Wallet,
   ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
@@ -77,7 +78,13 @@ import {
   getFundTransfers,
   writeAuditLog,
 } from "./data/mockDatabase";
-import { Company, Profile } from "./types";
+import { ChatConversation, Company, Profile } from "./types";
+import {
+  isConversationUnread,
+  subscribeToConversations,
+  subscribeToReadStates,
+  type ChatReadState,
+} from "./lib/chatService";
 import { triggerWorkspaceOAuth } from "./lib/workspace";
 
 import { Toaster, toast } from "sonner";
@@ -88,6 +95,7 @@ type ActivePage =
   | "money_flow"
   | "ledger"
   | "approvals"
+  | "messages"
   | "budgets"
   | "pay_rec"
   | "payroll"
@@ -100,6 +108,8 @@ type ActivePage =
   | "owner_dashboard"
   | "settings";
 
+const ChatSystem = React.lazy(() => import("./components/ChatSystem"));
+
 export default function App() {
   // Active User profile and active company sessions
   const [activeUserId, setActiveUserId] = useState<string>(""); // Default to no user
@@ -110,6 +120,10 @@ export default function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [rolesState, setRolesState] = useState(getRoles());
+  const [chatConversations, setChatConversations] = useState<
+    ChatConversation[]
+  >([]);
+  const [chatReadStates, setChatReadStates] = useState<ChatReadState>({});
   const [navOrder, setNavOrder] = useState<string[]>([
     "dashboard",
     "accounting_workbench",
@@ -117,6 +131,7 @@ export default function App() {
     "money_flow",
     "budgets",
     "approvals",
+    "messages",
     "pay_rec",
     "payroll",
     "due_dates",
@@ -234,6 +249,43 @@ export default function App() {
         (transfer) => transfer.status === "Pending",
       ).length
     : 0;
+  const unreadMessageCount = chatConversations.filter((conversation) =>
+    isConversationUnread(
+      conversation,
+      chatReadStates[conversation.id],
+      activeUserId,
+    ),
+  ).length;
+
+  useEffect(() => {
+    if (!currentProfile?.email || !activeUserId) {
+      setChatConversations([]);
+      setChatReadStates({});
+      return;
+    }
+
+    let unsubscribeConversations = () => undefined;
+    let unsubscribeReadStates = () => undefined;
+    try {
+      unsubscribeConversations = subscribeToConversations(
+        currentProfile.email,
+        setChatConversations,
+        () => setChatConversations([]),
+      );
+      unsubscribeReadStates = subscribeToReadStates(
+        setChatReadStates,
+        () => setChatReadStates({}),
+      );
+    } catch {
+      setChatConversations([]);
+      setChatReadStates({});
+    }
+
+    return () => {
+      unsubscribeConversations();
+      unsubscribeReadStates();
+    };
+  }, [activeUserId, currentProfile?.email]);
 
   useEffect(() => {
     if (
@@ -247,6 +299,7 @@ export default function App() {
         "money_flow",
         "ledger",
         "approvals",
+        "messages",
         "budgets",
         "pay_rec",
         "payroll",
@@ -274,6 +327,7 @@ export default function App() {
         "money_flow",
         "ledger",
         "approvals",
+        "messages",
         "budgets",
         "pay_rec",
         "payroll",
@@ -781,6 +835,12 @@ export default function App() {
                       pulse: true,
                     },
                     {
+                      id: "messages",
+                      label: "Messages",
+                      icon: MessageCircle,
+                      pulse: true,
+                    },
+                    {
                       id: "assistant",
                       label: "Intelligence Assistant",
                       icon: CloudLightning,
@@ -837,6 +897,7 @@ export default function App() {
                           "ledger",
                           "money_flow",
                           "approvals",
+                          "messages",
                           "assistant",
                           "pay_rec",
                           "payroll",
@@ -851,6 +912,7 @@ export default function App() {
                         currentUserRoleData.allowedSections &&
                         currentUserRoleData.allowedSections.length > 0
                       ) {
+                        if (item.id === "messages") return true;
                         return currentUserRoleData.allowedSections.includes(
                           item.id,
                         );
@@ -888,6 +950,12 @@ export default function App() {
                     .map((item) => {
                       const Icon = item.icon;
                       const isSelected = activePage === item.id;
+                      const badgeCount =
+                        item.id === "approvals"
+                          ? pendingApprovalCount
+                          : item.id === "messages"
+                            ? unreadMessageCount
+                            : 0;
                       return (
                         <button
                           key={item.id}
@@ -906,9 +974,8 @@ export default function App() {
                           }`}
                           title={
                             sidebarMinimized && !mobileSidebarOpen
-                              ? item.id === "approvals" &&
-                                pendingApprovalCount > 0
-                                ? `${item.label} (${pendingApprovalCount} pending)`
+                              ? badgeCount > 0
+                                ? `${item.label} (${badgeCount} unread)`
                                 : item.label
                               : undefined
                           }
@@ -920,8 +987,8 @@ export default function App() {
                               className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isSelected ? "text-white drop-shadow-sm" : "text-slate-500 group-hover:text-slate-700"} ${
                                 item.pulse &&
                                 !isSelected &&
-                                (item.id !== "approvals" ||
-                                  pendingApprovalCount > 0)
+                                ((!["approvals", "messages"].includes(item.id) ||
+                                  badgeCount > 0))
                                   ? "animate-pulse text-amber-500 group-hover:text-amber-600"
                                   : ""
                               }`}
@@ -934,19 +1001,22 @@ export default function App() {
                           </div>
                           {(!sidebarMinimized || mobileSidebarOpen) && (
                             <div className="z-10 flex shrink-0 items-center gap-1.5">
-                              {item.id === "approvals" &&
-                                pendingApprovalCount > 0 && (
+                              {badgeCount > 0 && (
                                   <motion.span
-                                    key={pendingApprovalCount}
+                                    key={badgeCount}
                                     initial={{ opacity: 0, scale: 0.7 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white/70"
-                                    aria-label={`${pendingApprovalCount} pending approvals`}
+                                    aria-label={`${badgeCount} ${
+                                      item.id === "messages"
+                                        ? "unread messages"
+                                        : "pending approvals"
+                                    }`}
                                     aria-live="polite"
                                   >
-                                    {pendingApprovalCount > 99
+                                    {badgeCount > 99
                                       ? "99+"
-                                      : pendingApprovalCount}
+                                      : badgeCount}
                                   </motion.span>
                                 )}
                               {!isSelected && (
@@ -956,19 +1026,22 @@ export default function App() {
                           )}
                           {sidebarMinimized &&
                             !mobileSidebarOpen &&
-                            item.id === "approvals" &&
-                            pendingApprovalCount > 0 && (
+                            badgeCount > 0 && (
                               <motion.span
-                                key={pendingApprovalCount}
+                                key={badgeCount}
                                 initial={{ opacity: 0, scale: 0.7 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 className="absolute right-1 top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[8px] font-bold leading-none text-white ring-2 ring-white"
-                                aria-label={`${pendingApprovalCount} pending approvals`}
+                                aria-label={`${badgeCount} ${
+                                  item.id === "messages"
+                                    ? "unread messages"
+                                    : "pending approvals"
+                                }`}
                                 aria-live="polite"
                               >
-                                {pendingApprovalCount > 99
+                                {badgeCount > 99
                                   ? "99+"
-                                  : pendingApprovalCount}
+                                  : badgeCount}
                               </motion.span>
                             )}
                           {isSelected && (
@@ -1140,6 +1213,19 @@ export default function App() {
                   companyId={activeCompanyId}
                   onAuditLogged={forceTriggerAuditTrail}
                 />
+              )}
+
+              {activePage === "messages" && (
+                <React.Suspense
+                  fallback={
+                    <div className="h-[calc(100vh-11rem)] min-h-[620px] animate-pulse rounded-2xl border border-slate-200 bg-slate-100" />
+                  }
+                >
+                  <ChatSystem
+                    userId={activeUserId}
+                    companyId={activeCompanyId}
+                  />
+                </React.Suspense>
               )}
 
               {activePage === "budgets" && (

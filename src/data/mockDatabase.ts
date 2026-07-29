@@ -179,7 +179,7 @@ export const SEED_PROFILES: Profile[] = [
 // that should be scoped to a single company and not see those two pages.
 const SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS = [
   "accounting_workbench", "ledger", "money_flow", "budgets", "approvals",
-  "assistant", "owner_dashboard", "pay_rec", "payroll", "reports",
+  "messages", "assistant", "owner_dashboard", "pay_rec", "payroll", "reports",
   "vault", "tax_compliance", "audit_log",
 ];
 

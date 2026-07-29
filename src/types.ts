@@ -37,6 +37,44 @@ export interface UserCompanyRole {
   createdAt: string;
 }
 
+export type ChatConversationType = 'direct' | 'group' | 'company';
+
+export interface ChatConversation {
+  id: string;
+  type: ChatConversationType;
+  title: string;
+  companyId: string | null;
+  memberIds: string[];
+  memberEmails: string[];
+  createdById: string;
+  createdByEmail: string;
+  lastMessageId: string | null;
+  lastMessageText: string;
+  lastMessageSenderId: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessageReply {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderEmail: string;
+  text: string;
+  replyTo: ChatMessageReply | null;
+  createdAt: string;
+  editedAt: string | null;
+  deletedAt: string | null;
+}
+
 export interface Category {
   id: string;
   companyId: string;

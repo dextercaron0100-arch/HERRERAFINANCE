@@ -65,5 +65,104 @@ service cloud.firestore {
     match /appData/{id} {
       allow read, write: if request.auth != null;
     }
+
+    function signedInWithEmail() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    function chatEmail() {
+      return request.auth.token.email;
+    }
+
+    function isConversationMember(conversationData) {
+      return signedInWithEmail()
+        && conversationData.memberEmails is list
+        && conversationData.memberEmails.hasAny([chatEmail()]);
+    }
+
+    match /chatConversations/{conversationId} {
+      allow create: if signedInWithEmail()
+        && request.resource.data.createdByEmail == chatEmail()
+        && isConversationMember(request.resource.data)
+        && request.resource.data.memberEmails.size() >= 2
+        && request.resource.data.memberEmails.size() <= 100;
+
+      allow read: if isConversationMember(resource.data);
+
+      allow update: if (
+          isConversationMember(resource.data)
+          || (
+            resource.data.type == 'company'
+            && isConversationMember(request.resource.data)
+          )
+        )
+        && isConversationMember(request.resource.data)
+        && request.resource.data.memberEmails.size() <= 100
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title',
+          'memberIds',
+          'memberEmails',
+          'lastMessageId',
+          'lastMessageText',
+          'lastMessageSenderId',
+          'lastMessageAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isConversationMember(
+          get(/databases/$(database)/documents/chatConversations/$(conversationId)).data
+        );
+
+        allow create: if isConversationMember(
+            get(/databases/$(database)/documents/chatConversations/$(conversationId)).data
+          )
+          && request.resource.data.senderEmail == chatEmail()
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000;
+
+        allow update: if isConversationMember(
+            get(/databases/$(database)/documents/chatConversations/$(conversationId)).data
+          )
+          && resource.data.senderEmail == chatEmail()
+          && request.resource.data.senderEmail == chatEmail()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'text',
+            'replyTo',
+            'editedAt',
+            'deletedAt'
+          ])
+          && (
+            request.resource.data.deletedAt != null
+            || (
+              request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 4000
+            )
+          );
+
+        allow delete: if false;
+      }
+
+      match /readStates/{uid} {
+        allow read: if isConversationMember(
+          get(/databases/$(database)/documents/chatConversations/$(conversationId)).data
+        );
+        allow create, update: if request.auth != null
+          && request.auth.uid == uid
+          && isConversationMember(
+            get(/databases/$(database)/documents/chatConversations/$(conversationId)).data
+          )
+          && request.resource.data.email == chatEmail();
+        allow delete: if false;
+      }
+    }
+
+    match /chatUserStates/{uid}/conversations/{conversationId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
