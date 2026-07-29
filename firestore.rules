@@ -77,7 +77,7 @@ service cloud.firestore {
     function isConversationMember(conversationData) {
       return signedInWithEmail()
         && conversationData.memberEmails is list
-        && conversationData.memberEmails.hasAny([chatEmail()]);
+        && chatEmail() in conversationData.memberEmails;
     }
 
     match /chatConversations/{conversationId} {
@@ -87,7 +87,12 @@ service cloud.firestore {
         && request.resource.data.memberEmails.size() >= 2
         && request.resource.data.memberEmails.size() <= 100;
 
-      allow read: if isConversationMember(resource.data);
+      allow get: if signedInWithEmail()
+        && (
+          !exists(/databases/$(database)/documents/chatConversations/$(conversationId))
+          || isConversationMember(resource.data)
+        );
+      allow list: if isConversationMember(resource.data);
 
       allow update: if (
           isConversationMember(resource.data)
