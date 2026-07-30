@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   Search,
   XCircle,
+  UploadCloud,
+  FileCheck2,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import {
   getPayables,
@@ -24,9 +28,12 @@ import {
   getCategories,
   getCashAccounts,
   getCompanies,
+  saveAttachment,
   useDBUpdate,
 } from "../data/mockDatabase";
 import { CashAccount, Payable, Receivable } from "../types";
+import { compressImage } from "../lib/imageUtils";
+import { uploadPrivateDocument } from "../lib/privateDocuments";
 import { toast } from "sonner";
 
 interface PayablesReceivablesProps {
@@ -55,6 +62,14 @@ const FORM_CONTROL_CLASS =
 const accountLabel = (account: CashAccount) =>
   `${account.bankName || account.accountType} — ${account.accountName} ••••${account.accountNumber.slice(-4)}`;
 
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read the selected receipt."));
+    reader.readAsDataURL(file);
+  });
+
 function StatCard({
   label,
   amount,
@@ -78,6 +93,83 @@ function StatCard({
       <div className="mt-0.5 text-[10px] font-mono text-slate-500">
         {count} {count === 1 ? "item" : "items"}
       </div>
+    </div>
+  );
+}
+
+function ReceiptUploadField({
+  file,
+  isPreparing,
+  isSubmitting,
+  onSelect,
+  onRemove,
+}: {
+  file: File | null;
+  isPreparing: boolean;
+  isSubmitting: boolean;
+  onSelect: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const disabled = isPreparing || isSubmitting;
+
+  return (
+    <div className="sm:col-span-2">
+      <span className={FORM_LABEL_CLASS}>Receipt / Supporting Document</span>
+      <label
+        className={`flex min-h-20 items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-3 transition ${
+          disabled
+            ? "cursor-not-allowed border-slate-200 bg-slate-100 opacity-60"
+            : "cursor-pointer border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/40"
+        }`}
+      >
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          disabled={disabled}
+          className="hidden"
+          onChange={(event) => {
+            const selectedFile = event.target.files?.[0];
+            event.currentTarget.value = "";
+            if (selectedFile) onSelect(selectedFile);
+          }}
+        />
+        {isPreparing ? (
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+        ) : (
+          <UploadCloud className="h-5 w-5 text-slate-500" />
+        )}
+        <div>
+          <p className="text-xs font-semibold text-slate-700">
+            {isPreparing ? "Preparing receipt..." : "Upload receipt or invoice"}
+          </p>
+          <p className="mt-0.5 text-[10px] font-mono text-slate-400">
+            JPG, PNG, WEBP, or PDF · maximum 10 MB
+          </p>
+        </div>
+      </label>
+
+      {file && (
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <FileCheck2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-semibold text-emerald-800">{file.name}</p>
+              <p className="text-[9px] font-mono text-emerald-600">
+                {(file.size / 1024).toFixed(1)} KB ready to upload
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={disabled}
+            className="cursor-pointer rounded-lg p-1.5 text-rose-500 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Remove selected receipt"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -113,6 +205,10 @@ export default function PayablesReceivables({
   const [arDueDate, setArDueDate] = useState("");
   const [arCollectionAccountId, setArCollectionAccountId] = useState("");
   const [arCategoryId, setArCategoryId] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptDataUrl, setReceiptDataUrl] = useState<string | null>(null);
+  const [isPreparingReceipt, setIsPreparingReceipt] = useState(false);
+  const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
 
   // Payment / collection confirmation
   const [settlementTarget, setSettlementTarget] =
@@ -199,9 +295,54 @@ export default function PayablesReceivables({
     return Math.max(1, Math.round(diffMs / 86400000));
   };
 
+  const clearReceipt = () => {
+    setReceiptFile(null);
+    setReceiptDataUrl(null);
+    setIsPreparingReceipt(false);
+  };
+
+  const handleReceiptSelect = async (file: File) => {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setFormError("Receipt must be a JPG, PNG, WEBP, or PDF file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError("Receipt file must be 10 MB or smaller.");
+      return;
+    }
+
+    setFormError("");
+    setIsPreparingReceipt(true);
+    try {
+      const dataUrl = file.type.startsWith("image/")
+        ? await compressImage(file)
+        : await readFileAsDataUrl(file);
+      setReceiptFile(file);
+      setReceiptDataUrl(dataUrl);
+    } catch (error: any) {
+      clearReceipt();
+      setFormError(error?.message || "Could not prepare the selected receipt.");
+    } finally {
+      setIsPreparingReceipt(false);
+    }
+  };
+
+  const closeAddForm = () => {
+    setShowAddForm(false);
+    clearReceipt();
+    setFormError("");
+    setFormSuccess("");
+  };
+
   const switchSegment = (segment: "ap" | "ar") => {
     setActiveSegment(segment);
-    setShowAddForm(false);
+    closeAddForm();
     setSearchTerm("");
     setStatusFilter("all");
   };
@@ -325,7 +466,7 @@ export default function PayablesReceivables({
   };
 
   // Submit AP invoice
-  const handleAddAP = (e: React.FormEvent) => {
+  const handleAddAP = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
@@ -355,23 +496,49 @@ export default function PayablesReceivables({
       return;
     }
 
-    const { error, payable } = insertPayable(userId, {
-      companyId: finalCompanyId,
-      payee: apPayee,
-      description: apDesc,
-      amount: amt,
-      qty: apQty ? parseFloat(apQty) : undefined,
-      uom: apUom ? apUom.trim() : undefined,
-      unitPrice: apUnitPrice ? parseFloat(apUnitPrice) : undefined,
-      remarks: apRemarks ? apRemarks.trim() : undefined,
-      dueDate: apDueDate,
-      settlementAccountId: apSettlementAccountId,
-      settlementCategoryId: apCategoryId,
-    });
+    setIsSubmittingEntry(true);
+    try {
+      const receiptPath =
+        receiptFile && receiptDataUrl
+          ? await uploadPrivateDocument(
+              receiptDataUrl,
+              finalCompanyId,
+              receiptFile.name,
+            )
+          : null;
+      const { error, payable } = insertPayable(userId, {
+        companyId: finalCompanyId,
+        payee: apPayee,
+        description: apDesc,
+        amount: amt,
+        qty: apQty ? parseFloat(apQty) : undefined,
+        uom: apUom ? apUom.trim() : undefined,
+        unitPrice: apUnitPrice ? parseFloat(apUnitPrice) : undefined,
+        remarks: apRemarks ? apRemarks.trim() : undefined,
+        receiptPath,
+        dueDate: apDueDate,
+        settlementAccountId: apSettlementAccountId,
+        settlementCategoryId: apCategoryId,
+      });
 
-    if (error) {
-      setFormError(error);
-    } else {
+      if (error || !payable) {
+        setFormError(error || "Unable to save the payable.");
+        return;
+      }
+
+      if (receiptFile && receiptPath) {
+        const attachmentResult = saveAttachment(userId, finalCompanyId, {
+          fileName: receiptFile.name,
+          fileType: receiptFile.type,
+          fileUrl: receiptPath,
+          entityType: "payable",
+          entityId: payable.id,
+        });
+        if (attachmentResult.error) {
+          toast.warning("Payable saved, but the receipt could not be added to Document Vault.");
+        }
+      }
+
       setFormSuccess("Accounts payable logged successfully!");
       setApPayee("");
       setApDesc("");
@@ -383,16 +550,18 @@ export default function PayablesReceivables({
       setApRemarks("");
       setApSettlementAccountId("");
       setApCategoryId("");
-      setTimeout(() => {
-        setShowAddForm(false);
-        setFormSuccess("");
-      }, 1500);
+      clearReceipt();
+      setTimeout(closeAddForm, 1500);
       onAuditLogged();
+    } catch (error: any) {
+      setFormError(error?.message || "Secure receipt upload failed.");
+    } finally {
+      setIsSubmittingEntry(false);
     }
   };
 
   // Submit AR invoice
-  const handleAddAR = (e: React.FormEvent) => {
+  const handleAddAR = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
@@ -422,19 +591,45 @@ export default function PayablesReceivables({
       return;
     }
 
-    const { error, receivable } = insertReceivable(userId, {
-      companyId: finalCompanyId,
-      payer: arPayer,
-      description: arDesc,
-      amount: amt,
-      dueDate: arDueDate,
-      collectionAccountId: arCollectionAccountId,
-      collectionCategoryId: arCategoryId,
-    });
+    setIsSubmittingEntry(true);
+    try {
+      const receiptPath =
+        receiptFile && receiptDataUrl
+          ? await uploadPrivateDocument(
+              receiptDataUrl,
+              finalCompanyId,
+              receiptFile.name,
+            )
+          : null;
+      const { error, receivable } = insertReceivable(userId, {
+        companyId: finalCompanyId,
+        payer: arPayer,
+        description: arDesc,
+        amount: amt,
+        receiptPath,
+        dueDate: arDueDate,
+        collectionAccountId: arCollectionAccountId,
+        collectionCategoryId: arCategoryId,
+      });
 
-    if (error) {
-      setFormError(error);
-    } else {
+      if (error || !receivable) {
+        setFormError(error || "Unable to save the receivable.");
+        return;
+      }
+
+      if (receiptFile && receiptPath) {
+        const attachmentResult = saveAttachment(userId, finalCompanyId, {
+          fileName: receiptFile.name,
+          fileType: receiptFile.type,
+          fileUrl: receiptPath,
+          entityType: "receivable",
+          entityId: receivable.id,
+        });
+        if (attachmentResult.error) {
+          toast.warning("Receivable saved, but the receipt could not be added to Document Vault.");
+        }
+      }
+
       setFormSuccess("Accounts receivable logged successfully!");
       setArPayer("");
       setArDesc("");
@@ -442,11 +637,13 @@ export default function PayablesReceivables({
       setArDueDate("");
       setArCollectionAccountId("");
       setArCategoryId("");
-      setTimeout(() => {
-        setShowAddForm(false);
-        setFormSuccess("");
-      }, 1500);
+      clearReceipt();
+      setTimeout(closeAddForm, 1500);
       onAuditLogged();
+    } catch (error: any) {
+      setFormError(error?.message || "Secure receipt upload failed.");
+    } finally {
+      setIsSubmittingEntry(false);
     }
   };
 
@@ -521,6 +718,7 @@ export default function PayablesReceivables({
         <div className="flex gap-1 p-1 bg-slate-100 border border-slate-200 rounded-2xl select-none">
           <button
             onClick={() => switchSegment("ap")}
+            disabled={isPreparingReceipt || isSubmittingEntry}
             className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ap" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
           >
             <FolderMinus className="w-4 h-4" />
@@ -528,6 +726,7 @@ export default function PayablesReceivables({
           </button>
           <button
             onClick={() => switchSegment("ar")}
+            disabled={isPreparingReceipt || isSubmittingEntry}
             className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-xl cursor-pointer transition flex items-center gap-1.5 ${activeSegment === "ar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
           >
             <FolderPlus className="w-4 h-4" />
@@ -537,7 +736,8 @@ export default function PayablesReceivables({
 
         {canWriteFinance(userId, companyId) && (
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => (showAddForm ? closeAddForm() : setShowAddForm(true))}
+            disabled={isPreparingReceipt || isSubmittingEntry}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#00B67A] hover:bg-[#009E6B] text-white text-[10px] font-mono font-bold uppercase tracking-wider rounded-2xl cursor-pointer shadow-xs transition"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -595,7 +795,8 @@ export default function PayablesReceivables({
               </p>
             </div>
             <button
-              onClick={() => setShowAddForm(false)}
+              onClick={closeAddForm}
+              disabled={isPreparingReceipt || isSubmittingEntry}
               aria-label="Close form"
               className="cursor-pointer rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
             >
@@ -812,19 +1013,30 @@ export default function PayablesReceivables({
                   />
                 </div>
 
+                <ReceiptUploadField
+                  file={receiptFile}
+                  isPreparing={isPreparingReceipt}
+                  isSubmitting={isSubmittingEntry}
+                  onSelect={handleReceiptSelect}
+                  onRemove={clearReceipt}
+                />
+
                 <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
                   <button
                     type="button"
-                    onClick={() => setShowAddForm(false)}
+                    onClick={closeAddForm}
+                    disabled={isPreparingReceipt || isSubmittingEntry}
                     className="w-full rounded-lg bg-slate-50 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500"
+                    disabled={isPreparingReceipt || isSubmittingEntry}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Write Liability Entry
+                    {isSubmittingEntry && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isSubmittingEntry ? "Saving Liability..." : "Write Liability Entry"}
                   </button>
                 </div>
               </form>
@@ -971,19 +1183,30 @@ export default function PayablesReceivables({
                   </p>
                 </div>
 
+                <ReceiptUploadField
+                  file={receiptFile}
+                  isPreparing={isPreparingReceipt}
+                  isSubmitting={isSubmittingEntry}
+                  onSelect={handleReceiptSelect}
+                  onRemove={clearReceipt}
+                />
+
                 <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 sm:col-span-2">
                   <button
                     type="button"
-                    onClick={() => setShowAddForm(false)}
+                    onClick={closeAddForm}
+                    disabled={isPreparingReceipt || isSubmittingEntry}
                     className="w-full rounded-lg bg-slate-50 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500"
+                    disabled={isPreparingReceipt || isSubmittingEntry}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Write Claims Asset
+                    {isSubmittingEntry && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isSubmittingEntry ? "Saving Claim..." : "Write Claims Asset"}
                   </button>
                 </div>
               </form>
@@ -1156,33 +1379,45 @@ export default function PayablesReceivables({
                               : "-"}
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
-                            {p.status === "unpaid" &&
-                            canWriteFinance(userId, p.companyId) ? (
-                              <button
-                                onClick={() =>
-                                  openSettlementConfirmation({
-                                    kind: "ap",
-                                    record: p,
-                                  })
-                                }
-                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
-                              >
-                                Trigger Payment
-                              </button>
-                            ) : p.status === "payment_pending" ? (
-                              <span className="text-sky-700 text-[10px] font-mono font-semibold">
-                                Awaiting approval
-                              </span>
-                            ) : p.status === "paid" ? (
-                              <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Completed</span>
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-mono text-[10px]">
-                                -
-                              </span>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {p.receiptPath && (
+                                <button
+                                  onClick={() => window.open(p.receiptPath!, "_blank", "noopener,noreferrer")}
+                                  className="inline-flex cursor-pointer items-center gap-1 rounded-2xl border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-sky-700 transition hover:bg-sky-100"
+                                  title="Open uploaded receipt"
+                                >
+                                  <FileCheck2 className="h-3 w-3" />
+                                  Receipt
+                                </button>
+                              )}
+                              {p.status === "unpaid" &&
+                              canWriteFinance(userId, p.companyId) ? (
+                                <button
+                                  onClick={() =>
+                                    openSettlementConfirmation({
+                                      kind: "ap",
+                                      record: p,
+                                    })
+                                  }
+                                  className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
+                                >
+                                  Trigger Payment
+                                </button>
+                              ) : p.status === "payment_pending" ? (
+                                <span className="text-sky-700 text-[10px] font-mono font-semibold">
+                                  Awaiting approval
+                                </span>
+                              ) : p.status === "paid" ? (
+                                <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Completed</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-[10px]">
+                                  -
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1368,33 +1603,45 @@ export default function PayablesReceivables({
                               : "-"}
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
-                            {r.status === "uncollected" &&
-                            canWriteFinance(userId, r.companyId) ? (
-                              <button
-                                onClick={() =>
-                                  openSettlementConfirmation({
-                                    kind: "ar",
-                                    record: r,
-                                  })
-                                }
-                                className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
-                              >
-                                Collect Funds
-                              </button>
-                            ) : r.status === "collection_pending" ? (
-                              <span className="text-sky-700 text-[10px] font-mono font-semibold">
-                                Awaiting approval
-                              </span>
-                            ) : r.status === "collected" ? (
-                              <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Completed</span>
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-mono text-[10px]">
-                                -
-                              </span>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {r.receiptPath && (
+                                <button
+                                  onClick={() => window.open(r.receiptPath!, "_blank", "noopener,noreferrer")}
+                                  className="inline-flex cursor-pointer items-center gap-1 rounded-2xl border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-sky-700 transition hover:bg-sky-100"
+                                  title="Open uploaded receipt"
+                                >
+                                  <FileCheck2 className="h-3 w-3" />
+                                  Receipt
+                                </button>
+                              )}
+                              {r.status === "uncollected" &&
+                              canWriteFinance(userId, r.companyId) ? (
+                                <button
+                                  onClick={() =>
+                                    openSettlementConfirmation({
+                                      kind: "ar",
+                                      record: r,
+                                    })
+                                  }
+                                  className="px-3 py-1.5 bg-[#00B67A] hover:bg-[#009E6B] text-white border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-wider cursor-pointer transition"
+                                >
+                                  Collect Funds
+                                </button>
+                              ) : r.status === "collection_pending" ? (
+                                <span className="text-sky-700 text-[10px] font-mono font-semibold">
+                                  Awaiting approval
+                                </span>
+                              ) : r.status === "collected" ? (
+                                <span className="text-slate-500 text-[10px] font-mono flex items-center justify-end gap-1 font-bold">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Completed</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-[10px]">
+                                  -
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
