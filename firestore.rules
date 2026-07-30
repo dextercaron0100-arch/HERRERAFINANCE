@@ -80,6 +80,19 @@ service cloud.firestore {
         && chatEmail() in conversationData.memberEmails;
     }
 
+    // Owner and IT accounts are the only senders allowed to post in
+    // announcement-only chat channels. Mirrors the Owner/IT allowlist used
+    // elsewhere in the app (isGroupAdmin in mockDatabase.ts).
+    function isPrivilegedChatSender() {
+      return signedInWithEmail()
+        && chatEmail() in [
+          'mark@herrera.com',
+          'ryan@herrera.com',
+          'marvin@herrera.com',
+          'it@herrera.com'
+        ];
+    }
+
     match /chatConversations/{conversationId} {
       allow create: if signedInWithEmail()
         && request.resource.data.createdByEmail == chatEmail()
@@ -111,8 +124,13 @@ service cloud.firestore {
           'lastMessageText',
           'lastMessageSenderId',
           'lastMessageAt',
-          'updatedAt'
-        ]);
+          'updatedAt',
+          'announcementOnly'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['announcementOnly'])
+          || isPrivilegedChatSender()
+        );
 
       allow delete: if false;
 
@@ -127,7 +145,11 @@ service cloud.firestore {
           && request.resource.data.senderEmail == chatEmail()
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 4000;
+          && request.resource.data.text.size() <= 4000
+          && (
+            get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.announcementOnly != true
+            || isPrivilegedChatSender()
+          );
 
         allow update: if isConversationMember(
             get(/databases/$(database)/documents/chatConversations/$(conversationId)).data

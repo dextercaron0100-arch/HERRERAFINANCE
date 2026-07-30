@@ -54,6 +54,7 @@ export interface ChatConversation {
   lastMessageAt: string | null;
   createdAt: string;
   updatedAt: string;
+  announcementOnly: boolean;
 }
 
 export interface ChatMessageReply {
