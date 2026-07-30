@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   FileSignature,
@@ -13,10 +13,13 @@ import {
   Eye,
   X,
   MessageSquare,
+  Paperclip,
+  Loader2,
 } from "lucide-react";
 import {
   getTransactions,
   reviewTransaction,
+  attachTransactionReceipt,
   getUserRole,
   isGroupAdmin,
   getCategories,
@@ -31,6 +34,8 @@ import {
 } from "../data/mockDatabase";
 import { FundTransfer, Transaction } from "../types";
 import { toast } from "sonner";
+import { compressImage } from "../lib/imageUtils";
+import { uploadPrivateDocument } from "../lib/privateDocuments";
 
 import AttachmentViewer from "./AttachmentViewer";
 import TransactionNotesModal from "./TransactionNotesModal";
@@ -82,6 +87,9 @@ export default function Approvals({
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
   const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
+  const [receiptUploadTxnId, setReceiptUploadTxnId] = useState<string | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
 
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
@@ -246,6 +254,46 @@ export default function Approvals({
     toast.success(`Fund transfer ${action.toLowerCase()}.`);
   };
 
+  const triggerReceiptUpload = (txnId: string) => {
+    setReceiptUploadTxnId(txnId);
+    receiptFileInputRef.current?.click();
+  };
+
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const txnId = receiptUploadTxnId;
+    e.target.value = "";
+    if (!file || !txnId) return;
+
+    const txn = transactions.find((t) => t.id === txnId);
+    if (!txn) return;
+
+    setUploadingReceipt(true);
+    try {
+      const dataUrl = file.type.startsWith("image/")
+        ? await compressImage(file)
+        : await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+      const uploadedPath = await uploadPrivateDocument(dataUrl, txn.companyId, file.name);
+      const { error } = attachTransactionReceipt(userId, txnId, uploadedPath);
+      if (error) {
+        toast.error("Failed to attach receipt", { description: error });
+      } else {
+        toast.success("Receipt attached");
+        if (onAuditLogged) onAuditLogged();
+      }
+    } catch (err: any) {
+      toast.error("Failed to attach receipt", { description: err.message });
+    } finally {
+      setUploadingReceipt(false);
+      setReceiptUploadTxnId(null);
+    }
+  };
+
   const handleBulkAction = (action: "approved" | "rejected") => {
     if (selectedTxns.size === 0) return;
 
@@ -314,11 +362,11 @@ export default function Approvals({
       const newSet = new Set<string>();
       filteredTxns.forEach(t => {
         // Only allow selection of items we can approve
-        const canApprove = viewMode === "pending" && isAuthorizedApprover && 
-            !((t.encodedBy === userId && !isOwner) || 
-              (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || 
+        const canApprove = viewMode === "pending" && isAuthorizedApprover && !!t.receiptPath &&
+            !((t.encodedBy === userId && !isOwner) ||
+              (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) ||
               (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)));
-              
+
         if (canApprove) {
           newSet.add(t.id);
         }
@@ -389,6 +437,11 @@ export default function Approvals({
     return transactions.find((t) => t.id === notesTxn.id) || notesTxn;
   }, [notesTxn, transactions]);
 
+  const liveSelectedTxn = useMemo(() => {
+    if (!selectedTxn) return null;
+    return transactions.find((t) => t.id === selectedTxn.id) || selectedTxn;
+  }, [selectedTxn, transactions]);
+
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -399,6 +452,13 @@ export default function Approvals({
 
   return (
     <div className="space-y-6">
+      <input
+        type="file"
+        ref={receiptFileInputRef}
+        accept="image/*,.pdf"
+        onChange={handleReceiptFileChange}
+        className="hidden"
+      />
       {/* HEADER SECTION */}
       <div className="flex sm:flex-row flex-col justify-between items-start sm:items-center gap-4">
         <div>
@@ -638,7 +698,7 @@ export default function Approvals({
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={selectedTxns.size > 0 && selectedTxns.size === filteredTxns.filter(t => !((t.encodedBy === userId && !isOwner) || (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)))).length}
+                  checked={selectedTxns.size > 0 && selectedTxns.size === filteredTxns.filter(t => !!t.receiptPath && !((t.encodedBy === userId && !isOwner) || (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)))).length}
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
                 />
@@ -681,6 +741,7 @@ export default function Approvals({
                             onChange={() => toggleSelection(txn.id)}
                             className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={
+                              !txn.receiptPath ||
                               (txn.encodedBy === userId && !isOwner) ||
                               (txn.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) ||
                               (txn.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId))
@@ -702,7 +763,7 @@ export default function Approvals({
                         >
                           {txn.type === "cash_in" ? "Inflow" : "Outflow"}
                         </span>
-                        {txn.receiptPath && (
+                        {txn.receiptPath ? (
                           <button
                             onClick={() => setPreviewReceiptUrl(txn.receiptPath)}
                             className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-[#00B67A] bg-[#00B67A]/10 px-2 py-1 rounded border border-[#00B67A]/20 hover:bg-[#00B67A]/20 transition"
@@ -711,7 +772,21 @@ export default function Approvals({
                             <Eye className="w-3 h-3" />
                             Receipt Found
                           </button>
-                        )}
+                        ) : viewMode === "pending" ? (
+                          <button
+                            onClick={() => triggerReceiptUpload(txn.id)}
+                            disabled={uploadingReceipt && receiptUploadTxnId === txn.id}
+                            className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-rose-450 bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20 hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Attach a receipt or photo — required before this can be approved"
+                          >
+                            {uploadingReceipt && receiptUploadTxnId === txn.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Paperclip className="w-3 h-3" />
+                            )}
+                            Attach Receipt
+                          </button>
+                        ) : null}
                         <button
                           onClick={() => setNotesTxn(txn)}
                           className={`flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border transition ${
@@ -914,9 +989,28 @@ export default function Approvals({
               </div>
 
               {/* ATTACHMENT VIEWER */}
-              {selectedTxn.receiptPath && (
-                <AttachmentViewer transaction={selectedTxn} userId={userId} />
-              )}
+              {liveSelectedTxn?.receiptPath ? (
+                <AttachmentViewer transaction={liveSelectedTxn} userId={userId} />
+              ) : selectedTxn.status === "pending" ? (
+                <div className="mb-6 bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="text-xs text-rose-700 font-mono">
+                    <strong className="block text-rose-800 font-bold mb-0.5">No receipt attached</strong>
+                    A receipt or photo must be attached before this transaction can be approved.
+                  </div>
+                  <button
+                    onClick={() => triggerReceiptUpload(selectedTxn.id)}
+                    disabled={uploadingReceipt && receiptUploadTxnId === selectedTxn.id}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shrink-0"
+                  >
+                    {uploadingReceipt && receiptUploadTxnId === selectedTxn.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Paperclip className="w-3.5 h-3.5" />
+                    )}
+                    Attach Receipt
+                  </button>
+                </div>
+              ) : null}
 
               {/* TIMELINE */}
               <div className="mb-6 bg-white border border-slate-200 p-4 rounded-xl">
@@ -985,7 +1079,9 @@ export default function Approvals({
                     </button>
                     <button
                       onClick={() => handleAction("approved")}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer"
+                      disabled={!liveSelectedTxn?.receiptPath}
+                      title={!liveSelectedTxn?.receiptPath ? "Attach a receipt before approving" : undefined}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500/10 disabled:hover:text-emerald-400"
                     >
                       <CheckCircle className="w-4 h-4" /> Approve
                     </button>

@@ -1778,6 +1778,14 @@ export function reviewTransaction(
     };
   }
   
+  // Rule: A receipt/photo must be attached before a pending transaction can be approved
+  if (reviewAction === "approved" && !txn.receiptPath) {
+    return {
+      error:
+        "Receipt Required: Attach a receipt or photo to this transaction before it can be approved.",
+    };
+  }
+
   if (reviewAction === "approved" && txn.type === "cash_out" && txn.cashAccountId) {
     const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
     const acc = accs.find(a => a.id === txn.cashAccountId);
@@ -2829,6 +2837,33 @@ export function updateTransactionMetadata(
     txnId,
     { scanRef: metadata.scanRef, hasReceipt: !!receiptPath },
   );
+  return { transaction: txn };
+}
+
+export function attachTransactionReceipt(
+  userId: string,
+  txnId: string,
+  receiptPath: string,
+): { error?: string; transaction?: Transaction } {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+
+  const txn = allTxns[idx];
+  const role = getUserRole(userId, txn.companyId);
+  const isApprover = role === "approver" || role === "company_admin" || isGroupAdmin(userId);
+  if (!isApprover && !canWriteFinance(userId, txn.companyId)) {
+    return { error: "Access Denied." };
+  }
+
+  txn.receiptPath = receiptPath;
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  writeAuditLog(userId, txn.companyId, "ATTACH_RECEIPT", "transaction", txnId, {
+    hasReceipt: true,
+  });
   return { transaction: txn };
 }
 

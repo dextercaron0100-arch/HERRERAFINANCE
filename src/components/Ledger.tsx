@@ -156,7 +156,6 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
   const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
   const [metaScanRef, setMetaScanRef] = useState('');
   const [metaTimestamp, setMetaTimestamp] = useState('');
-  const [metaReceiptUrl, setMetaReceiptUrl] = useState('');
 
   // LOAD DB
 
@@ -584,14 +583,13 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     }
 
     const { error } = updateTransactionMetadata(
-      userId, 
-      activeMetadataTxn.id, 
+      userId,
+      activeMetadataTxn.id,
       {
         scanRef: metaScanRef,
         timestamp: metaTimestamp || new Date().toISOString(),
         controlNumber
-      },
-      metaReceiptUrl || undefined
+      }
     );
     if (error) {
       toast.error('Failed to attach metadata', { description: error });
@@ -600,7 +598,6 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
       setActiveMetadataTxn(null);
       setMetaScanRef('');
       setMetaTimestamp('');
-      setMetaReceiptUrl('');
       onAuditLogged();
     }
   };
@@ -1313,7 +1310,6 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
                               setActiveMetadataTxn(t);
                               setMetaScanRef(t.mockMetadata?.scanRef || '');
                               setMetaTimestamp(t.mockMetadata?.timestamp || '');
-                              setMetaReceiptUrl(t.receiptPath || '');
                             }}
                             className={`p-1 border rounded-lg cursor-pointer transition-all ${
                               t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
@@ -1460,8 +1456,9 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
             <div>
               <h3 className="font-mono text-base font-bold text-slate-900 uppercase tracking-wider">Document Metadata</h3>
               <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to txn #{activeMetadataTxn.id}.</p>
+              <p className="text-[10px] text-slate-400 font-mono mt-1">Receipt/photo attachments are now handled from the Approval Queue.</p>
             </div>
-            
+
             <div className="space-y-4">
               {activeMetadataTxn.mockMetadata?.controlNumber && (
                 <div className="flex gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
@@ -1470,23 +1467,13 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
                     <p className="text-sm font-mono font-bold text-sky-400 mt-1">#{activeMetadataTxn.mockMetadata.controlNumber}</p>
                   </div>
                   <div className="bg-white p-1 rounded-md">
-                    <QRCodeSVG 
+                    <QRCodeSVG
                       value={`TXN:${activeMetadataTxn.id}|CTRL:${activeMetadataTxn.mockMetadata.controlNumber}`}
                       size={64}
                     />
                   </div>
                 </div>
               )}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Receipt Image Link</label>
-                <input 
-                  type="text" 
-                  value={metaReceiptUrl}
-                  onChange={(e) => setMetaReceiptUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
-                />
-              </div>
               <div className="space-y-1.5">
                 <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Scan Reference Code</label>
                 <input 

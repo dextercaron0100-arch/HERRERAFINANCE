@@ -32,7 +32,7 @@ import {
   getTransactions,
   insertTransaction,
 } from '../data/mockDatabase';
-import { CashAccount, Company } from '../types';
+import { CashAccount, CashflowType, Company } from '../types';
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -56,6 +56,7 @@ export default function BatchUploadModal({
 }: BatchUploadModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [targetCompanyId, setTargetCompanyId] = useState(defaultCompanyId && defaultCompanyId !== 'all' ? defaultCompanyId : '');
+  const [batchType, setBatchType] = useState<CashflowType>('cash_out');
   const [batchYear, setBatchYear] = useState(new Date().getFullYear());
   const [preferredCashAccountIds, setPreferredCashAccountIds] = useState<
     Partial<Record<CashAccount['accountType'], string>>
@@ -92,8 +93,8 @@ export default function BatchUploadModal({
   }, [isOpen, defaultCompanyId, selectableCompanyIds]);
 
   const categories = useMemo(
-    () => (targetCompanyId ? getCategories(targetCompanyId) : []),
-    [targetCompanyId],
+    () => (targetCompanyId ? getCategories(targetCompanyId).filter((c) => c.type === batchType) : []),
+    [targetCompanyId, batchType],
   );
   const cashAccounts = useMemo(
     () => (targetCompanyId ? getCashAccounts(targetCompanyId) : []),
@@ -118,6 +119,7 @@ export default function BatchUploadModal({
     if (importing) return;
     setStep(1);
     setTargetCompanyId('');
+    setBatchType('cash_out');
     setPreferredCashAccountIds({});
     setParsedHeaders([]);
     setParsedRows([]);
@@ -361,6 +363,35 @@ export default function BatchUploadModal({
 
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                  Category Type
+                </label>
+                <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setBatchType('cash_in')}
+                    className={`flex-1 text-xs font-mono py-1.5 rounded-md transition cursor-pointer ${
+                      batchType === 'cash_in' ? 'bg-emerald-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    IN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchType('cash_out')}
+                    className={`flex-1 text-xs font-mono py-1.5 rounded-md transition cursor-pointer ${
+                      batchType === 'cash_out' ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    OUT
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 font-mono mt-1">
+                  Only {batchType === 'cash_in' ? 'IN' : 'OUT'} categories will be matched for this batch.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
                   Year (your file's dates like "7/30" have no year)
                 </label>
                 <input
@@ -571,7 +602,7 @@ export default function BatchUploadModal({
                             <option value="">-- {row.categoryName || 'unmatched'} --</option>
                             {categories.map((c) => (
                               <option key={c.id} value={c.id}>
-                                {c.name} ({c.type === 'cash_in' ? 'IN' : 'OUT'})
+                                {c.name}
                               </option>
                             ))}
                           </select>
