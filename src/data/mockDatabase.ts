@@ -3415,9 +3415,9 @@ export function executeFundTransferToLedger(
   if (!Number.isFinite(transfer.amount) || transfer.amount <= 0) {
     return { success: false, error: 'Transfer amount must be greater than zero.' };
   }
-  if (!postedOut && source.currentBalance < transfer.amount) {
-    return { success: false, error: `Insufficient funds in ${source.accountName}.` };
-  }
+  // Approval already let this through despite low funds (see: allow cash-out transactions
+  // to reach approval queue despite low balance); completion must not get stuck behind
+  // the same check, so an underfunded transfer is allowed to post and the account may go negative.
 
   const now = new Date().toISOString();
   const txnDate = now.split('T')[0];
