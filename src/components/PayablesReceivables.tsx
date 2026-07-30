@@ -24,7 +24,9 @@ import {
   insertReceivable,
   markPayableAsPaid,
   markReceivableAsCollected,
+  deletePayable,
   canWriteFinance,
+  isGroupAdmin,
   getCategories,
   getCashAccounts,
   getCompanies,
@@ -223,6 +225,8 @@ export default function PayablesReceivables({
   // Search / filter
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const isOwner = isGroupAdmin(userId);
 
   const payables = getPayables(userId, companyId);
   const receivables = getReceivables(userId, companyId);
@@ -644,6 +648,23 @@ export default function PayablesReceivables({
       setFormError(error?.message || "Secure receipt upload failed.");
     } finally {
       setIsSubmittingEntry(false);
+    }
+  };
+
+  const handleDeletePayable = (payable: Payable) => {
+    if (
+      !window.confirm(
+        `Permanently delete this ${formatPeso(payable.amount)} liability owed to ${payable.payee}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const { error } = deletePayable(userId, payable.id);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Liability invoice deleted.");
+      onAuditLogged();
     }
   };
 
@@ -1416,6 +1437,16 @@ export default function PayablesReceivables({
                                 <span className="text-slate-400 font-mono text-[10px]">
                                   -
                                 </span>
+                              )}
+                              {isOwner && p.status === "unpaid" && (
+                                <button
+                                  onClick={() => handleDeletePayable(p)}
+                                  className="inline-flex cursor-pointer items-center gap-1 rounded-2xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-rose-600 transition hover:bg-rose-100"
+                                  title="Delete this liability invoice (owner only)"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete
+                                </button>
                               )}
                             </div>
                           </td>
