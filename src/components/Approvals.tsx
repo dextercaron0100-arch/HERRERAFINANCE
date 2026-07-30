@@ -24,7 +24,6 @@ import {
   getProfiles,
   getCompanies,
   getAllCashAccounts,
-  getRoles,
   getFundTransfers,
   saveFundTransfer,
   useDBUpdate,
@@ -155,10 +154,12 @@ export default function Approvals({
     if (isGroupAdmin(userId)) return true;
     if (companyId && companyId !== "all") {
       const role = getUserRole(userId, companyId);
-      return role === "approver" || role === "company_admin";
+      return role === "approver" || role === "finance_officer" || role === "company_admin";
     }
-    const roles = getRoles().filter((r) => r.userId === userId);
-    return roles.some((r) => r.role === "approver" || r.role === "company_admin");
+    return allCompanies.some((company) => {
+      const role = getUserRole(userId, company.id);
+      return role === "approver" || role === "finance_officer" || role === "company_admin";
+    });
   }, [userId, companyId]);
 
   // Evaluates precise permission criteria for a specific transaction record
@@ -166,6 +167,7 @@ export default function Approvals({
     const txnRole = getUserRole(userId, txn.companyId);
     const txnIsAuthorized =
       txnRole === "approver" ||
+      txnRole === "finance_officer" ||
       txnRole === "company_admin" ||
       isGroupAdmin(userId);
       
