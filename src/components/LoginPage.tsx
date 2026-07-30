@@ -15,6 +15,94 @@ interface LoginPageProps {
   onLogin: (userId: string) => void;
 }
 
+function HerreraLogoMark() {
+  return (
+    <svg
+      className="w-full h-full z-10 transform group-hover:scale-105 transition-transform duration-500 ease-out drop-shadow-2xl"
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+        {/* Left Shield Outline */}
+        <path d="M 50 15 L 20 20 C 18 55, 30 85, 50 95" stroke="#002D56" />
+        {/* Right Shield Outline */}
+        <path d="M 50 15 L 80 20 C 82 55, 70 85, 50 95" stroke="#B6923C" />
+      </g>
+
+      {/* Left Pillar */}
+      <rect x="25" y="28" width="15" height="50" fill="#002D56" />
+      <rect x="25" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
+
+      {/* Right Pillar */}
+      <rect x="60" y="28" width="15" height="50" fill="#002D56" />
+      <rect x="60" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
+
+      {/* Arrow Cutout (Background color stroke for separation) */}
+      <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#0A0B0C" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+
+      {/* The Arrow (Gold) */}
+      <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#B6923C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* Arrowhead */}
+      <polygon points="72,16 90,10 84,28" fill="#B6923C" stroke="#B6923C" strokeLinejoin="round" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function AuthCheckScreen() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center relative overflow-hidden font-sans">
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.02]" />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
+        className="relative z-10 flex flex-col items-center gap-8"
+      >
+        <div className="relative w-24 h-24 group">
+          {/* Ambient glow, breathing */}
+          <motion.div
+            className="absolute -inset-4 bg-gradient-to-br from-[#002D56]/40 to-[#B6923C]/40 rounded-full blur-xl"
+            animate={{ opacity: [0.3, 0.7, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          {/* Orbiting ring */}
+          <motion.div
+            className="absolute -inset-2.5 rounded-full border-2 border-transparent border-t-[#00B67A] border-r-[#00B67A]/30"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
+          />
+          <div className="relative w-full h-full flex items-center justify-center">
+            <HerreraLogoMark />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-3">
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="text-xs font-bold text-slate-600 font-mono uppercase tracking-[0.2em]"
+          >
+            Establishing Secure Session
+          </motion.p>
+          <div className="flex items-center gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <motion.span
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-[#00B67A]"
+                animate={{ opacity: [0.25, 1, 0.25], scale: [0.85, 1.1, 0.85] }}
+                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+              />
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +110,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
     initDB();
@@ -33,12 +122,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           await auth.signOut();
           setErrorMsg(error.message || "Unable to load the production database.");
           setIsLoading(false);
+          setCheckingAuth(false);
           return;
         }
         // Find if profile already exists for this email
         const profiles = getProfiles();
         const existingProfile = profiles.find(p => p.email.toLowerCase() === user.email?.toLowerCase());
-        
+
         if (existingProfile) {
           onLogin(existingProfile.id);
         } else {
@@ -46,7 +136,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           auth.signOut();
           setErrorMsg("Unauthorized account.");
           setIsLoading(false);
+          setCheckingAuth(false);
         }
+      } else {
+        setCheckingAuth(false);
       }
     });
 
@@ -132,6 +225,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     }
   };
 
+  if (checkingAuth) {
+    return <AuthCheckScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.02]" />
@@ -153,35 +250,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             
             {/* Core logo structure */}
             <div className="relative w-full h-full flex items-center justify-center">
-              <svg 
-                className="w-full h-full z-10 transform group-hover:scale-105 transition-transform duration-500 ease-out drop-shadow-2xl" 
-                viewBox="0 0 100 100" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <g strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
-                  {/* Left Shield Outline */}
-                  <path d="M 50 15 L 20 20 C 18 55, 30 85, 50 95" stroke="#002D56" />
-                  {/* Right Shield Outline */}
-                  <path d="M 50 15 L 80 20 C 82 55, 70 85, 50 95" stroke="#B6923C" />
-                </g>
-                
-                {/* Left Pillar */}
-                <rect x="25" y="28" width="15" height="50" fill="#002D56" />
-                <rect x="25" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
-                
-                {/* Right Pillar */}
-                <rect x="60" y="28" width="15" height="50" fill="#002D56" />
-                <rect x="60" y="28" width="5" height="50" fill="#1A4A78" /> {/* 3D Bevel Highlight */}
-
-                {/* Arrow Cutout (Background color stroke for separation) */}
-                <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#0A0B0C" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                
-                {/* The Arrow (Gold) */}
-                <path d="M 18 64 L 43 39 L 53 49 L 83 19" stroke="#B6923C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                {/* Arrowhead */}
-                <polygon points="72,16 90,10 84,28" fill="#B6923C" stroke="#B6923C" strokeLinejoin="round" strokeWidth="2" />
-              </svg>
+              <HerreraLogoMark />
             </div>
           </div>
         </motion.div>
