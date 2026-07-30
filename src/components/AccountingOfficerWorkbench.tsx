@@ -1,14 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import QuickEncodePanel from './QuickEncodePanel';
+import BatchUploadModal from './BatchUploadModal';
 import { getTransactions, useDBUpdate, getCategories, getCashAccounts, getCompanies, getProfiles } from '../data/mockDatabase';
 import { Transaction } from '../types';
-import { Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle } from 'lucide-react';
+import { Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, XCircle, UploadCloud } from 'lucide-react';
 
-export default function AccountingOfficerWorkbench({ userId, companyId, isConsolidated }: { userId: string, companyId: string, isConsolidated: boolean }) {
+interface AccountingOfficerWorkbenchProps {
+  userId: string;
+  companyId: string;
+  isConsolidated: boolean;
+  onAuditLogged: () => void;
+  onNavigateToApprovals: (companyId: string) => void;
+}
+
+export default function AccountingOfficerWorkbench({
+  userId,
+  companyId,
+  isConsolidated,
+  onAuditLogged,
+  onNavigateToApprovals,
+}: AccountingOfficerWorkbenchProps) {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<{ [id: string]: string }>({});
   const [cashAccounts, setCashAccounts] = useState<{ [id: string]: string }>({});
   const [profilesMap, setProfilesMap] = useState<{ [id: string]: string }>({});
+  const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);
   useDBUpdate(); // force re-render on database changes
 
   useEffect(() => {
@@ -54,6 +70,25 @@ export default function AccountingOfficerWorkbench({ userId, companyId, isConsol
   return (
     <div className="w-full h-[calc(100vh-80px)] bg-slate-50 text-slate-900 p-4 md:p-6 lg:p-8 font-sans overflow-y-auto custom-scrollbar flex justify-center">
       <div className="w-full max-w-4xl flex flex-col gap-6 pb-20 items-stretch mx-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 font-mono uppercase tracking-wider">
+              Accounting Workbench
+            </h1>
+            <p className="mt-1 text-xs text-slate-500 font-mono">
+              Encode one transaction or upload a validated Excel batch.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsBatchUploadOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-700 shadow-md transition hover:border-[#00B67A] hover:text-[#00B67A] cursor-pointer"
+            title="Validate and import transactions from Excel or CSV"
+          >
+            <UploadCloud className="h-4 w-4" />
+            Batch Upload
+          </button>
+        </div>
+
         <div className="w-full shrink-0">
           <QuickEncodePanel 
             userId={userId} 
@@ -127,6 +162,18 @@ export default function AccountingOfficerWorkbench({ userId, companyId, isConsol
           </div>
         </div>
       </div>
+
+      <BatchUploadModal
+        isOpen={isBatchUploadOpen}
+        onClose={() => setIsBatchUploadOpen(false)}
+        userId={userId}
+        companies={getCompanies()}
+        defaultCompanyId={companyId}
+        onImported={(importedCompanyId) => {
+          onAuditLogged();
+          onNavigateToApprovals(importedCompanyId);
+        }}
+      />
     </div>
   );
 }
