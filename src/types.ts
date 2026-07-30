@@ -319,6 +319,7 @@ export interface Payable {
   uom?: string;
   unitPrice?: number;
   remarks?: string;
+  receiptPath?: string | null;
   dueDate: string; // YYYY-MM-DD
   settlementAccountId?: string;
   settlementCategoryId?: string;
@@ -334,6 +335,7 @@ export interface Receivable {
   payer: string;
   description: string;
   amount: number;
+  receiptPath?: string | null;
   dueDate: string; // YYYY-MM-DD
   collectionAccountId?: string;
   collectionCategoryId?: string;
