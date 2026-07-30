@@ -1718,13 +1718,10 @@ export function reviewTransaction(
 
   const txn = allTxns[index];
 
-  // Rule: Caller must be approver, finance_officer, company_admin or group_admin
+  // Rule: Caller must be approver, company_admin or group_admin
   const role = getUserRole(userId, txn.companyId);
   const isApprover =
-    role === "approver" ||
-    role === "finance_officer" ||
-    role === "company_admin" ||
-    isGroupAdmin(userId);
+    role === "approver" || role === "company_admin" || isGroupAdmin(userId);
   if (!isApprover) {
     return {
       error:
