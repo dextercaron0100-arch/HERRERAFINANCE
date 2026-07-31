@@ -51,3 +51,44 @@ export const compressImage = (file: File, maxSizeMB: number = 0.04): Promise<str
     reader.onerror = (error) => reject(error);
   });
 };
+
+export const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read the selected file."));
+    reader.readAsDataURL(file);
+  });
+
+export const RECEIPT_ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+export const RECEIPT_MAX_SIZE_MB = 10;
+
+export interface PreparedReceipt {
+  id: string;
+  file: File;
+  dataUrl: string;
+}
+
+export const prepareReceiptFile = async (file: File): Promise<PreparedReceipt> => {
+  if (!RECEIPT_ALLOWED_TYPES.includes(file.type)) {
+    throw new Error(`${file.name}: must be a JPG, PNG, WEBP, or PDF file.`);
+  }
+  if (file.size > RECEIPT_MAX_SIZE_MB * 1024 * 1024) {
+    throw new Error(`${file.name}: file must be ${RECEIPT_MAX_SIZE_MB} MB or smaller.`);
+  }
+
+  const dataUrl = file.type.startsWith("image/")
+    ? await compressImage(file)
+    : await readFileAsDataUrl(file);
+
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    file,
+    dataUrl,
+  };
+};

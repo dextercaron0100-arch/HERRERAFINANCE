@@ -4,7 +4,6 @@ import {
   Calendar,
   FileText,
   User,
-  Image as ImageIcon,
   Save,
   PlusCircle,
   Copy,
@@ -20,12 +19,13 @@ import {
   getCashAccounts,
   insertTransaction,
   getTransactions,
+  saveAttachment,
   useDBUpdate
 } from '../data/mockDatabase';
-import { compressImage } from '../lib/imageUtils';
 import { uploadPrivateDocument } from '../lib/privateDocuments';
 import { toast } from 'sonner';
 import { Transaction } from '../types';
+import ReceiptUploadField, { PreparedReceipt } from './ReceiptUploadField';
 
 export default function QuickEncodePanel({ 
   userId, 
@@ -59,7 +59,7 @@ export default function QuickEncodePanel({
   const [paymentAllocations, setPaymentAllocations] = useState<{ id: string, cashAccountId: string, amountStr: string }[]>([
     { id: "initial", cashAccountId: "", amountStr: "" }
   ]);
-  const [receiptPath, setReceiptPath] = useState<string | null>(null);
+  const [receiptFiles, setReceiptFiles] = useState<PreparedReceipt[]>([]);
 
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
@@ -129,7 +129,7 @@ export default function QuickEncodePanel({
   const handleSave = async (encodeAnother: boolean) => {
     const validAllocations = [...paymentAllocations].filter(p => p.cashAccountId);
 
-    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || validAllocations.length === 0 || !receiptPath) {
+    if (!formCompanyId || !txnDate || !categoryId || !amount || !purpose || !responsiblePerson || validAllocations.length === 0 || receiptFiles.length === 0) {
       toast.error("Please fill in all required fields, including Payment Method(s) and Receipt.");
       return;
     }
@@ -159,17 +159,24 @@ export default function QuickEncodePanel({
       return;
     }
 
-    let finalReceiptPath = receiptPath;
+    let uploadedReceipts: { fileName: string; fileType: string; fileUrl: string }[];
     try {
-      finalReceiptPath = await uploadPrivateDocument(
-        receiptPath,
-        formCompanyId,
-        `receipt-${Date.now()}`,
+      uploadedReceipts = await Promise.all(
+        receiptFiles.map(async (item, index) => ({
+          fileName: item.file.name,
+          fileType: item.file.type,
+          fileUrl: await uploadPrivateDocument(
+            item.dataUrl,
+            formCompanyId,
+            `receipt-${Date.now()}-${index}`,
+          ),
+        })),
       );
     } catch (error: any) {
       toast.error("Secure receipt upload failed", { description: error.message });
       return;
     }
+    const finalReceiptPath = uploadedReceipts[0].fileUrl;
 
     let hasError = false;
     for (const alloc of validAllocations) {
@@ -197,15 +204,27 @@ export default function QuickEncodePanel({
         hasError = true;
         break;
       }
+
+      if (res.transaction) {
+        for (const receipt of uploadedReceipts) {
+          saveAttachment(userId, formCompanyId, {
+            fileName: receipt.fileName,
+            fileType: receipt.fileType,
+            fileUrl: receipt.fileUrl,
+            entityType: "transaction",
+            entityId: res.transaction.id,
+          });
+        }
+      }
     }
 
     if (!hasError) {
       toast.success(validAllocations.length > 1 ? "Split transactions encoded successfully." : "Transaction encoded successfully.");
-      
+
       // Reset fields to avoid duplication
       setAmountStr("");
       setPurpose("");
-      setReceiptPath(null);
+      setReceiptFiles([]);
       setCategoryId("");
       setPaymentAllocations([{ id: Date.now().toString(), cashAccountId: "", amountStr: "" }]);
       setResponsiblePerson("");
@@ -467,48 +486,14 @@ export default function QuickEncodePanel({
             </div>
           </div>
 
-          <div className="col-span-2">
-            <label className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Receipt Upload</label>
-            <div className="flex gap-2 relative">
-              <input 
-                type="file" 
-                id="receipt-upload"
-                accept="image/*,.pdf"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    if (file.type.startsWith('image/')) {
-                      try {
-                        const compressedBase64 = await compressImage(file);
-                        setReceiptPath(compressedBase64);
-                        toast.success("File attached");
-                      } catch (err) {
-                        toast.error("Failed to process image");
-                      }
-                    } else {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setReceiptPath(reader.result as string);
-                        toast.success("File attached");
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }
-                }}
-              />
-              <div 
-                className={`flex-1 border border-dashed rounded-lg py-3 flex items-center justify-center gap-2 transition pointer-events-none ${receiptPath ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700'}`}
-              >
-                {receiptPath ? <CheckCircle2 className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-                <span className="text-xs font-mono uppercase tracking-widest">
-                  {receiptPath ? "Attached" : "Attach File"}
-                </span>
-              </div>
-            </div>
-          </div>
+          <ReceiptUploadField
+            files={receiptFiles}
+            onFilesChange={setReceiptFiles}
+            label="Receipt Upload"
+            wrapperClassName="col-span-2"
+          />
         </div>
-        
+
         {/* Pre-Approval Checklist Badges */}
         <div className="pt-4 border-t border-slate-200">
           <h4 className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2 block">Checklist</h4>
@@ -518,7 +503,7 @@ export default function QuickEncodePanel({
             <Badge done={paymentAllocations.some(p => p.cashAccountId)} label="Cash/Bank" />
             <Badge done={!!purpose} label="Purpose" />
             <Badge done={!!responsiblePerson} label="Person" />
-            <Badge done={!!receiptPath} label="Receipt" />
+            <Badge done={receiptFiles.length > 0} label="Receipt" />
           </div>
         </div>
       </div>
