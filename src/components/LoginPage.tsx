@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getProfiles, hydrateDatabaseFromFirestore, initDB } from '../data/mockDatabase';
 import { Lock, Mail, Briefcase, Shield, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -49,45 +49,67 @@ function HerreraLogoMark() {
   );
 }
 
-function AuthCheckScreen() {
+function AuthCheckScreen({ onEnded }: { onEnded: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    let cancelled = false;
+    const attemptPlay = async () => {
+      try {
+        videoEl.muted = false;
+        await videoEl.play();
+      } catch {
+        // Browser blocked autoplay-with-sound (no prior user gesture on this
+        // page load, e.g. a hard refresh). Fall back to muted autoplay so the
+        // loader still plays instead of sitting on a frozen first frame.
+        if (cancelled) return;
+        videoEl.muted = true;
+        try {
+          await videoEl.play();
+        } catch {
+          // Nothing more we can do if even muted autoplay is blocked.
+        }
+      }
+    };
+    attemptPlay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center relative overflow-hidden font-sans">
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.02]" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black">
+      <video
+        ref={videoRef}
+        src="/login-loader.mp4"
+        playsInline
+        onEnded={onEnded}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/70 to-transparent" />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
-        className="relative z-10 flex flex-col items-center gap-6"
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="absolute inset-x-0 bottom-12 z-10 flex flex-col items-center gap-3"
       >
-        <video
-          src="/login-loader.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-72 max-w-[80vw] overflow-hidden rounded-2xl shadow-2xl"
-        />
-
-        <div className="flex flex-col items-center gap-3">
-          <motion.p
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="text-xs font-bold text-slate-600 font-mono uppercase tracking-[0.2em]"
-          >
-            Establishing Secure Session
-          </motion.p>
-          <div className="flex items-center gap-1.5">
-            {[0, 1, 2].map((i) => (
-              <motion.span
-                key={i}
-                className="w-1.5 h-1.5 rounded-full bg-[#00B67A]"
-                animate={{ opacity: [0.25, 1, 0.25], scale: [0.85, 1.1, 0.85] }}
-                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
-              />
-            ))}
-          </div>
+        <p className="text-xs font-bold text-white/90 font-mono uppercase tracking-[0.2em] drop-shadow">
+          Establishing Secure Session
+        </p>
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="w-1.5 h-1.5 rounded-full bg-[#00B67A]"
+              animate={{ opacity: [0.25, 1, 0.25], scale: [0.85, 1.1, 0.85] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+            />
+          ))}
         </div>
       </motion.div>
     </div>
@@ -102,6 +124,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
+  const videoEndedRef = useRef(false);
+
+  const handleLoaderVideoEnded = () => {
+    videoEndedRef.current = true;
+    if (pendingProfileId) {
+      onLogin(pendingProfileId);
+    }
+  };
 
   useEffect(() => {
     initDB();
@@ -121,7 +152,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         const existingProfile = profiles.find(p => p.email.toLowerCase() === user.email?.toLowerCase());
 
         if (existingProfile) {
-          onLogin(existingProfile.id);
+          // Whether this is an existing session found on refresh, or a fresh
+          // sign-in just now, the branded loader video must finish playing
+          // before the dashboard is revealed.
+          if (videoEndedRef.current) {
+            onLogin(existingProfile.id);
+          } else {
+            setCheckingAuth(true);
+            setPendingProfileId(existingProfile.id);
+          }
         } else {
           // If not, sign out to prevent unauthorized access
           auth.signOut();
@@ -217,7 +256,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   if (checkingAuth) {
-    return <AuthCheckScreen />;
+    return <AuthCheckScreen onEnded={handleLoaderVideoEnded} />;
   }
 
   return (
