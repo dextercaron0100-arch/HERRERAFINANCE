@@ -23,7 +23,6 @@ import {
   getCompanies,
   getProfiles,
   getRoles,
-  isAccountingUser,
   isGroupAdmin,
   useDBUpdate,
 } from "../data/mockDatabase";
@@ -465,14 +464,12 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
     [profileById, selectedConversation],
   );
 
-  // Only Owner/IT can toggle a channel's announcement-only flag. Posting in
-  // an announcement-only channel is allowed for that same admin tier plus
-  // the accounting account, which still needs to reply to teammates there.
+  // Announcement-only channels can only be posted to by Owner or IT
+  // accounts (the same privilege level as isGroupAdmin), regardless of who
+  // created the group.
   const canManageAnnouncements = isGroupAdmin(userId);
   const canPostInSelectedConversation =
-    !selectedConversation?.announcementOnly ||
-    canManageAnnouncements ||
-    isAccountingUser(userId);
+    !selectedConversation?.announcementOnly || canManageAnnouncements;
 
   const handleToggleAnnouncementOnly = async () => {
     if (!selectedConversation) return;
@@ -1207,8 +1204,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                     <Megaphone className="h-4 w-4 shrink-0" />
                     <span>
                       This is an announcement-only channel. Only{" "}
-                      <strong>Owner, IT, and Accounting accounts</strong> can
-                      post here.
+                      <strong>Owner and IT accounts</strong> can post here.
                     </span>
                   </div>
                 )}
@@ -1285,8 +1281,8 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                       Announcement only
                     </span>
                     <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">
-                      Only Owner, IT, and Accounting accounts can post here.
-                      Everyone else can read but not reply.
+                      Only Owner and IT accounts can post here. Everyone else
+                      can read but not reply.
                     </span>
                   </span>
                   <button

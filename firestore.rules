@@ -80,10 +80,10 @@ service cloud.firestore {
         && chatEmail() in conversationData.memberEmails;
     }
 
-    // Owner and IT accounts are the only ones allowed to flip a channel's
-    // announcement-only flag. Mirrors the Owner/IT allowlist used elsewhere
-    // in the app (isGroupAdmin in mockDatabase.ts).
-    function isChannelAdmin() {
+    // Owner and IT accounts are the only senders allowed to post in
+    // announcement-only chat channels. Mirrors the Owner/IT allowlist used
+    // elsewhere in the app (isGroupAdmin in mockDatabase.ts).
+    function isPrivilegedChatSender() {
       return signedInWithEmail()
         && chatEmail() in [
           'mark@herrera.com',
@@ -91,15 +91,6 @@ service cloud.firestore {
           'marvin@herrera.com',
           'it@herrera.com'
         ];
-    }
-
-    // Senders allowed to post in announcement-only channels: channel admins
-    // plus the shared accounting account (mirrors isAccountingUser in
-    // mockDatabase.ts), since accounting still needs to reply to teammates
-    // in those channels.
-    function isPrivilegedChatSender() {
-      return isChannelAdmin()
-        || (signedInWithEmail() && chatEmail() == 'accounting@herrera.com');
     }
 
     match /chatConversations/{conversationId} {
@@ -138,7 +129,7 @@ service cloud.firestore {
         ])
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['announcementOnly'])
-          || isChannelAdmin()
+          || isPrivilegedChatSender()
         );
 
       allow delete: if false;
