@@ -72,7 +72,6 @@ const normalizeConversation = (
     lastMessageAt: nullableTimestampToIso(data.lastMessageAt),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
-    announcementOnly: Boolean(data.announcementOnly),
   };
 };
 
@@ -318,20 +317,8 @@ export async function createGroupConversation(
     lastMessageAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    announcementOnly: false,
   });
   return conversationId;
-}
-
-export async function setConversationAnnouncementOnly(
-  conversationId: string,
-  announcementOnly: boolean,
-): Promise<void> {
-  requireAuthenticatedEmail();
-  await updateDoc(doc(db, "chatConversations", conversationId), {
-    announcementOnly,
-    updatedAt: serverTimestamp(),
-  });
 }
 
 export async function sendChatMessage(

@@ -6,7 +6,6 @@ import {
   CheckCheck,
   ChevronRight,
   Edit3,
-  Megaphone,
   MessageCircle,
   MessageSquarePlus,
   MoreHorizontal,
@@ -35,7 +34,6 @@ import {
   openCompanyConversation,
   openDirectConversation,
   sendChatMessage,
-  setConversationAnnouncementOnly,
   subscribeToConversations,
   subscribeToConversationReadStates,
   subscribeToMessages,
@@ -463,28 +461,6 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
         : [],
     [profileById, selectedConversation],
   );
-
-  // Announcement-only channels can only be posted to by Owner or IT
-  // accounts (the same privilege level as isGroupAdmin), regardless of who
-  // created the group.
-  const canManageAnnouncements = isGroupAdmin(userId);
-  const canPostInSelectedConversation =
-    !selectedConversation?.announcementOnly || canManageAnnouncements;
-
-  const handleToggleAnnouncementOnly = async () => {
-    if (!selectedConversation) return;
-    try {
-      await setConversationAnnouncementOnly(
-        selectedConversation.id,
-        !selectedConversation.announcementOnly,
-      );
-    } catch (error) {
-      toast.error("Could not update channel settings", {
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-      });
-    }
-  };
 
   useEffect(() => {
     if (!currentProfile) return;
@@ -915,17 +891,8 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                     size="sm"
                   />
                   <div className="min-w-0">
-                    <h2 className="flex items-center gap-1.5 truncate text-sm font-bold text-slate-900">
+                    <h2 className="truncate text-sm font-bold text-slate-900">
                       {getConversationTitle(selectedConversation)}
-                      {selectedConversation.announcementOnly ? (
-                        <span
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700"
-                          title="Only Owner and IT accounts can post here"
-                        >
-                          <Megaphone className="h-2.5 w-2.5" />
-                          Announcement
-                        </span>
-                      ) : null}
                     </h2>
                     <p className="truncate text-[10px] text-slate-500">
                       {selectedConversation.type === "direct"
@@ -1085,17 +1052,15 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                                   isOwn ? "order-first" : ""
                                 }`}
                               >
-                                {canPostInSelectedConversation ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => startReply(message)}
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700"
-                                    aria-label="Reply to message"
-                                    title="Reply"
-                                  >
-                                    <Reply className="h-3.5 w-3.5" />
-                                  </button>
-                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => startReply(message)}
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700"
+                                  aria-label="Reply to message"
+                                  title="Reply"
+                                >
+                                  <Reply className="h-3.5 w-3.5" />
+                                </button>
                                 {isOwn ? (
                                   <>
                                     <button
@@ -1130,84 +1095,72 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
               </div>
 
               <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
-                {canPostInSelectedConversation ? (
-                  <>
-                    {replyTo || editingMessageId ? (
-                      <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div className="min-w-0 flex-1 border-l-2 border-emerald-500 pl-3">
-                          <p className="text-[10px] font-bold text-emerald-700">
-                            {editingMessageId
-                              ? "Editing your message"
-                              : `Replying to ${replyTo?.senderName}`}
-                          </p>
-                          <p className="truncate text-[10px] text-slate-500">
-                            {editingMessageId
-                              ? composerText
-                              : replyTo?.text}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyTo(null);
-                            setEditingMessageId("");
-                            setComposerText("");
-                          }}
-                          className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-700"
-                          aria-label="Cancel reply or edit"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : null}
-                    <form
-                      onSubmit={handleSubmit}
-                      className="mx-auto flex max-w-3xl items-end gap-2"
+                {replyTo || editingMessageId ? (
+                  <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="min-w-0 flex-1 border-l-2 border-emerald-500 pl-3">
+                      <p className="text-[10px] font-bold text-emerald-700">
+                        {editingMessageId
+                          ? "Editing your message"
+                          : `Replying to ${replyTo?.senderName}`}
+                      </p>
+                      <p className="truncate text-[10px] text-slate-500">
+                        {editingMessageId
+                          ? composerText
+                          : replyTo?.text}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyTo(null);
+                        setEditingMessageId("");
+                        setComposerText("");
+                      }}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                      aria-label="Cancel reply or edit"
                     >
-                      <textarea
-                        value={composerText}
-                        onChange={(event) => setComposerText(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === "Enter" &&
-                            !event.shiftKey &&
-                            !event.nativeEvent.isComposing
-                          ) {
-                            event.preventDefault();
-                            event.currentTarget.form?.requestSubmit();
-                          }
-                        }}
-                        rows={1}
-                        maxLength={4000}
-                        placeholder="Write a message…"
-                        aria-label="Message"
-                        className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-hidden transition focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!composerText.trim() || isSending}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                        aria-label={
-                          editingMessageId ? "Save message" : "Send message"
-                        }
-                      >
-                        {editingMessageId ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                      </button>
-                    </form>
-                  </>
-                ) : (
-                  <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                    <Megaphone className="h-4 w-4 shrink-0" />
-                    <span>
-                      This is an announcement-only channel. Only{" "}
-                      <strong>Owner and IT accounts</strong> can post here.
-                    </span>
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                )}
+                ) : null}
+                <form
+                  onSubmit={handleSubmit}
+                  className="mx-auto flex max-w-3xl items-end gap-2"
+                >
+                  <textarea
+                    value={composerText}
+                    onChange={(event) => setComposerText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                    rows={1}
+                    maxLength={4000}
+                    placeholder="Write a message…"
+                    aria-label="Message"
+                    className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-hidden transition focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!composerText.trim() || isSending}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    aria-label={
+                      editingMessageId ? "Save message" : "Send message"
+                    }
+                  >
+                    {editingMessageId ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </button>
+                </form>
               </div>
             </>
           ) : (
@@ -1271,42 +1224,6 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                 {selectedConversation.type} conversation
               </p>
             </div>
-            {selectedConversation.type === "group" &&
-            canManageAnnouncements ? (
-              <div className="mt-6 border-t border-slate-200 pt-5">
-                <label className="flex cursor-pointer items-center justify-between gap-3">
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
-                      <Megaphone className="h-3 w-3" />
-                      Announcement only
-                    </span>
-                    <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">
-                      Only Owner and IT accounts can post here. Everyone else
-                      can read but not reply.
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={selectedConversation.announcementOnly}
-                    onClick={handleToggleAnnouncementOnly}
-                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                      selectedConversation.announcementOnly
-                        ? "bg-amber-500"
-                        : "bg-slate-200"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${
-                        selectedConversation.announcementOnly
-                          ? "translate-x-[22px]"
-                          : "translate-x-[3px]"
-                      }`}
-                    />
-                  </button>
-                </label>
-              </div>
-            ) : null}
             <div className="mt-6 border-t border-slate-200 pt-5">
               <h4 className="mb-3 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
                 Members · {selectedMembers.length}
