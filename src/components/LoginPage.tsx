@@ -58,25 +58,16 @@ function AuthCheckScreen() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
-        className="relative z-10 flex flex-col items-center gap-8"
+        className="relative z-10 flex flex-col items-center gap-6"
       >
-        <div className="relative w-24 h-24 group">
-          {/* Ambient glow, breathing */}
-          <motion.div
-            className="absolute -inset-4 bg-gradient-to-br from-[#002D56]/40 to-[#B6923C]/40 rounded-full blur-xl"
-            animate={{ opacity: [0.3, 0.7, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          {/* Orbiting ring */}
-          <motion.div
-            className="absolute -inset-2.5 rounded-full border-2 border-transparent border-t-[#00B67A] border-r-[#00B67A]/30"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }}
-          />
-          <div className="relative w-full h-full flex items-center justify-center">
-            <HerreraLogoMark />
-          </div>
-        </div>
+        <video
+          src="/login-loader.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-72 max-w-[80vw] overflow-hidden rounded-2xl shadow-2xl"
+        />
 
         <div className="flex flex-col items-center gap-3">
           <motion.p
