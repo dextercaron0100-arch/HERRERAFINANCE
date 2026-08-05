@@ -267,6 +267,7 @@ export interface Transaction {
   id: string;
   companyId: string;
   cashAccountId?: string; // Links to CashAccount
+  requestedCashAccountId?: string; // Original account selected before approval
   txnDate: string; // YYYY-MM-DD
   type: CashflowType;
   amount: number;
@@ -296,6 +297,9 @@ export interface Approval {
   approverId: string;
   action: ApprovalAction;
   remarks: string | null;
+  requestedCashAccountId?: string | null;
+  approvedCashAccountId?: string | null;
+  accountChangeReason?: string | null;
   createdAt: string;
 }
 

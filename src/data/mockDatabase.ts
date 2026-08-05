@@ -1506,6 +1506,7 @@ export function insertTransaction(
   const newTxn: Transaction = {
     ...data,
     id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    requestedCashAccountId: data.requestedCashAccountId ?? data.cashAccountId,
     status: "pending",
     encodedBy: userId,
     createdAt: new Date().toISOString(),
@@ -1708,6 +1709,10 @@ export function reviewTransaction(
   targetTransactionId: string,
   reviewAction: ApprovalAction,
   reviewRemarks: string | null,
+  reviewOptions?: {
+    cashAccountId?: string;
+    accountChangeReason?: string | null;
+  },
 ): { error?: string; transaction?: Transaction } {
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   const index = allTxns.findIndex((t) => t.id === targetTransactionId);
@@ -1786,10 +1791,34 @@ export function reviewTransaction(
     };
   }
 
-  if (reviewAction === "approved" && txn.type === "cash_out" && txn.cashAccountId) {
-    const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
-    const acc = accs.find(a => a.id === txn.cashAccountId);
-    if (acc && txn.amount > acc.currentBalance) {
+  const requestedCashAccountId = txn.requestedCashAccountId ?? txn.cashAccountId ?? null;
+  const approvedCashAccountId = reviewOptions?.cashAccountId ?? txn.cashAccountId ?? null;
+  const accountChanged =
+    reviewAction === "approved" &&
+    txn.type === "cash_out" &&
+    requestedCashAccountId !== approvedCashAccountId;
+
+  if (reviewAction === "approved" && txn.type === "cash_out") {
+    if (!approvedCashAccountId) {
+      return {
+        error: "Deduction Account Required: Select the cash or bank account that will fund this payment.",
+      };
+    }
+
+    const acc = getAllCashAccounts().find(a => a.id === approvedCashAccountId);
+    if (!acc || !acc.isActive || acc.companyId !== txn.companyId) {
+      return {
+        error: "Invalid Deduction Account: Select an active account belonging to the transaction company.",
+      };
+    }
+
+    if (accountChanged && !reviewOptions?.accountChangeReason?.trim()) {
+      return {
+        error: "Account Change Reason Required: Explain why the approved deduction account differs from the requested account.",
+      };
+    }
+
+    if (txn.amount > acc.currentBalance) {
       return {
         error: `Insufficient funds in ${acc.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(acc.currentBalance)}, Required: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(txn.amount)}`,
       };
@@ -1797,6 +1826,10 @@ export function reviewTransaction(
   }
 
   // Update
+  txn.requestedCashAccountId = requestedCashAccountId ?? undefined;
+  if (reviewAction === "approved" && txn.type === "cash_out") {
+    txn.cashAccountId = approvedCashAccountId ?? undefined;
+  }
   txn.status = reviewAction === "approved" ? "approved" : "rejected";
   txn.updatedAt = new Date().toISOString();
   allTxns[index] = txn;
@@ -1816,6 +1849,9 @@ export function reviewTransaction(
         reviewAction === "approved" ? "paid" : "unpaid";
       payable.paidTransactionId =
         reviewAction === "approved" ? txn.id : null;
+      if (reviewAction === "approved" && txn.cashAccountId) {
+        payable.settlementAccountId = txn.cashAccountId;
+      }
       payable.updatedAt = new Date().toISOString();
       payables[payableIndex] = payable;
       save(KEYS.PAYABLES, payables);
@@ -1864,6 +1900,11 @@ export function reviewTransaction(
     approverId: userId,
     action: reviewAction,
     remarks: reviewRemarks,
+    requestedCashAccountId,
+    approvedCashAccountId:
+      reviewAction === "approved" ? approvedCashAccountId : null,
+    accountChangeReason:
+      accountChanged ? reviewOptions?.accountChangeReason?.trim() || null : null,
     createdAt: new Date().toISOString(),
   };
   approvals.push(newApproval);
@@ -1876,7 +1917,15 @@ export function reviewTransaction(
     `REVIEW_${reviewAction.toUpperCase()}`,
     "transaction",
     txn.id,
-    { remarks: reviewRemarks, amount: txn.amount },
+    {
+      remarks: reviewRemarks,
+      amount: txn.amount,
+      requestedCashAccountId,
+      approvedCashAccountId:
+        reviewAction === "approved" ? approvedCashAccountId : null,
+      accountChangeReason:
+        accountChanged ? reviewOptions?.accountChangeReason?.trim() || null : null,
+    },
   );
 
   return { transaction: txn };
