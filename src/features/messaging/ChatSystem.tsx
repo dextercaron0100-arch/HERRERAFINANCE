@@ -13,6 +13,7 @@ import {
   Search,
   Send,
   Trash2,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -23,9 +24,11 @@ import {
   getProfiles,
   getRoles,
   isGroupAdmin,
+  isOwnerAccount,
   useDBUpdate,
 } from "@/data/mockDatabase";
 import {
+  addGroupConversationMembers,
   createGroupConversation,
   deleteChatMessage,
   editChatMessage,
@@ -367,6 +370,149 @@ function NewConversationModal({
   );
 }
 
+function AddGroupMembersModal({
+  profiles,
+  existingMemberIds,
+  onClose,
+  onAdd,
+}: {
+  profiles: Profile[];
+  existingMemberIds: string[];
+  onClose: () => void;
+  onAdd: (members: Profile[]) => Promise<void>;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const existingIds = useMemo(
+    () => new Set(existingMemberIds),
+    [existingMemberIds],
+  );
+  const availableProfiles = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    return profiles.filter(
+      (profile) =>
+        !existingIds.has(profile.id) &&
+        (!search ||
+          profile.fullName.toLowerCase().includes(search) ||
+          profile.email.toLowerCase().includes(search)),
+    );
+  }, [existingIds, profiles, searchTerm]);
+
+  const submit = async () => {
+    const members = profiles.filter((profile) => selectedIds.includes(profile.id));
+    if (members.length === 0) return;
+    setIsSaving(true);
+    try {
+      await onAdd(members);
+    } catch (error) {
+      toast.error("Members could not be added", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-group-members-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target && !isSaving) onClose();
+      }}
+    >
+      <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 id="add-group-members-title" className="text-base font-bold text-slate-900">
+              Add group members
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">Only Owner accounts can update an existing group.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+            aria-label="Close add members"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-200 p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search people"
+              className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {availableProfiles.length > 0 ? (
+            <div className="space-y-1">
+              {availableProfiles.map((profile) => {
+                const selected = selectedIds.includes(profile.id);
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedIds((current) =>
+                        selected
+                          ? current.filter((id) => id !== profile.id)
+                          : [...current, profile.id],
+                      )
+                    }
+                    className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                      selected
+                        ? "border-emerald-300 bg-emerald-50"
+                        : "border-transparent hover:bg-slate-50"
+                    }`}
+                  >
+                    <Avatar name={profile.fullName} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold text-slate-800">{profile.fullName}</span>
+                      <span className="block truncate text-[10px] text-slate-500">{profile.email}</span>
+                    </span>
+                    <span className={`flex h-5 w-5 items-center justify-center rounded border ${selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300"}`}>
+                      {selected ? <Check className="h-3.5 w-3.5" /> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-sm text-slate-500">
+              {searchTerm ? "No matching people found." : "Everyone is already in this group."}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 p-4">
+          <span className="text-xs text-slate-500">{selectedIds.length} selected</span>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isSaving || selectedIds.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <UserPlus className="h-4 w-4" />
+            {isSaving ? "Adding..." : "Add members"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
   useDBUpdate();
 
@@ -392,6 +538,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
   const [editingMessageId, setEditingMessageId] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -549,6 +696,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
     setEditingMessageId("");
     setComposerText("");
     setShowDetails(false);
+    setShowAddMembers(false);
   };
 
   const companyMembers = (company: Company) =>
@@ -615,6 +763,19 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
           error instanceof Error ? error.message : "Please try again.",
       });
     }
+  };
+
+  const handleAddGroupMembers = async (members: Profile[]) => {
+    if (!currentProfile || !selectedConversation) return;
+    await addGroupConversationMembers(
+      selectedConversation.id,
+      currentProfile,
+      members,
+    );
+    setShowAddMembers(false);
+    toast.success(
+      `${members.length} member${members.length === 1 ? "" : "s"} added to the group.`,
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -1188,7 +1349,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
 
         {selectedConversation ? (
           <aside
-            className={`w-72 shrink-0 border-l border-slate-200 bg-white p-5 xl:block ${
+            className={`w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-5 xl:block ${
               showDetails
                 ? "fixed inset-y-0 right-0 z-50 block shadow-2xl"
                 : "hidden"
@@ -1225,9 +1386,21 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
               </p>
             </div>
             <div className="mt-6 border-t border-slate-200 pt-5">
-              <h4 className="mb-3 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
-                Members · {selectedMembers.length}
-              </h4>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h4 className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                  Members · {selectedMembers.length}
+                </h4>
+                {selectedConversation.type === "group" && isOwnerAccount(userId) ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMembers(true)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Add
+                  </button>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 {selectedMembers.map((profile) => (
                   <div
@@ -1267,6 +1440,15 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
           onDirect={handleOpenDirect}
           onCompany={handleOpenCompany}
           onGroup={handleCreateGroup}
+        />
+      ) : null}
+
+      {showAddMembers && selectedConversation ? (
+        <AddGroupMembersModal
+          profiles={profiles}
+          existingMemberIds={selectedConversation.memberIds}
+          onClose={() => setShowAddMembers(false)}
+          onAdd={handleAddGroupMembers}
         />
       ) : null}
     </>

@@ -37,6 +37,11 @@ export interface ChatMemberReadState {
 }
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const OWNER_CHAT_EMAILS = [
+  "mark@herrera.com",
+  "ryan@herrera.com",
+  "marvin@herrera.com",
+];
 
 const timestampToIso = (
   value: Timestamp | Date | string | null | undefined,
@@ -319,6 +324,57 @@ export async function createGroupConversation(
     updatedAt: serverTimestamp(),
   });
   return conversationId;
+}
+
+export async function addGroupConversationMembers(
+  conversationId: string,
+  currentProfile: Profile,
+  newMembers: Profile[],
+): Promise<void> {
+  const { email } = requireAuthenticatedEmail();
+  if (normalizeEmail(currentProfile.email) !== email) {
+    throw new Error("The signed-in identity does not match this finance profile.");
+  }
+  if (!OWNER_CHAT_EMAILS.includes(email)) {
+    throw new Error("Only an Owner account can add members to a message group.");
+  }
+  if (newMembers.length === 0) {
+    throw new Error("Select at least one new member.");
+  }
+
+  const conversationRef = doc(db, "chatConversations", conversationId);
+  const snapshot = await getDoc(conversationRef);
+  if (!snapshot.exists() || snapshot.data().type !== "group") {
+    throw new Error("This message group is no longer available.");
+  }
+
+  const existingIds = Array.isArray(snapshot.data().memberIds)
+    ? snapshot.data().memberIds
+    : [];
+  const existingEmails = Array.isArray(snapshot.data().memberEmails)
+    ? snapshot.data().memberEmails.map((memberEmail: string) => normalizeEmail(memberEmail))
+    : [];
+  if (!existingEmails.includes(email)) {
+    throw new Error("You must be a member of the group before changing its members.");
+  }
+
+  const memberIds = new Set<string>(existingIds);
+  const memberEmails = new Set<string>(existingEmails);
+  newMembers.forEach((member) => {
+    if (member.id && member.email) {
+      memberIds.add(member.id);
+      memberEmails.add(normalizeEmail(member.email));
+    }
+  });
+  if (memberEmails.size > 100) {
+    throw new Error("Message groups are limited to 100 members.");
+  }
+
+  await updateDoc(conversationRef, {
+    memberIds: [...memberIds].sort(),
+    memberEmails: [...memberEmails].sort(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function sendChatMessage(

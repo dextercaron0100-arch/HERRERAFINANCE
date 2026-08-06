@@ -1185,6 +1185,12 @@ export function isGroupAdmin(userId: string): boolean {
   return false;
 }
 
+export function isOwnerAccount(userId: string): boolean {
+  const user = getProfiles().find((profile) => profile.id === userId);
+  if (!user) return false;
+  return OWNER_EMAILS.includes(user.email.toLowerCase());
+}
+
 export function isAccountingUser(userId: string): boolean {
   const user = getProfiles().find((p) => p.id === userId);
   if (!user) return false;
