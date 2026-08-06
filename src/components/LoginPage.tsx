@@ -116,6 +116,21 @@ function AuthCheckScreen({ onEnded }: { onEnded: () => void }) {
   );
 }
 
+function SessionRestoreScreen() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-100">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-16 w-16 animate-pulse">
+          <HerreraLogoMark />
+        </div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 font-mono">
+          Restoring secure session
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -123,12 +138,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [showLoginVideo, setShowLoginVideo] = useState(false);
   const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
   const videoEndedRef = useRef(false);
+  const freshSignInRef = useRef(false);
 
   const handleLoaderVideoEnded = () => {
     videoEndedRef.current = true;
+    setShowLoginVideo(false);
     if (pendingProfileId) {
       onLogin(pendingProfileId);
     }
@@ -138,13 +156,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     initDB();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setIsCheckingSession(true);
         try {
           await hydrateDatabaseFromFirestore();
         } catch (error: any) {
           await auth.signOut();
+          freshSignInRef.current = false;
           setErrorMsg(error.message || "Unable to load the production database.");
           setIsLoading(false);
-          setCheckingAuth(false);
+          setIsCheckingSession(false);
           return;
         }
         // Find if profile already exists for this email
@@ -152,24 +172,26 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         const existingProfile = profiles.find(p => p.email.toLowerCase() === user.email?.toLowerCase());
 
         if (existingProfile) {
-          // Whether this is an existing session found on refresh, or a fresh
-          // sign-in just now, the branded loader video must finish playing
-          // before the dashboard is revealed.
-          if (videoEndedRef.current) {
-            onLogin(existingProfile.id);
-          } else {
-            setCheckingAuth(true);
+          // Persisted Firebase sessions should open the app immediately after
+          // hydration. Only an interactive sign-in started on this page plays
+          // the branded loader video.
+          if (freshSignInRef.current && !videoEndedRef.current) {
             setPendingProfileId(existingProfile.id);
+            setIsCheckingSession(false);
+            setShowLoginVideo(true);
+          } else {
+            onLogin(existingProfile.id);
           }
         } else {
           // If not, sign out to prevent unauthorized access
           auth.signOut();
+          freshSignInRef.current = false;
           setErrorMsg("Unauthorized account.");
           setIsLoading(false);
-          setCheckingAuth(false);
+          setIsCheckingSession(false);
         }
       } else {
-        setCheckingAuth(false);
+        setIsCheckingSession(false);
       }
     });
 
@@ -221,6 +243,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     setIsLoading(true);
     setErrorMsg('');
+    freshSignInRef.current = true;
+    videoEndedRef.current = false;
     try {
       if (mode === 'signup') {
         await createUserWithEmailAndPassword(auth, lowerEmail, password);
@@ -228,6 +252,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         await signInWithEmailAndPassword(auth, lowerEmail, password);
       }
     } catch (err: any) {
+      freshSignInRef.current = false;
       if (err.code === 'auth/email-already-in-use') {
         setMode('signin');
         setPassword('');
@@ -247,17 +272,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     const provider = new GoogleAuthProvider();
     setIsLoading(true);
     setErrorMsg('');
+    freshSignInRef.current = true;
+    videoEndedRef.current = false;
     try {
       await signInWithPopup(auth, provider);
     } catch (err: any) {
+      freshSignInRef.current = false;
       setErrorMsg(err.message);
       setIsLoading(false);
     }
   };
 
-  if (checkingAuth) {
+  if (showLoginVideo) {
     return <AuthCheckScreen onEnded={handleLoaderVideoEnded} />;
   }
+
+  if (isCheckingSession) return <SessionRestoreScreen />;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
