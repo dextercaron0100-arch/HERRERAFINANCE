@@ -27,11 +27,14 @@ import {
   Deductions,
   DailyBalance,
   FundTransfer,
-  CustomDeadline
+  CustomDeadline,
+  AccountingPeriod
 } from "../types";
 
 // Storage keys
 const DB_PREFIX = "finance_db_v3_";
+const OWNER_EMAILS = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"];
+const PERIOD_CLOSE_MANAGER_EMAILS = [...OWNER_EMAILS, "it@herrera.com"];
 const KEYS = {
   COMPANIES: `${DB_PREFIX}companies`,
   PROFILES: `${DB_PREFIX}profiles`,
@@ -57,6 +60,7 @@ const KEYS = {
   BANK_DEPOSITS: `${DB_PREFIX}bank_deposits`,
   FUND_TRANSFERS: `${DB_PREFIX}fund_transfers`,
   CUSTOM_DEADLINES: `${DB_PREFIX}custom_deadlines`,
+  ACCOUNTING_PERIODS: `${DB_PREFIX}accounting_periods`,
   CURRENT_USER_ID: `${DB_PREFIX}current_user_id`,
   SELECTED_COMPANY_ID: `${DB_PREFIX}selected_company_id`,
   CONTROL_NUMBER: `${DB_PREFIX}control_numbers`,
@@ -178,7 +182,7 @@ export const SEED_PROFILES: Profile[] = [
 // All sidebar sections except "dashboard" and "settings" - used for accounts
 // that should be scoped to a single company and not see those two pages.
 const SECTIONS_WITHOUT_DASHBOARD_AND_SETTINGS = [
-  "accounting_workbench", "ledger", "money_flow", "budgets", "approvals",
+  "accounting_workbench", "ledger", "month_end_close", "money_flow", "budgets", "approvals",
   "messages", "assistant", "owner_dashboard", "pay_rec", "payroll", "reports",
   "vault", "tax_compliance", "audit_log",
 ];
@@ -1175,7 +1179,7 @@ export function isGroupAdmin(userId: string): boolean {
   const user = getProfiles().find((p) => p.id === userId);
   if (!user) return false;
   if (user.isGroupAdmin) return true;
-  if (["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"].includes(user.email.toLowerCase())) return true;
+  if (OWNER_EMAILS.includes(user.email.toLowerCase())) return true;
   const hasOwnerRole = getRoles().some((r) => r.userId === userId && r.role === "owner");
   if (hasOwnerRole) return true;
   return false;
@@ -1205,6 +1209,20 @@ export function canAdminCompany(userId: string, companyId: string): boolean {
 
 export function canManagePayroll(userId: string, companyId: string): boolean {
   return canAdminCompany(userId, companyId);
+}
+
+export function canManagePeriodClose(userId: string, companyId: string): boolean {
+  const user = getProfiles().find((profile) => profile.id === userId);
+  if (!user) return false;
+  if (userId === "u-it" || PERIOD_CLOSE_MANAGER_EMAILS.includes(user.email.toLowerCase())) {
+    return true;
+  }
+  return getRoles().some(
+    (role) =>
+      role.userId === userId &&
+      role.role === "owner" &&
+      (companyId === "all" || role.companyId === companyId),
+  );
 }
 
 // Log audit action
@@ -1257,6 +1275,263 @@ export function getAuditLogs(
   });
 }
 
+export interface MonthEndChecklistSummary {
+  transactionCount: number;
+  pendingTransactions: number;
+  missingReceipts: number;
+  unreconciledBankAccounts: number;
+  openPayrollRuns: number;
+  openPayables: number;
+  openReceivables: number;
+  blockingIssues: number;
+}
+
+const isPeriodMonth = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+const monthFromDate = (value: string) => value.slice(0, 7);
+
+export function getAccountingPeriods(userId: string, companyId: string): AccountingPeriod[] {
+  const all = load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []);
+  return all
+    .filter((period) => {
+      if (!canAccessCompany(userId, period.companyId)) return false;
+      return companyId === "all" || period.companyId === companyId;
+    })
+    .sort((a, b) => b.periodMonth.localeCompare(a.periodMonth));
+}
+
+export function getAccountingPeriod(companyId: string, periodMonth: string): AccountingPeriod | null {
+  return load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []).find(
+    (period) => period.companyId === companyId && period.periodMonth === periodMonth,
+  ) || null;
+}
+
+export function isAccountingPeriodLocked(companyId: string, date: string): boolean {
+  if (!companyId || !date || !isPeriodMonth(monthFromDate(date))) return false;
+  const period = getAccountingPeriod(companyId, monthFromDate(date));
+  return period?.status === "closed" || period?.status === "reopen_requested";
+}
+
+export function getAccountingPeriodLockError(companyId: string, date: string): string | null {
+  if (!isAccountingPeriodLocked(companyId, date)) return null;
+  return `Period Lock: ${monthFromDate(date)} is closed for this company. Request reopening from an Owner or IT account before changing financial data.`;
+}
+
+export function getMonthEndChecklist(companyId: string, periodMonth: string): MonthEndChecklistSummary {
+  const transactions = load<Transaction[]>(KEYS.TRANSACTIONS, []).filter(
+    (transaction) => transaction.companyId === companyId && monthFromDate(transaction.txnDate) === periodMonth,
+  );
+  const activeBankAccounts = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []).filter(
+    (account) => account.companyId === companyId && account.isActive && account.accountType === "Bank",
+  );
+  const reconciledAccountIds = new Set(
+    load<BankReconciliation[]>(KEYS.BANK_RECONCILIATIONS, [])
+      .filter(
+        (reconciliation) =>
+          reconciliation.companyId === companyId &&
+          reconciliation.periodMonth === periodMonth &&
+          reconciliation.status === "reconciled",
+      )
+      .map((reconciliation) => reconciliation.cashAccountId),
+  );
+  const openPayrollRuns = load<PayrollRun[]>(KEYS.PAYROLL_RUNS, []).filter(
+    (run) =>
+      run.companyId === companyId &&
+      monthFromDate(run.periodEnd) === periodMonth &&
+      (run.status === "draft" || run.status === "pending_approval"),
+  ).length;
+  const pendingTransactions = transactions.filter((transaction) => transaction.status === "pending").length;
+
+  return {
+    transactionCount: transactions.length,
+    pendingTransactions,
+    missingReceipts: transactions.filter(
+      (transaction) =>
+        (transaction.status === "approved" || transaction.status === "completed") &&
+        !transaction.receiptPath &&
+        !transaction.transferRef,
+    ).length,
+    unreconciledBankAccounts: activeBankAccounts.filter(
+      (account) => !reconciledAccountIds.has(account.id),
+    ).length,
+    openPayrollRuns,
+    openPayables: load<Payable[]>(KEYS.PAYABLES, []).filter(
+      (payable) =>
+        payable.companyId === companyId &&
+        monthFromDate(payable.dueDate) === periodMonth &&
+        payable.status !== "paid",
+    ).length,
+    openReceivables: load<Receivable[]>(KEYS.RECEIVABLES, []).filter(
+      (receivable) =>
+        receivable.companyId === companyId &&
+        monthFromDate(receivable.dueDate) === periodMonth &&
+        receivable.status !== "collected",
+    ).length,
+    blockingIssues: pendingTransactions + openPayrollRuns,
+  };
+}
+
+export function closeAccountingPeriod(
+  userId: string,
+  companyId: string,
+  periodMonth: string,
+  closeNotes: string,
+): { error?: string; period?: AccountingPeriod } {
+  if (companyId === "all" || !canAccessCompany(userId, companyId)) {
+    return { error: "Select a company you can access before closing a period." };
+  }
+  if (!canManagePeriodClose(userId, companyId)) {
+    return { error: "Only Owner and IT accounts can close an accounting period." };
+  }
+  if (!isPeriodMonth(periodMonth)) {
+    return { error: "Select a valid accounting month." };
+  }
+
+  const checklist = getMonthEndChecklist(companyId, periodMonth);
+  if (checklist.blockingIssues > 0) {
+    return {
+      error: `Resolve ${checklist.pendingTransactions} pending transaction(s) and ${checklist.openPayrollRuns} open payroll run(s) before closing.`,
+    };
+  }
+
+  const periods = load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []);
+  const index = periods.findIndex(
+    (period) => period.companyId === companyId && period.periodMonth === periodMonth,
+  );
+  if (index !== -1 && periods[index].status !== "open") {
+    return { error: "This accounting period is already closed or awaiting a reopen decision." };
+  }
+
+  const now = new Date().toISOString();
+  const period: AccountingPeriod = {
+    ...(index === -1
+      ? {
+          id: `period-${companyId}-${periodMonth}`,
+          companyId,
+          periodMonth,
+          reopenedBy: null,
+          reopenedAt: null,
+        }
+      : periods[index]),
+    status: "closed",
+    closeNotes: closeNotes.trim() || null,
+    closedBy: userId,
+    closedAt: now,
+    reopenRequestedBy: null,
+    reopenRequestedAt: null,
+    reopenReason: null,
+    updatedAt: now,
+  };
+
+  if (index === -1) periods.push(period);
+  else periods[index] = period;
+  save(KEYS.ACCOUNTING_PERIODS, periods);
+  writeAuditLog(userId, companyId, "CLOSE_ACCOUNTING_PERIOD", "accounting_period", period.id, {
+    periodMonth,
+    closeNotes: period.closeNotes,
+    checklist,
+  });
+  return { period };
+}
+
+export function requestAccountingPeriodReopen(
+  userId: string,
+  companyId: string,
+  periodMonth: string,
+  reason: string,
+): { error?: string; period?: AccountingPeriod } {
+  if (!canAccessCompany(userId, companyId)) return { error: "Access denied." };
+  if (!reason.trim()) return { error: "A reason is required to request reopening." };
+
+  const periods = load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []);
+  const index = periods.findIndex(
+    (period) => period.companyId === companyId && period.periodMonth === periodMonth,
+  );
+  if (index === -1 || periods[index].status !== "closed") {
+    return { error: "Only a closed period can be submitted for reopening." };
+  }
+
+  const now = new Date().toISOString();
+  periods[index] = {
+    ...periods[index],
+    status: "reopen_requested",
+    reopenRequestedBy: userId,
+    reopenRequestedAt: now,
+    reopenReason: reason.trim(),
+    updatedAt: now,
+  };
+  save(KEYS.ACCOUNTING_PERIODS, periods);
+  writeAuditLog(userId, companyId, "REQUEST_REOPEN_ACCOUNTING_PERIOD", "accounting_period", periods[index].id, {
+    periodMonth,
+    reason: reason.trim(),
+  });
+  return { period: periods[index] };
+}
+
+export function approveAccountingPeriodReopen(
+  userId: string,
+  companyId: string,
+  periodMonth: string,
+): { error?: string; period?: AccountingPeriod } {
+  if (!canManagePeriodClose(userId, companyId)) {
+    return { error: "Only Owner and IT accounts can approve reopening a period." };
+  }
+
+  const periods = load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []);
+  const index = periods.findIndex(
+    (period) => period.companyId === companyId && period.periodMonth === periodMonth,
+  );
+  if (index === -1 || periods[index].status !== "reopen_requested") {
+    return { error: "No reopen request is awaiting approval for this period." };
+  }
+
+  const now = new Date().toISOString();
+  periods[index] = {
+    ...periods[index],
+    status: "open",
+    reopenedBy: userId,
+    reopenedAt: now,
+    updatedAt: now,
+  };
+  save(KEYS.ACCOUNTING_PERIODS, periods);
+  writeAuditLog(userId, companyId, "APPROVE_REOPEN_ACCOUNTING_PERIOD", "accounting_period", periods[index].id, {
+    periodMonth,
+    requestReason: periods[index].reopenReason,
+  });
+  return { period: periods[index] };
+}
+
+export function rejectAccountingPeriodReopen(
+  userId: string,
+  companyId: string,
+  periodMonth: string,
+): { error?: string; period?: AccountingPeriod } {
+  if (!canManagePeriodClose(userId, companyId)) {
+    return { error: "Only Owner and IT accounts can reject reopening a period." };
+  }
+
+  const periods = load<AccountingPeriod[]>(KEYS.ACCOUNTING_PERIODS, []);
+  const index = periods.findIndex(
+    (period) => period.companyId === companyId && period.periodMonth === periodMonth,
+  );
+  if (index === -1 || periods[index].status !== "reopen_requested") {
+    return { error: "No reopen request is awaiting a decision for this period." };
+  }
+
+  periods[index] = {
+    ...periods[index],
+    status: "closed",
+    reopenRequestedBy: null,
+    reopenRequestedAt: null,
+    reopenReason: null,
+    updatedAt: new Date().toISOString(),
+  };
+  save(KEYS.ACCOUNTING_PERIODS, periods);
+  writeAuditLog(userId, companyId, "REJECT_REOPEN_ACCOUNTING_PERIOD", "accounting_period", periods[index].id, {
+    periodMonth,
+  });
+  return { period: periods[index] };
+}
+
 // TRANSACTION READ/WRITE (WITH RLS CHECKS MOCKED)
 function requireGroupAdmin(userId: string) {
   if (!userId || !isGroupAdmin(userId)) {
@@ -1306,7 +1581,7 @@ export async function emptyDataExceptCashAccounts(userId: string) {
     KEYS.AUDIT_LOGS, KEYS.BANK_STATEMENT_LINES,
     KEYS.BANK_RECONCILIATIONS, KEYS.RECONCILIATION_MATCHES, KEYS.CASH_CUSTODIANS,
     KEYS.CASH_LEDGER_ENTRIES, KEYS.CASH_COUNTS, KEYS.BANK_DEPOSITS,
-    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS
+    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS, KEYS.ACCOUNTING_PERIODS
   ];
 
   lastLocalWriteTime = Date.now();
@@ -1346,7 +1621,7 @@ export async function emptyDashboardData(userId: string) {
     KEYS.AUDIT_LOGS, KEYS.CASH_ACCOUNTS, KEYS.BANK_STATEMENT_LINES,
     KEYS.BANK_RECONCILIATIONS, KEYS.RECONCILIATION_MATCHES, KEYS.CASH_CUSTODIANS,
     KEYS.CASH_LEDGER_ENTRIES, KEYS.CASH_COUNTS, KEYS.BANK_DEPOSITS,
-    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS
+    KEYS.FUND_TRANSFERS, KEYS.ATTACHMENTS, KEYS.ACCOUNTING_PERIODS
   ];
 
   lastLocalWriteTime = Date.now();
@@ -1480,6 +1755,9 @@ export function insertTransaction(
     };
   }
 
+  const periodLockError = getAccountingPeriodLockError(data.companyId, data.txnDate);
+  if (periodLockError) return { error: periodLockError };
+
   // Validate Constraints & Category Match
   const categories = getCategories(data.companyId);
   const matchedCat = categories.find((c) => c.id === data.categoryId);
@@ -1579,6 +1857,10 @@ export function createReversalTransaction(
     };
   }
 
+  const reversalDate = new Date().toISOString().split("T")[0];
+  const periodLockError = getAccountingPeriodLockError(target.companyId, reversalDate);
+  if (periodLockError) return { error: periodLockError };
+
   // Create reverse cashflow-type transaction
   const reversalType: CashflowType =
     target.type === "cash_in" ? "cash_out" : "cash_in";
@@ -1587,7 +1869,7 @@ export function createReversalTransaction(
   const newTxn: Transaction = {
     id: `txn-rev-${Date.now()}`,
     companyId: target.companyId,
-    txnDate: new Date().toISOString().split("T")[0],
+    txnDate: reversalDate,
     type: reversalType,
     amount: target.amount,
     categoryId: target.categoryId, // Keep the category for accurate variance balancing
@@ -1621,6 +1903,8 @@ export function markTransactionCompleted(userId: string, transactionId: string):
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   const index = allTxns.findIndex(t => t.id === transactionId);
   if (index === -1) return { error: "Transaction not found" };
+  const periodLockError = getAccountingPeriodLockError(allTxns[index].companyId, allTxns[index].txnDate);
+  if (periodLockError) return { error: periodLockError };
   
   if (allTxns[index].status !== 'approved') {
     return { error: "Only approved transactions can be marked completed." };
@@ -1640,6 +1924,8 @@ export function deleteTransaction(userId: string, transactionId: string): { erro
   if (index === -1) return { error: "Transaction not found." };
 
   const txn = allTxns[index];
+  const periodLockError = getAccountingPeriodLockError(txn.companyId, txn.txnDate);
+  if (periodLockError) return { error: periodLockError };
   if (!canAdminCompany(userId, txn.companyId)) {
     return { error: "Access Denied: Only a Company Administrator or Group Admin can delete a transaction." };
   }
@@ -1722,6 +2008,9 @@ export function reviewTransaction(
   }
 
   const txn = allTxns[index];
+
+  const periodLockError = getAccountingPeriodLockError(txn.companyId, txn.txnDate);
+  if (periodLockError) return { error: periodLockError };
 
   // Rule: Caller must be approver, company_admin or group_admin
   const role = getUserRole(userId, txn.companyId);
@@ -2032,6 +2321,9 @@ export function insertPayable(
     };
   }
 
+  const periodLockError = getAccountingPeriodLockError(data.companyId, data.dueDate);
+  if (periodLockError) return { error: periodLockError };
+
   const payables = load<Payable[]>(KEYS.PAYABLES, []);
   const newPayable: Payable = {
     ...data,
@@ -2161,6 +2453,9 @@ export function deletePayable(
 
   const payable = payables[idx];
 
+  const periodLockError = getAccountingPeriodLockError(payable.companyId, payable.dueDate);
+  if (periodLockError) return { error: periodLockError };
+
   if (!isGroupAdmin(userId)) {
     return {
       error: "Access Denied: Only the owner can delete accounts payable liabilities.",
@@ -2217,6 +2512,9 @@ export function insertReceivable(
     };
   }
 
+  const periodLockError = getAccountingPeriodLockError(data.companyId, data.dueDate);
+  if (periodLockError) return { error: periodLockError };
+
   const receivables = load<Receivable[]>(KEYS.RECEIVABLES, []);
   const newReceivable: Receivable = {
     ...data,
@@ -2264,6 +2562,7 @@ export function markReceivableAsCollected(
   if (receivable.status === "collected") {
     return { error: "Asset collections already completed." };
   }
+
   if (receivable.status === "collection_pending") {
     return { error: "This claim already has a collection awaiting approval." };
   }
@@ -2345,6 +2644,9 @@ export function deleteReceivable(
   if (idx === -1) return { error: "Receivable asset not found." };
 
   const receivable = receivables[idx];
+
+  const periodLockError = getAccountingPeriodLockError(receivable.companyId, receivable.dueDate);
+  if (periodLockError) return { error: periodLockError };
 
   if (!isGroupAdmin(userId)) {
     return {
@@ -2480,6 +2782,9 @@ export function createPayrollRun(
     };
   }
 
+  const periodLockError = getAccountingPeriodLockError(companyId, periodEnd);
+  if (periodLockError) return { error: periodLockError };
+
   if (new Date(periodEnd) < new Date(periodStart)) {
     return {
       error:
@@ -2580,6 +2885,9 @@ export function updatePayrollDeductions(
     };
   }
 
+  const periodLockError = getAccountingPeriodLockError(run.companyId, run.periodEnd);
+  if (periodLockError) return { error: periodLockError };
+
   if (run.status !== "draft") {
     return {
       error:
@@ -2629,6 +2937,9 @@ export function processPayrollPayout(
         "Access Denied: Admin authorization required to trigger bank payout generation.",
     };
   }
+
+  const periodLockError = getAccountingPeriodLockError(run.companyId, run.periodEnd);
+  if (periodLockError) return { error: periodLockError };
 
   if (run.status !== "draft") {
     return { error: "This disbursement run has already been fully processed." };
@@ -3253,6 +3564,9 @@ export function saveBankReconciliation(
     return { error: "Access Denied." };
   }
 
+  const periodLockError = getAccountingPeriodLockError(companyId, `${payload.periodMonth}-01`);
+  if (periodLockError) return { error: periodLockError };
+
   const all = load<BankReconciliation[]>(KEYS.BANK_RECONCILIATIONS, []);
 
   if (reconciliationId) {
@@ -3289,7 +3603,14 @@ export function saveBankStatementLines(
   lines: Omit<BankStatementLine, "id" | "createdAt">[]
 ): { error?: string } {
   initDB();
-  // Assume user has access if they can call this... ideally we check company access.
+  const account = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []).find(
+    (entry) => entry.id === cashAccountId,
+  );
+  if (!account || !canWriteFinance(userId, account.companyId)) return { error: "Access Denied." };
+  const lockedLine = lines.find((line) => isAccountingPeriodLocked(account.companyId, line.statementDate));
+  if (lockedLine) {
+    return { error: getAccountingPeriodLockError(account.companyId, lockedLine.statementDate) || undefined };
+  }
   const all = load<BankStatementLine[]>(KEYS.BANK_STATEMENT_LINES, []);
   
   const newLines = lines.map(line => ({
@@ -3314,6 +3635,17 @@ export function saveReconciliationMatch(
   match: Omit<ReconciliationMatch, "id" | "createdAt">
 ): { error?: string; match?: ReconciliationMatch } {
   initDB();
+  const reconciliation = load<BankReconciliation[]>(KEYS.BANK_RECONCILIATIONS, []).find(
+    (entry) => entry.id === match.reconciliationId,
+  );
+  if (!reconciliation || !canWriteFinance(userId, reconciliation.companyId)) {
+    return { error: "Access Denied." };
+  }
+  const periodLockError = getAccountingPeriodLockError(
+    reconciliation.companyId,
+    `${reconciliation.periodMonth}-01`,
+  );
+  if (periodLockError) return { error: periodLockError };
   const all = load<ReconciliationMatch[]>(KEYS.RECONCILIATION_MATCHES, []);
   
   const newMatch: ReconciliationMatch = {
@@ -3368,8 +3700,12 @@ export function getCashLedgerEntries(companyId: string): CashLedgerEntry[] {
   return all.filter(e => e.companyId === companyId);
 }
 
-export function saveCashLedgerEntry(payload: Omit<CashLedgerEntry, "id" | "createdAt" | "runningBalance">) {
+export function saveCashLedgerEntry(
+  payload: Omit<CashLedgerEntry, "id" | "createdAt" | "runningBalance">,
+): { success: boolean; error?: string } {
   initDB();
+  const periodLockError = getAccountingPeriodLockError(payload.companyId, payload.date);
+  if (periodLockError) return { success: false, error: periodLockError };
   const all = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
   const entriesForAccount = all.filter(e => e.cashAccountId === payload.cashAccountId);
   
@@ -3414,6 +3750,8 @@ export function getCashCounts(companyId: string): CashCount[] {
 
 export function saveCashCount(payload: Omit<CashCount, "id" | "createdAt">, id?: string) {
   initDB();
+  const periodLockError = getAccountingPeriodLockError(payload.companyId, payload.countDate);
+  if (periodLockError) return { success: false, error: periodLockError };
   const all = load<CashCount[]>(KEYS.CASH_COUNTS, []);
   if (id) {
     const idx = all.findIndex(a => a.id === id);
@@ -3445,6 +3783,13 @@ export function getBankDeposits(companyId: string): BankDeposit[] {
 
 export function saveBankDeposit(payload: Omit<BankDeposit, "id" | "createdAt">, id?: string) {
   initDB();
+  const sourceAccount = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []).find(
+    (account) => account.id === payload.fromCashAccountId,
+  );
+  if (sourceAccount) {
+    const periodLockError = getAccountingPeriodLockError(sourceAccount.companyId, payload.depositDate);
+    if (periodLockError) return { success: false, error: periodLockError };
+  }
   const all = load<BankDeposit[]>(KEYS.BANK_DEPOSITS, []);
   if (id) {
     const idx = all.findIndex(a => a.id === id);
@@ -3508,6 +3853,10 @@ export function executeFundTransferToLedger(
 
   const now = new Date().toISOString();
   const txnDate = now.split('T')[0];
+  const sourcePeriodLockError = getAccountingPeriodLockError(transfer.fromCompanyId, txnDate);
+  if (sourcePeriodLockError) return { success: false, error: sourcePeriodLockError };
+  const destinationPeriodLockError = getAccountingPeriodLockError(transfer.toCompanyId, txnDate);
+  if (destinationPeriodLockError) return { success: false, error: destinationPeriodLockError };
   const destinationCategories = getAllCategories().filter(
     category => category.companyId === transfer.toCompanyId && category.type === 'cash_in',
   );
@@ -3611,6 +3960,17 @@ export function deleteFundTransfer(userId: string, companyId: string, transferId
   if (idx === -1) return { error: "Transfer not found." };
 
   const removed = all[idx];
+  const relatedTransactions = load<Transaction[]>(KEYS.TRANSACTIONS, []).filter(
+    (transaction) => transaction.transferRef === transferId,
+  );
+  const lockedTransaction = relatedTransactions.find((transaction) =>
+    isAccountingPeriodLocked(transaction.companyId, transaction.txnDate),
+  );
+  if (lockedTransaction) {
+    return { error: getAccountingPeriodLockError(lockedTransaction.companyId, lockedTransaction.txnDate) || undefined };
+  }
+  const requestDateLockError = getAccountingPeriodLockError(removed.fromCompanyId, removed.requestDate);
+  if (requestDateLockError) return { error: requestDateLockError };
   all.splice(idx, 1);
   recordDeletions(KEYS.FUND_TRANSFERS, [transferId]);
   save(KEYS.FUND_TRANSFERS, all);

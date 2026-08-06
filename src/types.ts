@@ -10,6 +10,7 @@ export type ApprovalAction = 'approved' | 'rejected';
 export type PayableStatus = 'unpaid' | 'payment_pending' | 'paid';
 export type ReceivableStatus = 'uncollected' | 'collection_pending' | 'collected';
 export type PayrollStatus = 'draft' | 'pending_approval' | 'processed' | 'cancelled';
+export type AccountingPeriodStatus = 'open' | 'closed' | 'reopen_requested';
 
 export interface Company {
   id: string;
@@ -35,6 +36,22 @@ export interface UserCompanyRole {
   role: CompanyRole;
   allowedSections?: string[];
   createdAt: string;
+}
+
+export interface AccountingPeriod {
+  id: string;
+  companyId: string;
+  periodMonth: string; // YYYY-MM
+  status: AccountingPeriodStatus;
+  closeNotes: string | null;
+  closedBy: string | null;
+  closedAt: string | null;
+  reopenRequestedBy: string | null;
+  reopenRequestedAt: string | null;
+  reopenReason: string | null;
+  reopenedBy: string | null;
+  reopenedAt: string | null;
+  updatedAt: string;
 }
 
 export type ChatConversationType = 'direct' | 'group' | 'company';

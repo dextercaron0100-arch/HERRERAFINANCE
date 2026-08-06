@@ -9,6 +9,25 @@ const FIRESTORE_DATABASE_ID = "ai-studio-financedashboard-aa910227-5d34-4e29-815
 const db = getFirestore(app, FIRESTORE_DATABASE_ID);
 
 const HARDCODED_OWNER_EMAILS = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"];
+const APP_SETTINGS_DOC_ID = "finance_app_settings";
+
+// Where to actually deliver an Owner's notification email, if different from
+// their app login email. Membership/permission checks still use the login
+// email below — this only changes the delivery address. Add entries as
+// "login-email": "delivery-email" and redeploy (firebase deploy --only functions).
+const OWNER_EMAIL_DELIVERY_OVERRIDES = {
+  // "mark@herrera.com": "mark.personal@gmail.com",
+};
+
+function getDeliveryEmail(loginEmail) {
+  return OWNER_EMAIL_DELIVERY_OVERRIDES[loginEmail] || loginEmail;
+}
+
+async function isOwnerChatEmailDeliveryEnabled() {
+  const snap = await db.collection("appData").doc(APP_SETTINGS_DOC_ID).get();
+  if (!snap.exists) return true;
+  return snap.data()?.ownerChatEmailDeliveryEnabled !== false;
+}
 
 async function getProfiles() {
   const snap = await db.collection("appData").doc("finance_db_v3_profiles").get();
@@ -91,6 +110,44 @@ exports.resetUserPassword = onCall(async (request) => {
   }
 });
 
+exports.getOwnerEmailDeliverySettings = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+
+  const profiles = await getProfiles();
+  if (!(await isCallerGroupAdmin(request.auth.uid, profiles))) {
+    throw new HttpsError("permission-denied", "Only a group admin can view email delivery settings.");
+  }
+
+  return { enabled: await isOwnerChatEmailDeliveryEnabled() };
+});
+
+exports.setOwnerEmailDeliveryEnabled = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+  if (typeof request.data?.enabled !== "boolean") {
+    throw new HttpsError("invalid-argument", "enabled must be a boolean.");
+  }
+
+  const profiles = await getProfiles();
+  if (!(await isCallerGroupAdmin(request.auth.uid, profiles))) {
+    throw new HttpsError("permission-denied", "Only a group admin can change email delivery settings.");
+  }
+
+  await db.collection("appData").doc(APP_SETTINGS_DOC_ID).set(
+    {
+      ownerChatEmailDeliveryEnabled: request.data.enabled,
+      updatedAt: new Date().toISOString(),
+      updatedByUid: request.auth.uid,
+    },
+    { merge: true },
+  );
+
+  return { enabled: request.data.enabled };
+});
+
 // Emails Owners (see getOwnerEmailSet) when a new chat message lands in a
 // conversation they're already a member of. Writes a doc to the `mail`
 // collection for the Firebase "Trigger Email" extension to pick up and send.
@@ -106,6 +163,7 @@ exports.notifyOwnersOnNewChatMessage = onDocumentCreated(
   async (event) => {
     const message = event.data?.data();
     if (!message || !message.text) return;
+    if (!(await isOwnerChatEmailDeliveryEnabled())) return;
 
     const conversationSnap = await db
       .collection("chatConversations")
@@ -139,7 +197,7 @@ exports.notifyOwnersOnNewChatMessage = onDocumentCreated(
     const appUrl = process.env.APP_URL || "";
 
     const mailDocs = recipients.map((email) => ({
-      to: [email],
+      to: [getDeliveryEmail(email)],
       message: {
         subject: `New message from ${senderName}`,
         text: [

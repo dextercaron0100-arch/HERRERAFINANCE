@@ -14,3 +14,7 @@ secrets/
 *.serviceaccount.json
 *-service-account.json
 fix-*.mjs
+
+# Local search and scratch output
+grep_out.txt
+tmp.txt

@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "herrera-finance",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "remove-seed-cash-accounts": "tsx scripts/remove_seed_cash_accounts.ts"
+    "remove-seed-cash-accounts": "tsx scripts/database/remove-seed-cash-accounts.ts"
   },
   "dependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",

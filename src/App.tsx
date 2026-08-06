@@ -42,27 +42,29 @@ import {
   Wallet,
   ChevronRight,
   MessageCircle,
+  LockKeyhole,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
-import OwnerDashboard from "./components/OwnerDashboard";
-import Dashboard from "./components/Dashboard";
-import AccountingOfficerWorkbench from "./components/AccountingOfficerWorkbench";
-import MoneyFlowProfitCenter from "./components/MoneyFlowProfitCenter";
-import Ledger from "./components/Ledger";
-import Approvals from "./components/Approvals";
-import Budgets from "./components/Budgets";
-import PayablesReceivables from "./components/PayablesReceivables";
-import Payroll from "./components/Payroll";
-import DueDates from "./components/DueDates";
-import Reports from "./components/Reports";
-import AuditLog from "./components/AuditLog";
-import TaxComplianceDashboard from "./components/TaxComplianceDashboard";
-import AlertsMenu from "./components/AlertsMenu";
-import FinancialAssistant from "./components/FinancialAssistant";
-import DocumentVault from "./components/DocumentVault";
-import LoginPage from "./components/LoginPage";
-import SettingsPage from "./components/Settings";
+import AlertsMenu from "@/components/feedback/AlertsMenu";
+import AccountingOfficerWorkbench from "@/features/accounting/AccountingOfficerWorkbench";
+import Ledger from "@/features/accounting/Ledger";
+import Approvals from "@/features/approvals/Approvals";
+import FinancialAssistant from "@/features/assistant/FinancialAssistant";
+import LoginPage from "@/features/auth/LoginPage";
+import MoneyFlowProfitCenter from "@/features/cash-management/MoneyFlowProfitCenter";
+import Dashboard from "@/features/dashboard/Dashboard";
+import OwnerDashboard from "@/features/dashboard/OwnerDashboard";
+import Budgets from "@/features/finance/Budgets";
+import DueDates from "@/features/finance/DueDates";
+import PayablesReceivables from "@/features/finance/PayablesReceivables";
+import Payroll from "@/features/finance/Payroll";
+import Reports from "@/features/finance/Reports";
+import TaxComplianceDashboard from "@/features/finance/TaxComplianceDashboard";
+import AuditLog from "@/features/records/AuditLog";
+import DocumentVault from "@/features/records/DocumentVault";
+import SettingsPage from "@/features/settings/Settings";
+import MonthEndClose from "@/features/month-end-close/MonthEndClose";
 
 import {
   getCompanies,
@@ -94,6 +96,7 @@ type ActivePage =
   | "dashboard"
   | "money_flow"
   | "ledger"
+  | "month_end_close"
   | "approvals"
   | "messages"
   | "budgets"
@@ -108,7 +111,7 @@ type ActivePage =
   | "owner_dashboard"
   | "settings";
 
-const ChatSystem = React.lazy(() => import("./components/ChatSystem"));
+const ChatSystem = React.lazy(() => import("@/features/messaging/ChatSystem"));
 
 export default function App() {
   // Active User profile and active company sessions
@@ -128,6 +131,7 @@ export default function App() {
     "dashboard",
     "accounting_workbench",
     "ledger",
+    "month_end_close",
     "money_flow",
     "budgets",
     "approvals",
@@ -296,8 +300,9 @@ export default function App() {
         "owner_dashboard",
         "accounting_workbench",
         "dashboard",
-        "money_flow",
         "ledger",
+        "month_end_close",
+        "money_flow",
         "approvals",
         "messages",
         "budgets",
@@ -315,7 +320,12 @@ export default function App() {
       // Append any missing items that might be new
       defaultOrder.forEach((item) => {
         if (!newOrder.includes(item)) {
-          newOrder.push(item);
+          if (item === "month_end_close") {
+            const ledgerIndex = newOrder.indexOf("ledger");
+            newOrder.splice(ledgerIndex === -1 ? newOrder.length : ledgerIndex + 1, 0, item);
+          } else {
+            newOrder.push(item);
+          }
         }
       });
       setNavOrder(newOrder);
@@ -324,8 +334,9 @@ export default function App() {
         "owner_dashboard",
         "accounting_workbench",
         "dashboard",
-        "money_flow",
         "ledger",
+        "month_end_close",
+        "money_flow",
         "approvals",
         "messages",
         "budgets",
@@ -822,6 +833,7 @@ export default function App() {
                       icon: CheckSquare,
                     },
                     { id: "ledger", label: "Transaction History", icon: Coins },
+                    { id: "month_end_close", label: "Month-End Close", icon: LockKeyhole },
                     {
                       id: "money_flow",
                       label: "Cash Flow",
@@ -895,6 +907,7 @@ export default function App() {
                           "dashboard",
                           "accounting_workbench",
                           "ledger",
+                          "month_end_close",
                           "money_flow",
                           "approvals",
                           "messages",
@@ -1213,6 +1226,13 @@ export default function App() {
                     setActiveCompanyId(companyId);
                     setActivePage("approvals");
                   }}
+                />
+              )}
+
+              {activePage === "month_end_close" && (
+                <MonthEndClose
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
                 />
               )}
 
