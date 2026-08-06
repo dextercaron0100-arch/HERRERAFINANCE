@@ -1119,11 +1119,12 @@ export function getRoles(): UserCompanyRole[] {
 export function saveProfile(profile: Profile): void {
   initDB();
   const profiles = load<Profile[]>(KEYS.PROFILES, []);
+  const updatedProfile = { ...profile, updatedAt: new Date().toISOString() };
   const existingIndex = profiles.findIndex(p => p.id === profile.id);
   if (existingIndex >= 0) {
-    profiles[existingIndex] = profile;
+    profiles[existingIndex] = updatedProfile;
   } else {
-    profiles.push(profile);
+    profiles.push(updatedProfile);
   }
   save(KEYS.PROFILES, profiles);
 }
