@@ -43,10 +43,13 @@ import {
   ChevronRight,
   MessageCircle,
   LockKeyhole,
+  Camera,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
 import AlertsMenu from "@/components/feedback/AlertsMenu";
+import ProfileAvatar from "@/components/ProfileAvatar";
+import ProfilePictureDialog from "@/components/ProfilePictureDialog";
 import AccountingOfficerWorkbench from "@/features/accounting/AccountingOfficerWorkbench";
 import Ledger from "@/features/accounting/Ledger";
 import Approvals from "@/features/approvals/Approvals";
@@ -79,6 +82,7 @@ import {
   getTransactions,
   getFundTransfers,
   writeAuditLog,
+  saveProfile,
 } from "./data/mockDatabase";
 import { ChatConversation, Company, Profile } from "./types";
 import {
@@ -88,6 +92,8 @@ import {
   type ChatReadState,
 } from "./lib/chatService";
 import { triggerWorkspaceOAuth } from "./lib/workspace";
+import { prepareProfilePicture } from "./lib/imageUtils";
+import { uploadPrivateDocument } from "./lib/privateDocuments";
 
 import { Toaster, toast } from "sonner";
 
@@ -122,6 +128,8 @@ export default function App() {
   // Mobile sidebar overlays
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [isProfilePictureOpen, setIsProfilePictureOpen] = useState(false);
+  const [isProfilePictureSaving, setIsProfilePictureSaving] = useState(false);
   const [rolesState, setRolesState] = useState(getRoles());
   const [chatConversations, setChatConversations] = useState<
     ChatConversation[]
@@ -475,6 +483,36 @@ export default function App() {
     triggerWorkspaceOAuth();
   };
 
+  const handleProfilePictureSelected = async (file: File) => {
+    if (!currentProfile || isProfilePictureSaving) return;
+
+    setIsProfilePictureSaving(true);
+    try {
+      const preparedImage = await prepareProfilePicture(file);
+      const profilePictureUrl = await uploadPrivateDocument(
+        preparedImage,
+        `profile-${currentProfile.id}`,
+        `${currentProfile.id}-profile-picture.jpg`,
+      );
+      saveProfile({ ...currentProfile, profilePictureUrl });
+      setTriggerCount((count) => count + 1);
+      toast.success("Profile picture updated.");
+    } catch (error: any) {
+      toast.error("Could not update profile picture", {
+        description: error?.message || "Please choose another image.",
+      });
+    } finally {
+      setIsProfilePictureSaving(false);
+    }
+  };
+
+  const handleProfilePictureRemove = () => {
+    if (!currentProfile || isProfilePictureSaving) return;
+    saveProfile({ ...currentProfile, profilePictureUrl: undefined });
+    setTriggerCount((count) => count + 1);
+    toast.success("Profile picture removed.");
+  };
+
   if (!activeUserId) {
     return <LoginPage onLogin={setActiveUserId} />;
   }
@@ -486,6 +524,17 @@ export default function App() {
         position="bottom-right"
         className="font-mono text-xs"
       />
+
+      {currentProfile ? (
+        <ProfilePictureDialog
+          profile={currentProfile}
+          isOpen={isProfilePictureOpen}
+          isSaving={isProfilePictureSaving}
+          onClose={() => setIsProfilePictureOpen(false)}
+          onSelectFile={handleProfilePictureSelected}
+          onRemove={handleProfilePictureRemove}
+        />
+      ) : null}
 
       {/* GLOBAL ENTERPRISE TOP STICKY BAR */}
       <header className="bg-white text-slate-900 sticky top-0 z-40 px-3 md:px-6 h-16 flex items-center justify-between border-b border-slate-200 select-none font-sans gap-4 w-full">
@@ -672,18 +721,21 @@ export default function App() {
               className={`bg-white border border-slate-200 flex flex-col justify-between shadow-md overflow-hidden ${sidebarMinimized && !mobileSidebarOpen ? "p-1.5 rounded-full items-center space-y-0" : "p-4 space-y-3 rounded-2xl"}`}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-[#00B67A] text-white shrink-0 shadow-lg select-none"
-                  title={currentProfile?.fullName}
+                <button
+                  type="button"
+                  onClick={() => setIsProfilePictureOpen(true)}
+                  className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                  title="Change profile picture"
+                  aria-label="Change profile picture"
                 >
-                  {currentProfile?.fullName
-                    ? currentProfile.fullName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .slice(0, 2)
-                        .join("")
-                    : "NS"}
-                </div>
+                  <ProfileAvatar
+                    name={currentProfile?.fullName || "Not signed in"}
+                    src={currentProfile?.profilePictureUrl}
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-slate-800 text-white shadow-sm transition-transform group-hover:scale-110">
+                    <Camera className="h-2.5 w-2.5" />
+                  </span>
+                </button>
                 {(!sidebarMinimized || mobileSidebarOpen) && (
                   <div className="min-w-0">
                     <h3 className="text-xs font-bold text-slate-900 truncate uppercase tracking-wider">

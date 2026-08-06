@@ -68,6 +68,72 @@ export const RECEIPT_ALLOWED_TYPES = [
 ];
 export const RECEIPT_MAX_SIZE_MB = 10;
 
+export const PROFILE_PICTURE_ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+export const PROFILE_PICTURE_MAX_SIZE_MB = 5;
+
+export const prepareProfilePicture = (file: File): Promise<string> => {
+  if (!PROFILE_PICTURE_ALLOWED_TYPES.includes(file.type)) {
+    return Promise.reject(new Error("Profile picture must be a JPG, PNG, or WEBP image."));
+  }
+  if (file.size > PROFILE_PICTURE_MAX_SIZE_MB * 1024 * 1024) {
+    return Promise.reject(
+      new Error(`Profile picture must be ${PROFILE_PICTURE_MAX_SIZE_MB} MB or smaller.`),
+    );
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const size = 320;
+        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+        const sourceX = (image.naturalWidth - sourceSize) / 2;
+        const sourceY = (image.naturalHeight - sourceSize) / 2;
+        canvas.width = size;
+        canvas.height = size;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Could not prepare the selected image."));
+          return;
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, size, size);
+        context.drawImage(
+          image,
+          sourceX,
+          sourceY,
+          sourceSize,
+          sourceSize,
+          0,
+          0,
+          size,
+          size,
+        );
+
+        let quality = 0.86;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length > 60_000 && quality > 0.45) {
+          quality -= 0.08;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        resolve(dataUrl);
+      };
+      image.onerror = () => reject(new Error("The selected image could not be opened."));
+      image.src = String(reader.result || "");
+    };
+    reader.onerror = () => reject(new Error("The selected image could not be read."));
+    reader.readAsDataURL(file);
+  });
+};
+
 export interface PreparedReceipt {
   id: string;
   file: File;

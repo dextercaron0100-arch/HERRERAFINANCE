@@ -25,9 +25,11 @@ export interface Profile {
   fullName: string;
   email: string;
   isGroupAdmin: boolean;
+  profilePictureUrl?: string;
   dashboardLayout?: string[]; // Array of nav item IDs
   dashboardSectionsOrder?: string[]; // Array of dashboard section IDs
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface UserCompanyRole {
