@@ -15,6 +15,18 @@ export const resetUserPassword = async (email: string, newPassword: string): Pro
   return result.data;
 };
 
+export const getOwnerEmailDeliverySettings = async (): Promise<{ enabled: boolean }> => {
+  const callable = httpsCallable<void, { enabled: boolean }>(functions, 'getOwnerEmailDeliverySettings');
+  const result = await callable();
+  return result.data;
+};
+
+export const setOwnerEmailDeliveryEnabled = async (enabled: boolean): Promise<{ enabled: boolean }> => {
+  const callable = httpsCallable<{ enabled: boolean }, { enabled: boolean }>(functions, 'setOwnerEmailDeliveryEnabled');
+  const result = await callable({ enabled });
+  return result.data;
+};
+
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/drive');
 provider.addScope('https://www.googleapis.com/auth/drive.file');

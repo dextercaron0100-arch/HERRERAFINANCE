@@ -42,6 +42,7 @@ import {
   Wallet,
   ChevronRight,
   MessageCircle,
+  LockKeyhole,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
@@ -63,6 +64,7 @@ import TaxComplianceDashboard from "@/features/finance/TaxComplianceDashboard";
 import AuditLog from "@/features/records/AuditLog";
 import DocumentVault from "@/features/records/DocumentVault";
 import SettingsPage from "@/features/settings/Settings";
+import MonthEndClose from "@/features/month-end-close/MonthEndClose";
 
 import {
   getCompanies,
@@ -94,6 +96,7 @@ type ActivePage =
   | "dashboard"
   | "money_flow"
   | "ledger"
+  | "month_end_close"
   | "approvals"
   | "messages"
   | "budgets"
@@ -128,6 +131,7 @@ export default function App() {
     "dashboard",
     "accounting_workbench",
     "ledger",
+    "month_end_close",
     "money_flow",
     "budgets",
     "approvals",
@@ -296,8 +300,9 @@ export default function App() {
         "owner_dashboard",
         "accounting_workbench",
         "dashboard",
-        "money_flow",
         "ledger",
+        "month_end_close",
+        "money_flow",
         "approvals",
         "messages",
         "budgets",
@@ -315,7 +320,12 @@ export default function App() {
       // Append any missing items that might be new
       defaultOrder.forEach((item) => {
         if (!newOrder.includes(item)) {
-          newOrder.push(item);
+          if (item === "month_end_close") {
+            const ledgerIndex = newOrder.indexOf("ledger");
+            newOrder.splice(ledgerIndex === -1 ? newOrder.length : ledgerIndex + 1, 0, item);
+          } else {
+            newOrder.push(item);
+          }
         }
       });
       setNavOrder(newOrder);
@@ -324,8 +334,9 @@ export default function App() {
         "owner_dashboard",
         "accounting_workbench",
         "dashboard",
-        "money_flow",
         "ledger",
+        "month_end_close",
+        "money_flow",
         "approvals",
         "messages",
         "budgets",
@@ -822,6 +833,7 @@ export default function App() {
                       icon: CheckSquare,
                     },
                     { id: "ledger", label: "Transaction History", icon: Coins },
+                    { id: "month_end_close", label: "Month-End Close", icon: LockKeyhole },
                     {
                       id: "money_flow",
                       label: "Cash Flow",
@@ -895,6 +907,7 @@ export default function App() {
                           "dashboard",
                           "accounting_workbench",
                           "ledger",
+                          "month_end_close",
                           "money_flow",
                           "approvals",
                           "messages",
@@ -1204,6 +1217,13 @@ export default function App() {
                   userId={activeUserId}
                   companyId={activeCompanyId}
                   onAuditLogged={forceTriggerAuditTrail}
+                />
+              )}
+
+              {activePage === "month_end_close" && (
+                <MonthEndClose
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
                 />
               )}
 

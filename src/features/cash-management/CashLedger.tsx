@@ -69,7 +69,7 @@ export default function CashLedger({ userId, companyId }: Props) {
     
     // Default to the first account for demo
     const acc = allAccounts[0];
-    saveCashLedgerEntry({
+    const result = saveCashLedgerEntry({
       date: new Date().toISOString().split("T")[0],
       companyId: acc.companyId,
       cashAccountId: acc.id,
@@ -82,6 +82,10 @@ export default function CashLedger({ userId, companyId }: Props) {
       createdBy: userId,
       approvedBy: null,
     });
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setForceRender(prev => prev + 1);
     toast.success("Test ledger entry added.");
   };

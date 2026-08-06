@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle, KeyRound } from 'lucide-react';
+import { Settings as SettingsIcon, LayoutPanelLeft, LayoutPanelTop, ArrowUp, ArrowDown, GripVertical, ListOrdered, Users, Shield, Edit2, Check, X, Plus, Trash2, Building2, RefreshCw, AlertTriangle, KeyRound, Mail } from 'lucide-react';
 import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole, isGroupAdmin, resetAllData, emptyDashboardData, emptyDataExceptCashAccounts, saveCompany, deleteCompany, removeCategoriesByName, addCategoriesByName } from '@/data/mockDatabase';
-import { resetUserPassword } from '@/lib/firebase';
+import { getOwnerEmailDeliverySettings, resetUserPassword, setOwnerEmailDeliveryEnabled } from '@/lib/firebase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '@/types';
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ const NAV_LABELS: Record<string, string> = {
   "dashboard": "Overview Dashboard",
   "accounting_workbench": "Accounting Workbench",
   "ledger": "Transaction",
+  "month_end_close": "Month-End Close",
   "money_flow": "Cash Flow",
   "budgets": "Budget Monitor",
   "approvals": "Approvals Queue",
@@ -79,6 +80,49 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
   const [newPasswordValue, setNewPasswordValue] = useState('');
   const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [ownerEmailDeliveryEnabled, setOwnerEmailDeliveryEnabledState] = useState(true);
+  const [isEmailDeliveryLoading, setIsEmailDeliveryLoading] = useState(false);
+  const [isEmailDeliverySaving, setIsEmailDeliverySaving] = useState(false);
+  const canManageEmailDelivery = isGroupAdmin(userId);
+
+  useEffect(() => {
+    if (!canManageEmailDelivery) return;
+
+    let isActive = true;
+    setIsEmailDeliveryLoading(true);
+    getOwnerEmailDeliverySettings()
+      .then(({ enabled }) => {
+        if (isActive) setOwnerEmailDeliveryEnabledState(enabled);
+      })
+      .catch((error: any) => {
+        if (isActive) {
+          toast.error("Failed to load email delivery setting", { description: error.message });
+        }
+      })
+      .finally(() => {
+        if (isActive) setIsEmailDeliveryLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [canManageEmailDelivery]);
+
+  const handleEmailDeliveryToggle = async () => {
+    if (isEmailDeliveryLoading || isEmailDeliverySaving) return;
+
+    const nextEnabled = !ownerEmailDeliveryEnabled;
+    setIsEmailDeliverySaving(true);
+    try {
+      const { enabled } = await setOwnerEmailDeliveryEnabled(nextEnabled);
+      setOwnerEmailDeliveryEnabledState(enabled);
+      toast.success(enabled ? "Owner email delivery enabled." : "Owner email delivery paused.");
+    } catch (error: any) {
+      toast.error("Failed to update email delivery", { description: error.message });
+    } finally {
+      setIsEmailDeliverySaving(false);
+    }
+  };
 
   const handleResetPassword = async (profile: Profile) => {
     if (newPasswordValue.length < 8) {
@@ -899,6 +943,51 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
             </h2>
 
             <div className="space-y-6">
+              {canManageEmailDelivery && (
+                <div className="p-5 border border-indigo-200 bg-indigo-50/60 rounded-xl flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-indigo-100 text-indigo-600">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 font-mono">
+                        Owner Chat Email Delivery
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-1 max-w-xl font-mono">
+                        Email Owners when a new message is posted in a conversation they belong to. Turning this off pauses delivery for everyone without changing chat access.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 self-end sm:self-auto">
+                    <span className="text-xs font-bold font-mono text-slate-600">
+                      {isEmailDeliveryLoading
+                        ? "Loading..."
+                        : ownerEmailDeliveryEnabled
+                          ? "Enabled"
+                          : "Paused"}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={ownerEmailDeliveryEnabled}
+                      aria-label="Toggle Owner chat email delivery"
+                      onClick={handleEmailDeliveryToggle}
+                      disabled={isEmailDeliveryLoading || isEmailDeliverySaving}
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        ownerEmailDeliveryEnabled ? "bg-emerald-500" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                          ownerEmailDeliveryEnabled ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="p-5 border border-red-500/20 bg-red-500/5 rounded-xl">
                 <h3 className="text-sm font-bold text-red-400 mb-2 font-mono flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
