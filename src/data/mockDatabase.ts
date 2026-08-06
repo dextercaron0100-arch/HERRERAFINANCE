@@ -3140,6 +3140,27 @@ export function saveAttachment(
 
 import { CashAccount, BankStatementLine, BankReconciliation, ReconciliationMatch, CashCustodian, CashLedgerEntry, CashCount, BankDeposit } from "../types";
 
+export function calculateCashAccountBalances(
+  accounts: CashAccount[],
+  transactions: Transaction[],
+): CashAccount[] {
+  const postedTransactions = transactions.filter(
+    (transaction) =>
+      transaction.status === "approved" || transaction.status === "completed",
+  );
+
+  return accounts.map((account) => {
+    const currentBalance = postedTransactions.reduce((balance, transaction) => {
+      if (transaction.cashAccountId !== account.id) return balance;
+      return transaction.type === "cash_in"
+        ? balance + transaction.amount
+        : balance - transaction.amount;
+    }, account.openingBalance ?? 0);
+
+    return { ...account, currentBalance };
+  });
+}
+
 export function getCashAccounts(companyId: string): CashAccount[] {
   initDB();
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
@@ -3151,16 +3172,7 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   // Recalculate balances dynamically from APPROVED + COMPLETED transactions
   // (using both statuses so approved transactions are reflected immediately)
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  all = all.map(acc => {
-    const txns = allTxns.filter(
-      t => t.cashAccountId === acc.id &&
-           (t.status === "approved" || t.status === "completed")
-    );
-    const balance = txns.reduce((sum, t) => {
-      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
-    }, acc.openingBalance ?? 0);
-    return { ...acc, currentBalance: balance };
-  });
+  all = calculateCashAccountBalances(all, allTxns);
 
   if (!companyId || companyId === "all") return all;
   return all.filter(a => a.companyId === companyId);
@@ -3172,16 +3184,7 @@ export function getAllCashAccounts(): CashAccount[] {
 
   // Recalculate balances dynamically from APPROVED + COMPLETED transactions
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  all = all.map(acc => {
-    const txns = allTxns.filter(
-      t => t.cashAccountId === acc.id &&
-           (t.status === "approved" || t.status === "completed")
-    );
-    const balance = txns.reduce((sum, t) => {
-      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
-    }, acc.openingBalance ?? 0);
-    return { ...acc, currentBalance: balance };
-  });
+  all = calculateCashAccountBalances(all, allTxns);
 
   return all;
 }
