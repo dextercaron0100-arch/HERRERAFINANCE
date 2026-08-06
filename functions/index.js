@@ -10,6 +10,18 @@ const db = getFirestore(app, FIRESTORE_DATABASE_ID);
 
 const HARDCODED_OWNER_EMAILS = ["mark@herrera.com", "ryan@herrera.com", "marvin@herrera.com"];
 
+// Where to actually deliver an Owner's notification email, if different from
+// their app login email. Membership/permission checks still use the login
+// email below — this only changes the delivery address. Add entries as
+// "login-email": "delivery-email" and redeploy (firebase deploy --only functions).
+const OWNER_EMAIL_DELIVERY_OVERRIDES = {
+  // "mark@herrera.com": "mark.personal@gmail.com",
+};
+
+function getDeliveryEmail(loginEmail) {
+  return OWNER_EMAIL_DELIVERY_OVERRIDES[loginEmail] || loginEmail;
+}
+
 async function getProfiles() {
   const snap = await db.collection("appData").doc("finance_db_v3_profiles").get();
   return snap.exists ? snap.data().data || [] : [];
@@ -139,7 +151,7 @@ exports.notifyOwnersOnNewChatMessage = onDocumentCreated(
     const appUrl = process.env.APP_URL || "";
 
     const mailDocs = recipients.map((email) => ({
-      to: [email],
+      to: [getDeliveryEmail(email)],
       message: {
         subject: `New message from ${senderName}`,
         text: [
