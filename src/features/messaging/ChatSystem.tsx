@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import ProfileAvatar from "@/components/ProfileAvatar";
 import {
   canAccessCompany,
   getCompanies,
@@ -98,23 +99,28 @@ const formatMessageDate = (iso: string) =>
     day: "numeric",
   }).format(new Date(iso));
 
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "?";
-
 function Avatar({
   name,
   type = "person",
   size = "md",
+  src,
 }: {
   name: string;
   type?: "person" | "group" | "company";
   size?: "sm" | "md" | "lg";
+  src?: string;
 }) {
+  if (type === "person") {
+    return (
+      <ProfileAvatar
+        name={name}
+        src={src}
+        size={size}
+        className="ring-2 ring-white"
+      />
+    );
+  }
+
   const sizeClass =
     size === "lg"
       ? "h-14 w-14 text-base"
@@ -137,9 +143,7 @@ function Avatar({
         <Building2 className="h-1/2 w-1/2" />
       ) : type === "group" ? (
         <Users className="h-1/2 w-1/2" />
-      ) : (
-        initials(name)
-      )}
+      ) : null}
     </div>
   );
 }
@@ -310,7 +314,11 @@ function NewConversationModal({
                     }}
                     className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition hover:bg-slate-50 disabled:opacity-50"
                   >
-                    <Avatar name={profile.fullName} size="sm" />
+                    <Avatar
+                      name={profile.fullName}
+                      src={profile.profilePictureUrl}
+                      size="sm"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-slate-800">
                         {profile.fullName}
@@ -477,7 +485,11 @@ function AddGroupMembersModal({
                         : "border-transparent hover:bg-slate-50"
                     }`}
                   >
-                    <Avatar name={profile.fullName} size="sm" />
+                    <Avatar
+                      name={profile.fullName}
+                      src={profile.profilePictureUrl}
+                      size="sm"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-semibold text-slate-800">{profile.fullName}</span>
                       <span className="block truncate text-[10px] text-slate-500">{profile.email}</span>
@@ -579,6 +591,12 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
       (otherId ? profileById.get(otherId)?.fullName : "") ||
       "Direct conversation"
     );
+  };
+
+  const getDirectConversationProfile = (conversation: ChatConversation) => {
+    if (conversation.type !== "direct") return undefined;
+    const otherId = conversation.memberIds.find((id) => id !== userId);
+    return otherId ? profileById.get(otherId) : undefined;
   };
 
   const filteredConversations = useMemo(() => {
@@ -971,6 +989,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                     <div className="relative">
                       <Avatar
                         name={title}
+                        src={getDirectConversationProfile(conversation)?.profilePictureUrl}
                         type={
                           conversation.type === "direct"
                             ? "person"
@@ -1044,6 +1063,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                   </button>
                   <Avatar
                     name={getConversationTitle(selectedConversation)}
+                    src={getDirectConversationProfile(selectedConversation)?.profilePictureUrl}
                     type={
                       selectedConversation.type === "direct"
                         ? "person"
@@ -1081,6 +1101,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                   <div className="flex h-full flex-col items-center justify-center text-center">
                     <Avatar
                       name={getConversationTitle(selectedConversation)}
+                      src={getDirectConversationProfile(selectedConversation)?.profilePictureUrl}
                       type={
                         selectedConversation.type === "direct"
                           ? "person"
@@ -1142,7 +1163,11 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                             {!isOwn ? (
                               <div className="w-8 shrink-0">
                                 {!grouped ? (
-                                  <Avatar name={sender} size="sm" />
+                                  <Avatar
+                                    name={sender}
+                                    src={senderProfile?.profilePictureUrl}
+                                    size="sm"
+                                  />
                                 ) : null}
                               </div>
                             ) : null}
@@ -1371,6 +1396,7 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
             <div className="mt-5 flex flex-col items-center text-center">
               <Avatar
                 name={getConversationTitle(selectedConversation)}
+                src={getDirectConversationProfile(selectedConversation)?.profilePictureUrl}
                 type={
                   selectedConversation.type === "direct"
                     ? "person"
@@ -1407,7 +1433,11 @@ export default function ChatSystem({ userId, companyId }: ChatSystemProps) {
                     key={profile.id}
                     className="flex items-center gap-2 rounded-xl p-2 hover:bg-slate-50"
                   >
-                    <Avatar name={profile.fullName} size="sm" />
+                    <Avatar
+                      name={profile.fullName}
+                      src={profile.profilePictureUrl}
+                      size="sm"
+                    />
                     <div className="min-w-0 text-left">
                       <p className="truncate text-xs font-semibold text-slate-800">
                         {profile.fullName}

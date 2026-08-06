@@ -4,6 +4,7 @@ import { getProfiles, getRoles, getCompanies, saveProfile, saveRole, deleteRole,
 import { getOwnerEmailDeliverySettings, resetUserPassword, setOwnerEmailDeliveryEnabled } from '@/lib/firebase';
 import { Profile, UserCompanyRole, Company, CompanyRole } from '@/types';
 import { toast } from "sonner";
+import ProfileAvatar from '@/components/ProfileAvatar';
 
 interface SettingsProps {
   userId: string;
@@ -544,12 +545,19 @@ export default function Settings({ userId, companyId, navOrder, setNavOrder }: S
                       return (
                         <tr key={profile.id} className="border-b border-slate-200/50 hover:bg-slate-50 transition-colors">
                           <td className="p-3">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-slate-900 flex items-center gap-2">
-                                <Users className="w-4 h-4 text-slate-500" />
-                                {profile.fullName}
-                              </span>
-                              <span className="text-xs text-slate-500 font-mono">{profile.email}</span>
+                            <div className="flex items-center gap-3">
+                              <ProfileAvatar
+                                name={profile.fullName}
+                                src={profile.profilePictureUrl}
+                                size="sm"
+                                className="shadow-sm ring-2 ring-white"
+                              />
+                              <div className="flex min-w-0 flex-col">
+                                <span className="truncate font-bold text-slate-900">
+                                  {profile.fullName}
+                                </span>
+                                <span className="truncate text-xs text-slate-500 font-mono">{profile.email}</span>
+                              </div>
                             </div>
                           </td>
                           <td className="p-3">
