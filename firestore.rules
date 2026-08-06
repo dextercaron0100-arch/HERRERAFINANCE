@@ -74,6 +74,15 @@ service cloud.firestore {
       return request.auth.token.email;
     }
 
+    function isOwnerChatAccount() {
+      return signedInWithEmail()
+        && chatEmail() in [
+          'mark@herrera.com',
+          'ryan@herrera.com',
+          'marvin@herrera.com'
+        ];
+    }
+
     function isConversationMember(conversationData) {
       return signedInWithEmail()
         && conversationData.memberEmails is list
@@ -103,6 +112,14 @@ service cloud.firestore {
         )
         && isConversationMember(request.resource.data)
         && request.resource.data.memberEmails.size() <= 100
+        && (
+          resource.data.type != 'group'
+          || (
+            request.resource.data.memberIds == resource.data.memberIds
+            && request.resource.data.memberEmails == resource.data.memberEmails
+          )
+          || isOwnerChatAccount()
+        )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title',
           'memberIds',
