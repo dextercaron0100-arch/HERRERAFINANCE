@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   FileSignature,
@@ -93,6 +94,7 @@ export default function Approvals({
   const [accountChangeReason, setAccountChangeReason] = useState("");
   const [showDeductionAccountPicker, setShowDeductionAccountPicker] = useState(false);
   const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  const reviewModalScrollRef = useRef<HTMLDivElement>(null);
 
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
@@ -539,6 +541,22 @@ export default function Approvals({
     setAccountChangeReason("");
     setShowDeductionAccountPicker(false);
   };
+
+  useEffect(() => {
+    if (!selectedTxn) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const frameId = window.requestAnimationFrame(() => {
+      reviewModalScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [selectedTxn?.id]);
 
   return (
     <div className="space-y-6">
@@ -1031,22 +1049,38 @@ export default function Approvals({
       </AnimatePresence>
 
       {/* REVIEW MODAL */}
-      <AnimatePresence>
-        {selectedTxn && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedTxn && (
             <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 backdrop-blur-sm sm:items-center sm:p-4"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) closeTransactionReview();
+              }}
+            >
+            <motion.div
+              ref={reviewModalScrollRef}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", duration: 0.3, bounce: 0 }}
-              className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="transaction-review-title"
+              className="relative max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:max-h-[90dvh] sm:p-6"
             >
-              <h3 className="text-xl font-bold font-display text-slate-900 mb-2">
+              <button
+                type="button"
+                onClick={closeTransactionReview}
+                className="absolute right-3 top-3 z-10 rounded-lg bg-white/90 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close transaction review"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <h3 id="transaction-review-title" className="mb-2 pr-10 text-xl font-bold font-display text-slate-900">
                 {selectedTxn.status === "pending" ? "Review Transaction" : "Transaction Timeline"}
               </h3>
               <div className="text-sm text-slate-600 mb-6 bg-white p-3 rounded-xl border border-slate-200 font-mono">
@@ -1076,6 +1110,30 @@ export default function Approvals({
                   </div>
                 </div>
               </div>
+
+              {/* Keep the supporting document at the top of every review. */}
+              {liveSelectedTxn?.receiptPath ? (
+                <AttachmentViewer transaction={liveSelectedTxn} userId={userId} />
+              ) : selectedTxn.status === "pending" ? (
+                <div className="mb-6 bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="text-xs text-rose-700 font-mono">
+                    <strong className="block text-rose-800 font-bold mb-0.5">No receipt attached</strong>
+                    A receipt or photo must be attached before this transaction can be approved.
+                  </div>
+                  <button
+                    onClick={() => triggerReceiptUpload(selectedTxn.id)}
+                    disabled={uploadingReceipt && receiptUploadTxnId === selectedTxn.id}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shrink-0"
+                  >
+                    {uploadingReceipt && receiptUploadTxnId === selectedTxn.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Paperclip className="w-3.5 h-3.5" />
+                    )}
+                    Attach Receipt
+                  </button>
+                </div>
+              ) : null}
 
               {selectedTxn.status === "pending" && selectedTxn.type === "cash_out" && (
                 <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
@@ -1150,30 +1208,6 @@ export default function Approvals({
                   )}
                 </div>
               )}
-
-              {/* ATTACHMENT VIEWER */}
-              {liveSelectedTxn?.receiptPath ? (
-                <AttachmentViewer transaction={liveSelectedTxn} userId={userId} />
-              ) : selectedTxn.status === "pending" ? (
-                <div className="mb-6 bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="text-xs text-rose-700 font-mono">
-                    <strong className="block text-rose-800 font-bold mb-0.5">No receipt attached</strong>
-                    A receipt or photo must be attached before this transaction can be approved.
-                  </div>
-                  <button
-                    onClick={() => triggerReceiptUpload(selectedTxn.id)}
-                    disabled={uploadingReceipt && receiptUploadTxnId === selectedTxn.id}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shrink-0"
-                  >
-                    {uploadingReceipt && receiptUploadTxnId === selectedTxn.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Paperclip className="w-3.5 h-3.5" />
-                    )}
-                    Attach Receipt
-                  </button>
-                </div>
-              ) : null}
 
               {/* TIMELINE */}
               <div className="mb-6 bg-white border border-slate-200 p-4 rounded-xl">
@@ -1273,9 +1307,11 @@ export default function Approvals({
                 )}
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
 
       {/* RECEIPT VIEWER POPUP MODAL */}
       {previewReceiptUrl && (
