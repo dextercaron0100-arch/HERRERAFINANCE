@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "motion/react";
 import * as XLSX from 'xlsx';
 import {
   getCompanies,
+  getTransactions,
+  calculateCashAccountBalances,
   saveCashAccount,
   deleteCashAccount,
   useDBUpdate,
@@ -115,6 +117,14 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
     isActive: true,
   });
 
+  const withLedgerBalances = (sourceAccounts: CashAccount[], targetCompanyId: string) => {
+    const transactions = getTransactions(
+      userId,
+      targetCompanyId === "all" ? null : targetCompanyId,
+    );
+    return calculateCashAccountBalances(sourceAccounts, transactions);
+  };
+
   useEffect(() => {
     setCompanies(getCompanies());
     loadAccounts();
@@ -159,13 +169,13 @@ export default function CashAccounts({ userId, companyId }: CashAccountsProps) {
         const others = existing.filter(a => a.companyId !== target);
         syncToLocalStorage([...others, ...sqlAccounts]);
       }
-      setAccounts(sqlAccounts);
+      setAccounts(withLedgerBalances(sqlAccounts, target));
     } catch (err) {
       // SQL unreachable – fall back to localStorage cache so UI doesn't break
       console.warn("SQL unreachable, using localStorage cache:", err);
       const cached: CashAccount[] = JSON.parse(localStorage.getItem(CASH_ACCOUNTS_KEY) || "[]");
       const filtered = (target === "all") ? cached : cached.filter(a => a.companyId === target);
-      setAccounts(filtered);
+      setAccounts(withLedgerBalances(filtered, target));
     }
   };
 
