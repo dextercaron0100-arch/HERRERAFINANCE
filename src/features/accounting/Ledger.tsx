@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { motion, animate } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
-import * as XLSX from 'xlsx';
 import {
   getTransactions,
   getCategories,
@@ -55,6 +54,7 @@ import { uploadPrivateDocument } from '@/lib/privateDocuments';
 import { Transaction, CashflowType, TransactionStatus, Category, Company, CashAccount } from '@/types';
 import { toast } from 'sonner';
 import TransactionNotesModal from '@/components/transactions/TransactionNotesModal';
+import BatchUploadModal from '@/components/BatchUploadModal';
 
 function AnimatedCounter({ value, className }: { value: number, className?: string }) {
   const nodeRef = useRef<HTMLSpanElement>(null);
@@ -85,9 +85,10 @@ interface LedgerProps {
   userId: string;
   companyId: string;
   onAuditLogged: () => void;
+  onNavigateToApprovals: (companyId: string) => void;
 }
 
-export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps) {
+export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToApprovals }: LedgerProps) {
   // Queries & Filter State
   const [searchTerm, setSearchTerm] = useState(() => {
     const s = localStorage.getItem('ledger_search_term');
@@ -148,25 +149,13 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
   // Receipt modal State
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
-  // CSV Import State
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [csvData, setCsvData] = useState<any[]>([]);
-  const [csvMapping, setCsvMapping] = useState({
-    date: '',
-    amount: '',
-    description: '',
-    type: '',
-    category: ''
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isBatchUploadOpen, setIsBatchUploadOpen] = useState(false);
 
   // Attachment/Metadata Drawer State
   const [activeMetadataTxn, setActiveMetadataTxn] = useState<Transaction | null>(null);
   const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
   const [metaScanRef, setMetaScanRef] = useState('');
   const [metaTimestamp, setMetaTimestamp] = useState('');
-  const [metaReceiptUrl, setMetaReceiptUrl] = useState('');
 
   // LOAD DB
 
@@ -242,40 +231,6 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
   };
 
-  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet);
-      
-      if (json.length === 0) {
-        toast.error("File is empty");
-        return;
-      }
-      
-      const headers = Object.keys(json[0] as object);
-      setCsvHeaders(headers);
-      setCsvData(json);
-      setCsvMapping({
-        date: '',
-        amount: '',
-        description: '',
-        type: '',
-        category: ''
-      });
-      setIsImportModalOpen(true);
-    } catch (err: any) {
-      toast.error("Failed to parse file: " + err.message);
-    }
-    
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const handleMarkCompleted = (txnId: string) => {
     const res = markTransactionCompleted(userId, txnId);
     if (res.error) {
@@ -297,85 +252,6 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       toast.success("Transaction deleted.");
       window.dispatchEvent(new Event('db-update'));
     }
-  };
-
-  const handleDownloadCsvTemplate = () => {
-    const headers = ['date', 'amount', 'description', 'type', 'category'];
-    const sampleRow1 = ['2023-10-25', '1500.50', 'Office Supplies', 'cash_out', 'Supplies'];
-    const sampleRow2 = ['2023-10-26', '5000.00', 'Client Payment', 'cash_in', 'Revenue'];
-    const csvContent = [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'ledger_import_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Template Downloaded', { description: 'CSV template for ledger import has been downloaded.' });
-  };
-
-  const handleImportCsvData = () => {
-    const missing = ['date', 'amount', 'description', 'type', 'category'].filter(f => !(csvMapping as any)[f]);
-    if (missing.length > 0) {
-      toast.error(`Please map all required fields. Missing: ${missing.join(', ')}`);
-      return;
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    csvData.forEach(row => {
-      try {
-        const rawDate = row[csvMapping.date];
-        const rawAmount = row[csvMapping.amount];
-        const rawDesc = row[csvMapping.description];
-        const rawType = row[csvMapping.type];
-        const rawCategory = row[csvMapping.category];
-
-        const dateObj = new Date(rawDate);
-        if (isNaN(dateObj.getTime())) throw new Error("Invalid date");
-        const date = dateObj.toISOString().split('T')[0];
-        
-        const amount = parseFloat(rawAmount);
-        if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
-        
-        let type: CashflowType = 'cash_out';
-        if (String(rawType).toLowerCase().includes('in') || String(rawType).toLowerCase().includes('income') || String(rawType).toLowerCase().includes('credit')) {
-          type = 'cash_in';
-        }
-
-        let categoryId = categories.find(c => c.type === type)?.id || '';
-        const foundCategory = categories.find(c => c.name.toLowerCase() === String(rawCategory).toLowerCase().trim() && c.type === type);
-        if (foundCategory) {
-          categoryId = foundCategory.id;
-        }
-
-        const { error } = insertTransaction(userId, {
-          companyId: companyId === 'all' ? companies[0]?.id || '' : companyId,
-          txnDate: date,
-          type,
-          amount,
-          categoryId,
-          purpose: String(rawDesc),
-          responsiblePerson: profiles.find(p => p.id === userId)?.email || 'Imported User',
-          reversalOf: null,
-          receiptPath: null
-        });
-
-        if (error) {
-          errorCount++;
-        } else {
-          successCount++;
-        }
-      } catch (err) {
-        errorCount++;
-      }
-    });
-
-    toast.success(`Import complete! ${successCount} added, ${errorCount} failed.`);
-    setIsImportModalOpen(false);
-    onAuditLogged();
   };
 
   // PESO FORMATTER
@@ -707,14 +583,13 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
     }
 
     const { error } = updateTransactionMetadata(
-      userId, 
-      activeMetadataTxn.id, 
+      userId,
+      activeMetadataTxn.id,
       {
         scanRef: metaScanRef,
         timestamp: metaTimestamp || new Date().toISOString(),
         controlNumber
-      },
-      metaReceiptUrl || undefined
+      }
     );
     if (error) {
       toast.error('Failed to attach metadata', { description: error });
@@ -723,7 +598,6 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
       setActiveMetadataTxn(null);
       setMetaScanRef('');
       setMetaTimestamp('');
-      setMetaReceiptUrl('');
       onAuditLogged();
     }
   };
@@ -1017,21 +891,13 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
 
         <div className="flex flex-wrap items-center gap-3 no-print">
           <button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setIsBatchUploadOpen(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 hover:text-black text-slate-700 border border-slate-200 hover:border-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-150 cursor-pointer shadow-md select-none"
-            title="Import CSV"
+            title="Validate and import transactions from Excel or CSV"
           >
             <UploadCloud className="w-4 h-4" />
-            <span>Import CSV</span>
+            <span>Batch Upload</span>
           </button>
-          
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleCsvFileChange} 
-            accept=".csv,.xlsx,.xls" 
-            className="hidden" 
-          />
 
           <button 
             onClick={handlePrintPDF}
@@ -1444,7 +1310,6 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                               setActiveMetadataTxn(t);
                               setMetaScanRef(t.mockMetadata?.scanRef || '');
                               setMetaTimestamp(t.mockMetadata?.timestamp || '');
-                              setMetaReceiptUrl(t.receiptPath || '');
                             }}
                             className={`p-1 border rounded-lg cursor-pointer transition-all ${
                               t.mockMetadata ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:border-slate-300'
@@ -1591,8 +1456,9 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
             <div>
               <h3 className="font-mono text-base font-bold text-slate-900 uppercase tracking-wider">Document Metadata</h3>
               <p className="text-xs text-zinc-405 font-mono mt-0.5">Attach physical scanner reference codes to txn #{activeMetadataTxn.id}.</p>
+              <p className="text-[10px] text-slate-400 font-mono mt-1">Receipt/photo attachments are now handled from the Approval Queue.</p>
             </div>
-            
+
             <div className="space-y-4">
               {activeMetadataTxn.mockMetadata?.controlNumber && (
                 <div className="flex gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
@@ -1601,23 +1467,13 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
                     <p className="text-sm font-mono font-bold text-sky-400 mt-1">#{activeMetadataTxn.mockMetadata.controlNumber}</p>
                   </div>
                   <div className="bg-white p-1 rounded-md">
-                    <QRCodeSVG 
+                    <QRCodeSVG
                       value={`TXN:${activeMetadataTxn.id}|CTRL:${activeMetadataTxn.mockMetadata.controlNumber}`}
                       size={64}
                     />
                   </div>
                 </div>
               )}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Receipt Image Link</label>
-                <input 
-                  type="text" 
-                  value={metaReceiptUrl}
-                  onChange={(e) => setMetaReceiptUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-mono focus:outline-hidden focus:border-sky-500 rounded-xl"
-                />
-              </div>
               <div className="space-y-1.5">
                 <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest font-mono">Scan Reference Code</label>
                 <input 
@@ -1658,66 +1514,17 @@ export default function Ledger({ userId, companyId, onAuditLogged }: LedgerProps
         </div>
       )}
 
-      {/* CSV IMPORT MAPPING MODAL */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200"
-          >
-            <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 uppercase tracking-widest font-mono text-sm">Map CSV Columns</h3>
-              <button onClick={() => setIsImportModalOpen(false)} className="text-slate-500 hover:text-slate-900 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-xs text-slate-600 font-mono mb-4">Select the column from your file that matches each required field.</p>
-              
-              {['date', 'amount', 'description', 'type', 'category'].map((field) => (
-                <div key={field} className="flex flex-col space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                    {field}
-                  </label>
-                  <select
-                    value={(csvMapping as any)[field]}
-                    onChange={(e) => setCsvMapping({ ...csvMapping, [field]: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-[#00B67A] rounded-xl font-mono cursor-pointer"
-                  >
-                    <option value="">-- Select Column --</option>
-                    {csvHeaders.map(h => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
-              <button
-                onClick={handleDownloadCsvTemplate}
-                className="px-4 py-2 text-xs font-bold text-sky-600 uppercase tracking-wider hover:bg-sky-50 rounded-xl transition cursor-pointer"
-              >
-                Download CSV Template
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 uppercase tracking-wider hover:bg-slate-200 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleImportCsvData}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#00B67A] hover:bg-[#009E6B] uppercase tracking-wider rounded-xl transition shadow-sm cursor-pointer"
-                >
-                  Import Data
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <BatchUploadModal
+        isOpen={isBatchUploadOpen}
+        onClose={() => setIsBatchUploadOpen(false)}
+        userId={userId}
+        companies={companies}
+        defaultCompanyId={companyId}
+        onImported={(importedCompanyId) => {
+          onAuditLogged();
+          onNavigateToApprovals(importedCompanyId);
+        }}
+      />
 
       {notesTxn && (
         <TransactionNotesModal

@@ -284,6 +284,7 @@ export interface Transaction {
   id: string;
   companyId: string;
   cashAccountId?: string; // Links to CashAccount
+  requestedCashAccountId?: string; // Original account selected before approval
   txnDate: string; // YYYY-MM-DD
   type: CashflowType;
   amount: number;
@@ -313,6 +314,9 @@ export interface Approval {
   approverId: string;
   action: ApprovalAction;
   remarks: string | null;
+  requestedCashAccountId?: string | null;
+  approvedCashAccountId?: string | null;
+  accountChangeReason?: string | null;
   createdAt: string;
 }
 
@@ -336,6 +340,7 @@ export interface Payable {
   uom?: string;
   unitPrice?: number;
   remarks?: string;
+  receiptPath?: string | null;
   dueDate: string; // YYYY-MM-DD
   settlementAccountId?: string;
   settlementCategoryId?: string;
@@ -351,6 +356,7 @@ export interface Receivable {
   payer: string;
   description: string;
   amount: number;
+  receiptPath?: string | null;
   dueDate: string; // YYYY-MM-DD
   collectionAccountId?: string;
   collectionCategoryId?: string;

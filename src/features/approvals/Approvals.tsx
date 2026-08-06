@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   FileSignature,
@@ -13,10 +14,13 @@ import {
   Eye,
   X,
   MessageSquare,
+  Paperclip,
+  Loader2,
 } from "lucide-react";
 import {
   getTransactions,
   reviewTransaction,
+  attachTransactionReceipt,
   getUserRole,
   isGroupAdmin,
   getCategories,
@@ -31,6 +35,8 @@ import {
 } from "@/data/mockDatabase";
 import { FundTransfer, Transaction } from "@/types";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/imageUtils";
+import { uploadPrivateDocument } from "@/lib/privateDocuments";
 
 import AttachmentViewer from "@/components/transactions/AttachmentViewer";
 import TransactionNotesModal from "@/components/transactions/TransactionNotesModal";
@@ -82,6 +88,13 @@ export default function Approvals({
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
   const [notesTxn, setNotesTxn] = useState<Transaction | null>(null);
+  const [receiptUploadTxnId, setReceiptUploadTxnId] = useState<string | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [deductionAccountId, setDeductionAccountId] = useState("");
+  const [accountChangeReason, setAccountChangeReason] = useState("");
+  const [showDeductionAccountPicker, setShowDeductionAccountPicker] = useState(false);
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  const reviewModalScrollRef = useRef<HTMLDivElement>(null);
 
   const transactions = getTransactions(userId, companyId);
   const categories = getCategories(companyId);
@@ -182,6 +195,20 @@ export default function Approvals({
     };
   };
 
+  const canSelectForBulkApproval = (txn: Transaction) => {
+    const { canApprove } = getTxnPermissions(txn);
+    if (!txn.receiptPath || !canApprove) return false;
+    if (txn.type !== "cash_out") return true;
+
+    const account = allAccounts.find((entry) => entry.id === txn.cashAccountId);
+    return Boolean(
+      account &&
+      account.isActive &&
+      account.companyId === txn.companyId &&
+      account.currentBalance >= txn.amount,
+    );
+  };
+
   const handleAction = (action: "approved" | "rejected") => {
     if (!selectedTxn) return;
 
@@ -200,6 +227,12 @@ export default function Approvals({
       selectedTxn.id,
       action,
       action === "rejected" ? reviewRemarks : reviewRemarks || null,
+      action === "approved" && selectedTxn.type === "cash_out"
+        ? {
+            cashAccountId: deductionAccountId || undefined,
+            accountChangeReason: accountChangeReason.trim() || null,
+          }
+        : undefined,
     );
 
     if (error) {
@@ -218,6 +251,9 @@ export default function Approvals({
         return newSet;
       });
       setReviewRemarks("");
+      setDeductionAccountId("");
+      setAccountChangeReason("");
+      setShowDeductionAccountPicker(false);
       if (onAuditLogged) onAuditLogged();
     }
   };
@@ -244,6 +280,46 @@ export default function Approvals({
       dateApproved: action === "Approved" ? new Date().toISOString() : transfer.dateApproved,
     }, transfer.id);
     toast.success(`Fund transfer ${action.toLowerCase()}.`);
+  };
+
+  const triggerReceiptUpload = (txnId: string) => {
+    setReceiptUploadTxnId(txnId);
+    receiptFileInputRef.current?.click();
+  };
+
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const txnId = receiptUploadTxnId;
+    e.target.value = "";
+    if (!file || !txnId) return;
+
+    const txn = transactions.find((t) => t.id === txnId);
+    if (!txn) return;
+
+    setUploadingReceipt(true);
+    try {
+      const dataUrl = file.type.startsWith("image/")
+        ? await compressImage(file)
+        : await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+      const uploadedPath = await uploadPrivateDocument(dataUrl, txn.companyId, file.name);
+      const { error } = attachTransactionReceipt(userId, txnId, uploadedPath);
+      if (error) {
+        toast.error("Failed to attach receipt", { description: error });
+      } else {
+        toast.success("Receipt attached");
+        if (onAuditLogged) onAuditLogged();
+      }
+    } catch (err: any) {
+      toast.error("Failed to attach receipt", { description: err.message });
+    } finally {
+      setUploadingReceipt(false);
+      setReceiptUploadTxnId(null);
+    }
   };
 
   const handleBulkAction = (action: "approved" | "rejected") => {
@@ -314,11 +390,11 @@ export default function Approvals({
       const newSet = new Set<string>();
       filteredTxns.forEach(t => {
         // Only allow selection of items we can approve
-        const canApprove = viewMode === "pending" && isAuthorizedApprover && 
-            !((t.encodedBy === userId && !isOwner) || 
-              (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || 
-              (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)));
-              
+        const canApprove =
+          viewMode === "pending" &&
+          isAuthorizedApprover &&
+          canSelectForBulkApproval(t);
+
         if (canApprove) {
           newSet.add(t.id);
         }
@@ -352,11 +428,24 @@ export default function Approvals({
     txnApprovals.forEach((app, idx) => {
       const approver = profiles.find(p => p.id === app.approverId)?.fullName || app.approverId;
       const isApproved = app.action === "approved";
+      const requestedAccount = allAccounts.find(
+        (account) => account.id === app.requestedCashAccountId,
+      );
+      const approvedAccount = allAccounts.find(
+        (account) => account.id === app.approvedCashAccountId,
+      );
+      const accountChangeSummary =
+        isApproved &&
+        app.requestedCashAccountId &&
+        app.approvedCashAccountId &&
+        app.requestedCashAccountId !== app.approvedCashAccountId
+          ? ` Deduction account changed from ${requestedAccount?.accountName || app.requestedCashAccountId} to ${approvedAccount?.accountName || app.approvedCashAccountId}${app.accountChangeReason ? ` (${app.accountChangeReason})` : ""}.`
+          : "";
       items.push({
         id: `app-${idx}`,
         type: app.action,
         title: isApproved ? "Request Approved" : "Request Rejected",
-        description: `Reviewed by ${approver}${app.remarks ? ` — "${app.remarks}"` : ""}`,
+        description: `Reviewed by ${approver}${app.remarks ? ` — "${app.remarks}"` : ""}.${accountChangeSummary}`,
         date: new Date(app.createdAt).toLocaleString(undefined, {
           dateStyle: 'medium',
           timeStyle: 'short'
@@ -382,12 +471,47 @@ export default function Approvals({
     }
 
     return items;
-  }, [selectedTxn, profiles]);
+  }, [selectedTxn, profiles, allAccounts]);
 
   const liveNotesTxn = useMemo(() => {
     if (!notesTxn) return null;
     return transactions.find((t) => t.id === notesTxn.id) || notesTxn;
   }, [notesTxn, transactions]);
+
+  const liveSelectedTxn = useMemo(() => {
+    if (!selectedTxn) return null;
+    return transactions.find((t) => t.id === selectedTxn.id) || selectedTxn;
+  }, [selectedTxn, transactions]);
+
+  const requestedDeductionAccountId = selectedTxn
+    ? selectedTxn.requestedCashAccountId ?? selectedTxn.cashAccountId ?? ""
+    : "";
+  const requestedDeductionAccount = allAccounts.find(
+    (account) => account.id === requestedDeductionAccountId,
+  );
+  const selectedDeductionAccount = allAccounts.find(
+    (account) => account.id === deductionAccountId,
+  );
+  const deductionAccountChanged = Boolean(
+    selectedTxn?.type === "cash_out" &&
+    deductionAccountId &&
+    deductionAccountId !== requestedDeductionAccountId,
+  );
+  const eligibleDeductionAccounts = selectedTxn
+    ? allAccounts.filter(
+        (account) => account.companyId === selectedTxn.companyId && account.isActive,
+      )
+    : [];
+  const projectedDeductionBalance = selectedDeductionAccount && selectedTxn
+    ? selectedDeductionAccount.currentBalance - selectedTxn.amount
+    : null;
+  const deductionAccountIsValid = Boolean(
+    selectedDeductionAccount &&
+    selectedTxn &&
+    selectedDeductionAccount.isActive &&
+    selectedDeductionAccount.companyId === selectedTxn.companyId &&
+    selectedDeductionAccount.currentBalance >= selectedTxn.amount,
+  );
 
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -397,8 +521,52 @@ export default function Approvals({
     }).format(num);
   };
 
+  const openTransactionReview = (txn: Transaction) => {
+    const initialAccountId = txn.cashAccountId ?? "";
+    const initialAccount = allAccounts.find((account) => account.id === initialAccountId);
+    setSelectedTxn(txn);
+    setReviewRemarks("");
+    setDeductionAccountId(initialAccountId);
+    setAccountChangeReason("");
+    setShowDeductionAccountPicker(
+      txn.type === "cash_out" &&
+      (!initialAccount || !initialAccount.isActive || initialAccount.currentBalance < txn.amount),
+    );
+  };
+
+  const closeTransactionReview = () => {
+    setSelectedTxn(null);
+    setReviewRemarks("");
+    setDeductionAccountId("");
+    setAccountChangeReason("");
+    setShowDeductionAccountPicker(false);
+  };
+
+  useEffect(() => {
+    if (!selectedTxn) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const frameId = window.requestAnimationFrame(() => {
+      reviewModalScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [selectedTxn?.id]);
+
   return (
     <div className="space-y-6">
+      <input
+        type="file"
+        ref={receiptFileInputRef}
+        accept="image/*,.pdf"
+        onChange={handleReceiptFileChange}
+        className="hidden"
+      />
       {/* HEADER SECTION */}
       <div className="flex sm:flex-row flex-col justify-between items-start sm:items-center gap-4">
         <div>
@@ -638,7 +806,10 @@ export default function Approvals({
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={selectedTxns.size > 0 && selectedTxns.size === filteredTxns.filter(t => !((t.encodedBy === userId && !isOwner) || (t.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) || (t.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId)))).length}
+                  checked={
+                    selectedTxns.size > 0 &&
+                    selectedTxns.size === filteredTxns.filter(canSelectForBulkApproval).length
+                  }
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
                 />
@@ -680,10 +851,11 @@ export default function Approvals({
                             checked={selectedTxns.has(txn.id)}
                             onChange={() => toggleSelection(txn.id)}
                             className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={
-                              (txn.encodedBy === userId && !isOwner) ||
-                              (txn.amount > 50000 && userRole !== "company_admin" && !isGroupAdmin(userId)) ||
-                              (txn.amount > 10000 && userRole === "approver" && !isGroupAdmin(userId))
+                            disabled={!canSelectForBulkApproval(txn)}
+                            title={
+                              txn.type === "cash_out" && !canSelectForBulkApproval(txn)
+                                ? "Review individually to select a funded deduction account"
+                                : undefined
                             }
                           />
                         </div>
@@ -702,7 +874,7 @@ export default function Approvals({
                         >
                           {txn.type === "cash_in" ? "Inflow" : "Outflow"}
                         </span>
-                        {txn.receiptPath && (
+                        {txn.receiptPath ? (
                           <button
                             onClick={() => setPreviewReceiptUrl(txn.receiptPath)}
                             className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-[#00B67A] bg-[#00B67A]/10 px-2 py-1 rounded border border-[#00B67A]/20 hover:bg-[#00B67A]/20 transition"
@@ -711,7 +883,21 @@ export default function Approvals({
                             <Eye className="w-3 h-3" />
                             Receipt Found
                           </button>
-                        )}
+                        ) : viewMode === "pending" ? (
+                          <button
+                            onClick={() => triggerReceiptUpload(txn.id)}
+                            disabled={uploadingReceipt && receiptUploadTxnId === txn.id}
+                            className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-rose-450 bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20 hover:bg-rose-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Attach a receipt or photo — required before this can be approved"
+                          >
+                            {uploadingReceipt && receiptUploadTxnId === txn.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Paperclip className="w-3 h-3" />
+                            )}
+                            Attach Receipt
+                          </button>
+                        ) : null}
                         <button
                           onClick={() => setNotesTxn(txn)}
                           className={`flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border transition ${
@@ -758,12 +944,9 @@ export default function Approvals({
 
                       {isAuthorizedApprover && (
                         <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                          {viewMode === "history" ? (
-                            <button
-                              onClick={() => {
-                                setSelectedTxn(txn);
-                                setReviewRemarks("");
-                              }}
+                           {viewMode === "history" ? (
+                             <button
+                              onClick={() => openTransactionReview(txn)}
                               className="flex-1 sm:flex-none px-4 py-2 bg-slate-500/10 text-slate-700 hover:bg-slate-500 hover:text-slate-900 border border-slate-300/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
                             >
                               Timeline
@@ -786,12 +969,9 @@ export default function Approvals({
                               <br />
                               Finance Officer
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedTxn(txn);
-                                setReviewRemarks("");
-                              }}
+                           ) : (
+                             <button
+                              onClick={() => openTransactionReview(txn)}
                               className="flex-1 sm:flex-none px-4 py-2 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-900 border border-amber-500/30 rounded-lg text-xs font-bold transition-all uppercase tracking-wider"
                             >
                               Review
@@ -869,22 +1049,38 @@ export default function Approvals({
       </AnimatePresence>
 
       {/* REVIEW MODAL */}
-      <AnimatePresence>
-        {selectedTxn && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedTxn && (
             <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 backdrop-blur-sm sm:items-center sm:p-4"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) closeTransactionReview();
+              }}
+            >
+            <motion.div
+              ref={reviewModalScrollRef}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", duration: 0.3, bounce: 0 }}
-              className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl p-6 relative"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="transaction-review-title"
+              className="relative max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:max-h-[90dvh] sm:p-6"
             >
-              <h3 className="text-xl font-bold font-display text-slate-900 mb-2">
+              <button
+                type="button"
+                onClick={closeTransactionReview}
+                className="absolute right-3 top-3 z-10 rounded-lg bg-white/90 p-2 text-slate-500 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close transaction review"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <h3 id="transaction-review-title" className="mb-2 pr-10 text-xl font-bold font-display text-slate-900">
                 {selectedTxn.status === "pending" ? "Review Transaction" : "Transaction Timeline"}
               </h3>
               <div className="text-sm text-slate-600 mb-6 bg-white p-3 rounded-xl border border-slate-200 font-mono">
@@ -907,15 +1103,110 @@ export default function Approvals({
                   <div className="text-amber-500/90">
                     Entity: {allCompanies.find((c) => c.id === selectedTxn.companyId)?.name || selectedTxn.companyId}
                   </div>
-                  <div className="text-sky-400/90 truncate">
-                    Wallet: {allAccounts.find((a) => a.id === selectedTxn.cashAccountId)?.bankName} - {allAccounts.find((a) => a.id === selectedTxn.cashAccountId)?.accountName || selectedTxn.cashAccountId}
+                  <div className="text-sky-500/90 truncate">
+                    Requested Account: {requestedDeductionAccount
+                      ? `${requestedDeductionAccount.bankName || requestedDeductionAccount.accountType} - ${requestedDeductionAccount.accountName}`
+                      : selectedTxn.cashAccountId || "Not selected"}
                   </div>
                 </div>
               </div>
 
-              {/* ATTACHMENT VIEWER */}
-              {selectedTxn.receiptPath && (
-                <AttachmentViewer transaction={selectedTxn} userId={userId} />
+              {/* Keep the supporting document at the top of every review. */}
+              {liveSelectedTxn?.receiptPath ? (
+                <AttachmentViewer transaction={liveSelectedTxn} userId={userId} />
+              ) : selectedTxn.status === "pending" ? (
+                <div className="mb-6 bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="text-xs text-rose-700 font-mono">
+                    <strong className="block text-rose-800 font-bold mb-0.5">No receipt attached</strong>
+                    A receipt or photo must be attached before this transaction can be approved.
+                  </div>
+                  <button
+                    onClick={() => triggerReceiptUpload(selectedTxn.id)}
+                    disabled={uploadingReceipt && receiptUploadTxnId === selectedTxn.id}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 shrink-0"
+                  >
+                    {uploadingReceipt && receiptUploadTxnId === selectedTxn.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Paperclip className="w-3.5 h-3.5" />
+                    )}
+                    Attach Receipt
+                  </button>
+                </div>
+              ) : null}
+
+              {selectedTxn.status === "pending" && selectedTxn.type === "cash_out" && (
+                <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-sky-700 font-mono">
+                        Final Deduction Account
+                      </div>
+                      <div className="mt-1 truncate text-sm font-bold text-slate-900">
+                        {selectedDeductionAccount?.accountName || "No account selected"}
+                      </div>
+                      {selectedDeductionAccount && (
+                        <div className="mt-1 text-xs text-slate-600 font-mono">
+                          Available {formatPeso(selectedDeductionAccount.currentBalance)} · After approval{" "}
+                          <span className={projectedDeductionBalance !== null && projectedDeductionBalance < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
+                            {formatPeso(projectedDeductionBalance ?? 0)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeductionAccountPicker((visible) => !visible)}
+                      className="shrink-0 rounded-lg border border-sky-300 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-sky-700 transition hover:bg-sky-100"
+                    >
+                      {showDeductionAccountPicker ? "Hide Accounts" : "Change Account"}
+                    </button>
+                  </div>
+
+                  {showDeductionAccountPicker && (
+                    <div className="mt-4 space-y-3 border-t border-sky-200 pt-4">
+                      <select
+                        value={deductionAccountId}
+                        onChange={(event) => {
+                          setDeductionAccountId(event.target.value);
+                          setAccountChangeReason("");
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                      >
+                        <option value="">Select funded account...</option>
+                        {eligibleDeductionAccounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.accountType} · {account.accountName}
+                            {account.accountNumber ? ` · ••••${account.accountNumber.slice(-4)}` : ""}
+                            {` · ${formatPeso(account.currentBalance)} available`}
+                          </option>
+                        ))}
+                      </select>
+
+                      {deductionAccountChanged && (
+                        <div>
+                          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-600 font-mono">
+                            Reason for changing account
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={accountChangeReason}
+                            onChange={(event) => setAccountChangeReason(event.target.value)}
+                            placeholder="e.g., Cash on Hand is insufficient; pay directly from bank."
+                            className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!deductionAccountIsValid && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      Select an active company account with enough available balance before approving.
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* TIMELINE */}
@@ -972,7 +1263,7 @@ export default function Approvals({
                 {selectedTxn.status === "pending" ? (
                   <>
                     <button
-                      onClick={() => setSelectedTxn(null)}
+                      onClick={closeTransactionReview}
                       className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 font-bold tracking-wider text-xs uppercase cursor-pointer"
                     >
                       Cancel
@@ -985,14 +1276,30 @@ export default function Approvals({
                     </button>
                     <button
                       onClick={() => handleAction("approved")}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer"
+                      disabled={
+                        !liveSelectedTxn?.receiptPath ||
+                        (selectedTxn.type === "cash_out" &&
+                          (!deductionAccountIsValid ||
+                            (deductionAccountChanged && !accountChangeReason.trim())))
+                      }
+                      title={
+                        !liveSelectedTxn?.receiptPath
+                          ? "Attach a receipt before approving"
+                          : selectedTxn.type === "cash_out" && !deductionAccountIsValid
+                            ? "Select a funded deduction account"
+                            : deductionAccountChanged && !accountChangeReason.trim()
+                              ? "Provide a reason for changing the deduction account"
+                              : undefined
+                      }
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 border border-emerald-500/30 hover:text-slate-900 font-bold tracking-wider text-xs uppercase transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500/10 disabled:hover:text-emerald-400"
                     >
-                      <CheckCircle className="w-4 h-4" /> Approve
+                      <CheckCircle className="w-4 h-4" />
+                      {selectedTxn.type === "cash_out" ? "Approve & Deduct" : "Approve"}
                     </button>
                   </>
                 ) : (
                   <button
-                    onClick={() => setSelectedTxn(null)}
+                    onClick={closeTransactionReview}
                     className="px-4 py-2 rounded-xl bg-slate-50 text-slate-700 hover:text-slate-900 font-bold tracking-wider text-xs uppercase cursor-pointer hover:bg-slate-100 transition"
                   >
                     Close
@@ -1000,9 +1307,11 @@ export default function Approvals({
                 )}
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
 
       {/* RECEIPT VIEWER POPUP MODAL */}
       {previewReceiptUrl && (

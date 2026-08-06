@@ -1784,6 +1784,7 @@ export function insertTransaction(
   const newTxn: Transaction = {
     ...data,
     id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    requestedCashAccountId: data.requestedCashAccountId ?? data.cashAccountId,
     status: "pending",
     encodedBy: userId,
     createdAt: new Date().toISOString(),
@@ -1994,6 +1995,10 @@ export function reviewTransaction(
   targetTransactionId: string,
   reviewAction: ApprovalAction,
   reviewRemarks: string | null,
+  reviewOptions?: {
+    cashAccountId?: string;
+    accountChangeReason?: string | null;
+  },
 ): { error?: string; transaction?: Transaction } {
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
   const index = allTxns.findIndex((t) => t.id === targetTransactionId);
@@ -2067,10 +2072,42 @@ export function reviewTransaction(
     };
   }
   
-  if (reviewAction === "approved" && txn.type === "cash_out" && txn.cashAccountId) {
-    const accs = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
-    const acc = accs.find(a => a.id === txn.cashAccountId);
-    if (acc && txn.amount > acc.currentBalance) {
+  // Rule: A receipt/photo must be attached before a pending transaction can be approved
+  if (reviewAction === "approved" && !txn.receiptPath) {
+    return {
+      error:
+        "Receipt Required: Attach a receipt or photo to this transaction before it can be approved.",
+    };
+  }
+
+  const requestedCashAccountId = txn.requestedCashAccountId ?? txn.cashAccountId ?? null;
+  const approvedCashAccountId = reviewOptions?.cashAccountId ?? txn.cashAccountId ?? null;
+  const accountChanged =
+    reviewAction === "approved" &&
+    txn.type === "cash_out" &&
+    requestedCashAccountId !== approvedCashAccountId;
+
+  if (reviewAction === "approved" && txn.type === "cash_out") {
+    if (!approvedCashAccountId) {
+      return {
+        error: "Deduction Account Required: Select the cash or bank account that will fund this payment.",
+      };
+    }
+
+    const acc = getAllCashAccounts().find(a => a.id === approvedCashAccountId);
+    if (!acc || !acc.isActive || acc.companyId !== txn.companyId) {
+      return {
+        error: "Invalid Deduction Account: Select an active account belonging to the transaction company.",
+      };
+    }
+
+    if (accountChanged && !reviewOptions?.accountChangeReason?.trim()) {
+      return {
+        error: "Account Change Reason Required: Explain why the approved deduction account differs from the requested account.",
+      };
+    }
+
+    if (txn.amount > acc.currentBalance) {
       return {
         error: `Insufficient funds in ${acc.accountName}. Available: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(acc.currentBalance)}, Required: ${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(txn.amount)}`,
       };
@@ -2078,6 +2115,10 @@ export function reviewTransaction(
   }
 
   // Update
+  txn.requestedCashAccountId = requestedCashAccountId ?? undefined;
+  if (reviewAction === "approved" && txn.type === "cash_out") {
+    txn.cashAccountId = approvedCashAccountId ?? undefined;
+  }
   txn.status = reviewAction === "approved" ? "approved" : "rejected";
   txn.updatedAt = new Date().toISOString();
   allTxns[index] = txn;
@@ -2097,6 +2138,9 @@ export function reviewTransaction(
         reviewAction === "approved" ? "paid" : "unpaid";
       payable.paidTransactionId =
         reviewAction === "approved" ? txn.id : null;
+      if (reviewAction === "approved" && txn.cashAccountId) {
+        payable.settlementAccountId = txn.cashAccountId;
+      }
       payable.updatedAt = new Date().toISOString();
       payables[payableIndex] = payable;
       save(KEYS.PAYABLES, payables);
@@ -2145,6 +2189,11 @@ export function reviewTransaction(
     approverId: userId,
     action: reviewAction,
     remarks: reviewRemarks,
+    requestedCashAccountId,
+    approvedCashAccountId:
+      reviewAction === "approved" ? approvedCashAccountId : null,
+    accountChangeReason:
+      accountChanged ? reviewOptions?.accountChangeReason?.trim() || null : null,
     createdAt: new Date().toISOString(),
   };
   approvals.push(newApproval);
@@ -2157,7 +2206,15 @@ export function reviewTransaction(
     `REVIEW_${reviewAction.toUpperCase()}`,
     "transaction",
     txn.id,
-    { remarks: reviewRemarks, amount: txn.amount },
+    {
+      remarks: reviewRemarks,
+      amount: txn.amount,
+      requestedCashAccountId,
+      approvedCashAccountId:
+        reviewAction === "approved" ? approvedCashAccountId : null,
+      accountChangeReason:
+        accountChanged ? reviewOptions?.accountChangeReason?.trim() || null : null,
+    },
   );
 
   return { transaction: txn };
@@ -2348,7 +2405,7 @@ export function markPayableAsPaid(
     categoryId,
     purpose: `Disbursement to: ${payable.payee} for AP settlement. ref: [${payable.description}]`,
     responsiblePerson: payable.payee,
-    receiptPath: null,
+    receiptPath: payable.receiptPath || null,
     reversalOf: null,
     sourceModule: "ap",
     sourceRecordId: payable.id,
@@ -2540,7 +2597,7 @@ export function markReceivableAsCollected(
     categoryId,
     purpose: `Collection from: ${receivable.payer} for AR settlement. ref: [${receivable.description}]`,
     responsiblePerson: receivable.payer,
-    receiptPath: null,
+    receiptPath: receivable.receiptPath || null,
     reversalOf: null,
     sourceModule: "ar",
     sourceRecordId: receivable.id,
@@ -3143,6 +3200,33 @@ export function updateTransactionMetadata(
   return { transaction: txn };
 }
 
+export function attachTransactionReceipt(
+  userId: string,
+  txnId: string,
+  receiptPath: string,
+): { error?: string; transaction?: Transaction } {
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const idx = allTxns.findIndex((t) => t.id === txnId);
+  if (idx === -1) return { error: "Transaction not found." };
+
+  const txn = allTxns[idx];
+  const role = getUserRole(userId, txn.companyId);
+  const isApprover = role === "approver" || role === "company_admin" || isGroupAdmin(userId);
+  if (!isApprover && !canWriteFinance(userId, txn.companyId)) {
+    return { error: "Access Denied." };
+  }
+
+  txn.receiptPath = receiptPath;
+  txn.updatedAt = new Date().toISOString();
+  allTxns[idx] = txn;
+  save(KEYS.TRANSACTIONS, allTxns);
+
+  writeAuditLog(userId, txn.companyId, "ATTACH_RECEIPT", "transaction", txnId, {
+    hasReceipt: true,
+  });
+  return { transaction: txn };
+}
+
 export function addTransactionAnnotation(
   userId: string,
   txnId: string,
@@ -3367,6 +3451,27 @@ export function saveAttachment(
 
 import { CashAccount, BankStatementLine, BankReconciliation, ReconciliationMatch, CashCustodian, CashLedgerEntry, CashCount, BankDeposit } from "../types";
 
+export function calculateCashAccountBalances(
+  accounts: CashAccount[],
+  transactions: Transaction[],
+): CashAccount[] {
+  const postedTransactions = transactions.filter(
+    (transaction) =>
+      transaction.status === "approved" || transaction.status === "completed",
+  );
+
+  return accounts.map((account) => {
+    const currentBalance = postedTransactions.reduce((balance, transaction) => {
+      if (transaction.cashAccountId !== account.id) return balance;
+      return transaction.type === "cash_in"
+        ? balance + transaction.amount
+        : balance - transaction.amount;
+    }, account.openingBalance ?? 0);
+
+    return { ...account, currentBalance };
+  });
+}
+
 export function getCashAccounts(companyId: string): CashAccount[] {
   initDB();
   let all = load<CashAccount[]>(KEYS.CASH_ACCOUNTS, []);
@@ -3378,16 +3483,7 @@ export function getCashAccounts(companyId: string): CashAccount[] {
   // Recalculate balances dynamically from APPROVED + COMPLETED transactions
   // (using both statuses so approved transactions are reflected immediately)
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  all = all.map(acc => {
-    const txns = allTxns.filter(
-      t => t.cashAccountId === acc.id &&
-           (t.status === "approved" || t.status === "completed")
-    );
-    const balance = txns.reduce((sum, t) => {
-      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
-    }, acc.openingBalance ?? 0);
-    return { ...acc, currentBalance: balance };
-  });
+  all = calculateCashAccountBalances(all, allTxns);
 
   if (!companyId || companyId === "all") return all;
   return all.filter(a => a.companyId === companyId);
@@ -3399,16 +3495,7 @@ export function getAllCashAccounts(): CashAccount[] {
 
   // Recalculate balances dynamically from APPROVED + COMPLETED transactions
   const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  all = all.map(acc => {
-    const txns = allTxns.filter(
-      t => t.cashAccountId === acc.id &&
-           (t.status === "approved" || t.status === "completed")
-    );
-    const balance = txns.reduce((sum, t) => {
-      return t.type === "cash_in" ? sum + t.amount : sum - t.amount;
-    }, acc.openingBalance ?? 0);
-    return { ...acc, currentBalance: balance };
-  });
+  all = calculateCashAccountBalances(all, allTxns);
 
   return all;
 }
@@ -3760,9 +3847,9 @@ export function executeFundTransferToLedger(
   if (!Number.isFinite(transfer.amount) || transfer.amount <= 0) {
     return { success: false, error: 'Transfer amount must be greater than zero.' };
   }
-  if (!postedOut && source.currentBalance < transfer.amount) {
-    return { success: false, error: `Insufficient funds in ${source.accountName}.` };
-  }
+  // Approval already let this through despite low funds (see: allow cash-out transactions
+  // to reach approval queue despite low balance); completion must not get stuck behind
+  // the same check, so an underfunded transfer is allowed to post and the account may go negative.
 
   const now = new Date().toISOString();
   const txnDate = now.split('T')[0];

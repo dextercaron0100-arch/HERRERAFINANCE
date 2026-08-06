@@ -1170,6 +1170,11 @@ export default function App() {
                   userId={activeUserId}
                   companyId={activeCompanyId}
                   isConsolidated={activeCompanyId === "all"}
+                  onAuditLogged={forceTriggerAuditTrail}
+                  onNavigateToApprovals={(companyId) => {
+                    setActiveCompanyId(companyId);
+                    setActivePage("approvals");
+                  }}
                 />
               )}
 
@@ -1217,6 +1222,10 @@ export default function App() {
                   userId={activeUserId}
                   companyId={activeCompanyId}
                   onAuditLogged={forceTriggerAuditTrail}
+                  onNavigateToApprovals={(companyId) => {
+                    setActiveCompanyId(companyId);
+                    setActivePage("approvals");
+                  }}
                 />
               )}
 
