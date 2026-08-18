@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Coins,
   ShieldCheck,
-  FileText,
   FileSignature,
   CheckSquare,
   PiggyBank,
@@ -63,10 +62,8 @@ import Budgets from "@/features/finance/Budgets";
 import DueDates from "@/features/finance/DueDates";
 import PayablesReceivables from "@/features/finance/PayablesReceivables";
 import Payroll from "@/features/finance/Payroll";
-import Reports from "@/features/finance/Reports";
 import TaxComplianceDashboard from "@/features/finance/TaxComplianceDashboard";
 import AuditLog from "@/features/records/AuditLog";
-import DocumentVault from "@/features/records/DocumentVault";
 import SettingsPage from "@/features/settings/Settings";
 import MonthEndClose from "@/features/month-end-close/MonthEndClose";
 import DataAnalyst from "@/features/data-analyst/DataAnalyst";
@@ -111,9 +108,7 @@ type ActivePage =
   | "pay_rec"
   | "payroll"
   | "due_dates"
-  | "reports"
   | "data_analyst"
-  | "vault"
   | "tax_compliance"
   | "audit_log"
   | "assistant"
@@ -150,9 +145,7 @@ export default function App() {
     "pay_rec",
     "payroll",
     "due_dates",
-    "reports",
     "data_analyst",
-    "vault",
     "tax_compliance",
     "audit_log",
     "assistant",
@@ -321,10 +314,8 @@ export default function App() {
         "pay_rec",
         "payroll",
         "due_dates",
-        "reports",
         "data_analyst",
         "assistant",
-        "vault",
         "tax_compliance",
         "audit_log",
         "settings",
@@ -356,10 +347,8 @@ export default function App() {
         "pay_rec",
         "payroll",
         "due_dates",
-        "reports",
         "data_analyst",
         "assistant",
-        "vault",
         "tax_compliance",
         "audit_log",
         "settings",
@@ -928,19 +917,9 @@ export default function App() {
                     { id: "payroll", label: "Wages & Payroll", icon: Users },
                     { id: "due_dates", label: "Due Dates", icon: Calendar },
                     {
-                      id: "reports",
-                      label: "Executive Sheets",
-                      icon: FileText,
-                    },
-                    {
                       id: "data_analyst",
                       label: "Data Analyst",
                       icon: Sparkles,
-                    },
-                    {
-                      id: "vault",
-                      label: "Document Vault",
-                      icon: FileText,
                     },
                     {
                       id: "tax_compliance",
@@ -1352,23 +1331,12 @@ export default function App() {
                 />
               )}
 
-              {activePage === "reports" && (
-                <Reports userId={activeUserId} companyId={activeCompanyId} />
-              )}
-
               {activePage === "data_analyst" && (
                 <DataAnalyst userId={activeUserId} companyId={activeCompanyId} />
               )}
 
               {activePage === "assistant" && (
                 <FinancialAssistant
-                  userId={activeUserId}
-                  companyId={activeCompanyId}
-                />
-              )}
-
-              {activePage === "vault" && (
-                <DocumentVault
                   userId={activeUserId}
                   companyId={activeCompanyId}
                 />
