@@ -471,7 +471,6 @@ export default function App() {
     toast.success(`Company Context Switched`, {
       description: `Now managing ${company?.name} (${company?.code})`,
     });
-    setTriggerCount((prev) => prev + 1);
   };
 
   const forceTriggerAuditTrail = () => {
