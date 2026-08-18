@@ -365,7 +365,7 @@ Do not use markdown headers (# or ##), but you can use bullet points. Speak in a
       }
 
       const promptString = `Extract account details from this document (e.g. Bank statement, certification).
-Return ONLY a valid JSON array of objects with the following fields: 
+Return ONLY a valid JSON object with a single "accounts" field containing an array of objects with the following fields:
 - accountType (string: "Bank" or "E-Wallet" or "Cash on Hand")
 - bankName (string)
 - accountName (string)
@@ -388,25 +388,31 @@ If a field cannot be found, provide null or a sensible generic value. Do not wra
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
-                bankName: { type: Type.STRING },
-                accountName: { type: Type.STRING },
-                accountNumber: { type: Type.STRING },
-                accountHolder: { type: Type.STRING }
-              },
-              required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
-            }
+            type: Type.OBJECT,
+            properties: {
+              accounts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
+                    bankName: { type: Type.STRING },
+                    accountName: { type: Type.STRING },
+                    accountNumber: { type: Type.STRING },
+                    accountHolder: { type: Type.STRING }
+                  },
+                  required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
+                }
+              }
+            },
+            required: ["accounts"]
           }
         }
       });
 
-      const textOutput = response.text || "[]";
+      const textOutput = response.text || "{}";
       const parsed = JSON.parse(textOutput);
-      res.json(parsed);
+      res.json(Array.isArray(parsed) ? parsed : (parsed.accounts ?? []));
     } catch (e: any) {
       handleError(e, res, "Failed to parse document");
     }
@@ -420,7 +426,7 @@ If a field cannot be found, provide null or a sensible generic value. Do not wra
       }
 
       const promptString = `Extract account details from the following tabular data.
-Return ONLY a valid JSON array of objects with the following fields: 
+Return ONLY a valid JSON object with a single "accounts" field containing an array of objects with the following fields:
 - accountType (string: "Bank" or "E-Wallet" or "Cash on Hand")
 - bankName (string)
 - accountName (string)
@@ -440,25 +446,31 @@ ${text}`;
         config: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
-                bankName: { type: Type.STRING },
-                accountName: { type: Type.STRING },
-                accountNumber: { type: Type.STRING },
-                accountHolder: { type: Type.STRING }
-              },
-              required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
-            }
+            type: Type.OBJECT,
+            properties: {
+              accounts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    accountType: { type: Type.STRING, description: "Type of account: 'Bank', 'E-Wallet', or 'Cash on Hand'" },
+                    bankName: { type: Type.STRING },
+                    accountName: { type: Type.STRING },
+                    accountNumber: { type: Type.STRING },
+                    accountHolder: { type: Type.STRING }
+                  },
+                  required: ["accountType", "bankName", "accountName", "accountNumber", "accountHolder"]
+                }
+              }
+            },
+            required: ["accounts"]
           }
         }
       });
 
-      const textOutput = response.text || "[]";
+      const textOutput = response.text || "{}";
       const parsed = JSON.parse(textOutput);
-      res.json(parsed);
+      res.json(Array.isArray(parsed) ? parsed : (parsed.accounts ?? []));
     } catch (e: any) {
       handleError(e, res, "Failed to parse text");
     }
