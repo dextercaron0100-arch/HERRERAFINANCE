@@ -357,6 +357,65 @@ Do not use markdown headers (# or ##), but you can use bullet points. Speak in a
     }
   });
 
+  app.post("/api/data-analyst-insight", async (req, res) => {
+    try {
+      const { datasetLabel, scopeLabel, periodLabel, question, context } = req.body || {};
+      if (!datasetLabel || !context) {
+        return res.status(400).json({ error: "Missing datasetLabel or context" });
+      }
+
+      const promptString = `You are the Herrera Finance Data Analyst assistant. A user generated a "${datasetLabel}" report.
+
+Scope: ${scopeLabel || "N/A"}
+Period: ${periodLabel || "N/A"}
+${question ? `The user specifically asked: "${question}"\n` : ""}
+Here is the exact pre-calculated data behind the chart they are looking at (JSON):
+${JSON.stringify(context, null, 2)}
+
+Write a concise, insightful narrative explaining what this data shows. Base every number and claim STRICTLY on the JSON data above — never invent or estimate figures that are not present in it. If the user asked a specific question, answer it directly using this data, or state plainly that the data provided does not answer it.`;
+
+      const response = await generateContent({
+        contents: promptString,
+        config: {
+          systemInstruction: "You are a professional financial data analyst. Be precise, concise, and never fabricate numbers not present in the supplied data.",
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              narrative: { type: Type.STRING, description: "2-4 sentence plain-language summary of what the data shows" },
+              headlineCallouts: {
+                type: Type.ARRAY,
+                description: "Up to 4 key label/value stat callouts drawn directly from the data",
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    label: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                  },
+                  required: ["label", "value"],
+                },
+              },
+              keyTakeaways: {
+                type: Type.ARRAY,
+                description: "Up to 4 short bullet-point observations",
+                items: { type: Type.STRING },
+              },
+              recommendedAction: { type: Type.STRING, description: "One concrete next step for the business owner" },
+            },
+            required: ["narrative", "headlineCallouts", "keyTakeaways", "recommendedAction"],
+          },
+        },
+      });
+
+      const textOutput = response.text || "{}";
+      const parsed = JSON.parse(textOutput);
+      res.json(parsed);
+    } catch (e: any) {
+      handleError(e, res, "Failed to generate data analyst insight");
+    }
+  });
+
   app.post("/api/scan-account-document", async (req, res) => {
     try {
       const { documentBase64, mimeType } = req.body;
