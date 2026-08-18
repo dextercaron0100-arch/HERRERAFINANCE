@@ -27,6 +27,7 @@ const NAV_LABELS: Record<string, string> = {
   "pay_rec": "Corporate AP/AR",
   "payroll": "Wages & Payroll",
   "reports": "Executive Sheets",
+  "data_analyst": "Data Analyst",
   "vault": "Document Vault",
   "tax_compliance": "Tax Compliance",
   "audit_log": "Security & Audit",

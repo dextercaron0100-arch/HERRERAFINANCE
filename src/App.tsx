@@ -44,6 +44,7 @@ import {
   MessageCircle,
   LockKeyhole,
   Camera,
+  Sparkles,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
@@ -68,6 +69,7 @@ import AuditLog from "@/features/records/AuditLog";
 import DocumentVault from "@/features/records/DocumentVault";
 import SettingsPage from "@/features/settings/Settings";
 import MonthEndClose from "@/features/month-end-close/MonthEndClose";
+import DataAnalyst from "@/features/data-analyst/DataAnalyst";
 
 import {
   getCompanies,
@@ -110,6 +112,7 @@ type ActivePage =
   | "payroll"
   | "due_dates"
   | "reports"
+  | "data_analyst"
   | "vault"
   | "tax_compliance"
   | "audit_log"
@@ -148,6 +151,7 @@ export default function App() {
     "payroll",
     "due_dates",
     "reports",
+    "data_analyst",
     "vault",
     "tax_compliance",
     "audit_log",
@@ -318,6 +322,7 @@ export default function App() {
         "payroll",
         "due_dates",
         "reports",
+        "data_analyst",
         "assistant",
         "vault",
         "tax_compliance",
@@ -352,6 +357,7 @@ export default function App() {
         "payroll",
         "due_dates",
         "reports",
+        "data_analyst",
         "assistant",
         "vault",
         "tax_compliance",
@@ -927,6 +933,11 @@ export default function App() {
                       icon: FileText,
                     },
                     {
+                      id: "data_analyst",
+                      label: "Data Analyst",
+                      icon: Sparkles,
+                    },
+                    {
                       id: "vault",
                       label: "Document Vault",
                       icon: FileText,
@@ -966,6 +977,7 @@ export default function App() {
                           "pay_rec",
                           "payroll",
                           "due_dates",
+                          "data_analyst",
                           "settings",
                         ];
                         return ownerAllowed.includes(item.id);
@@ -1342,6 +1354,10 @@ export default function App() {
 
               {activePage === "reports" && (
                 <Reports userId={activeUserId} companyId={activeCompanyId} />
+              )}
+
+              {activePage === "data_analyst" && (
+                <DataAnalyst userId={activeUserId} companyId={activeCompanyId} />
               )}
 
               {activePage === "assistant" && (
