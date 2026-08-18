@@ -960,6 +960,7 @@ export default function App() {
                   ]
                     .filter((item) => {
                       if (activeUserId === "u-it") return true; // IT sees everything
+                      if (item.id === "data_analyst") return false; // IT-only for now, no exceptions
 
                       const isOwnerUser = isGroupAdmin(activeUserId) || (currentRole as string) === "owner";
 
@@ -977,7 +978,6 @@ export default function App() {
                           "pay_rec",
                           "payroll",
                           "due_dates",
-                          "data_analyst",
                           "settings",
                         ];
                         return ownerAllowed.includes(item.id);
