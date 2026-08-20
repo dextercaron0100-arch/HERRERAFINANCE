@@ -82,6 +82,7 @@ import {
   getFundTransfers,
   writeAuditLog,
   saveProfile,
+  useDBUpdate,
 } from "./data/mockDatabase";
 import { ChatConversation, Company, Profile } from "./types";
 import {
@@ -118,6 +119,7 @@ type ActivePage =
 const ChatSystem = React.lazy(() => import("@/features/messaging/ChatSystem"));
 
 export default function App() {
+  const dbTick = useDBUpdate();
   // Active User profile and active company sessions
   const [activeUserId, setActiveUserId] = useState<string>(""); // Default to no user
   const [activeCompanyId, setActiveCompanyId] = useState<string>("all"); // Default ALL Consolidated
@@ -203,12 +205,15 @@ export default function App() {
   };
 
   // LOAD DB METRICS
-  const companies = getCompanies();
-  const accessibleCompanies = isGroupAdmin(activeUserId)
-    ? companies
-    : companies.filter((c) => canAccessCompany(activeUserId, c.id));
+  const companies = useMemo(() => getCompanies(), [dbTick, triggerCount]);
+  const accessibleCompanies = useMemo(
+    () => isGroupAdmin(activeUserId)
+      ? companies
+      : companies.filter((company) => canAccessCompany(activeUserId, company.id)),
+    [activeUserId, companies, rolesState],
+  );
   const canViewConsolidated = isGroupAdmin(activeUserId) || accessibleCompanies.length > 1;
-  const profiles = getProfiles();
+  const profiles = useMemo(() => getProfiles(), [dbTick, triggerCount]);
   const currentCompany =
     activeCompanyId === "all"
       ? {
@@ -250,14 +255,22 @@ export default function App() {
       : rolesState.find(
           (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
         );
-  const pendingApprovalCount = activeUserId
-    ? getTransactions(activeUserId, activeCompanyId).filter(
-        (transaction) => transaction.status === "pending",
-      ).length +
-      getFundTransfers(activeCompanyId).filter(
-        (transfer) => transfer.status === "Pending",
-      ).length
-    : 0;
+  const accessibleTransactions = useMemo(
+    () => activeUserId ? getTransactions(activeUserId) : [],
+    [activeUserId, dbTick, triggerCount],
+  );
+  const pendingApprovalCount = useMemo(() => {
+    if (!activeUserId) return 0;
+    const pendingTransactions = accessibleTransactions.reduce((count, transaction) => {
+      const inScope = activeCompanyId === "all" || transaction.companyId === activeCompanyId;
+      return count + (inScope && transaction.status === "pending" ? 1 : 0);
+    }, 0);
+    const pendingTransfers = getFundTransfers(activeCompanyId).reduce(
+      (count, transfer) => count + (transfer.status === "Pending" ? 1 : 0),
+      0,
+    );
+    return pendingTransactions + pendingTransfers;
+  }, [activeUserId, activeCompanyId, accessibleTransactions, dbTick, triggerCount]);
   const unreadMessageCount = chatConversations.filter((conversation) =>
     isConversationUnread(
       conversation,
@@ -374,28 +387,24 @@ export default function App() {
     return `${currentRole?.replace("_", " ")} (${currentCompany?.code})`;
   }, [activeUserId, activeCompanyId, currentRole, currentCompany]);
 
-  // Aggregate Total Treasury cash asset across all pre-seeded companies (group statistics)
+  // Aggregate group statistics from one cached transaction snapshot. Previously
+  // this rescanned the full transaction array once per company and once per day.
   const groupTotalTreasury = useMemo(() => {
-    // Collect from mock transactions
-    let sum = 0;
-    companies.forEach((com) => {
-      const txns = getTransactions(activeUserId, com.id).filter(
-        (t) => t.status === "approved",
-      );
-      const inflow = txns
-        .filter((t) => t.type === "cash_in")
-        .reduce((acc, t) => acc + t.amount, 0);
-      const outflow = txns
-        .filter((t) => t.type === "cash_out")
-        .reduce((acc, t) => acc + t.amount, 0);
-      sum += inflow - outflow;
-    });
-    return sum;
-  }, [companies, activeUserId, triggerCount]);
+    return accessibleTransactions.reduce((sum, transaction) => {
+      if (transaction.status !== "approved") return sum;
+      return sum + (transaction.type === "cash_in" ? transaction.amount : -transaction.amount);
+    }, 0);
+  }, [accessibleTransactions]);
 
   const groupTreasuryTrend = useMemo(() => {
     const today = new Date();
     const data: { date: string; balance: number }[] = [];
+    const dailyNet = new Map<string, number>();
+    accessibleTransactions.forEach((transaction) => {
+      if (transaction.status !== "approved") return;
+      const amount = transaction.type === "cash_in" ? transaction.amount : -transaction.amount;
+      dailyNet.set(transaction.txnDate, (dailyNet.get(transaction.txnDate) ?? 0) + amount);
+    });
     let currentBalance = groupTotalTreasury;
 
     // Calculate balances for the last 7 days backwards
@@ -406,22 +415,11 @@ export default function App() {
 
       data.unshift({ date: dateStr, balance: currentBalance });
 
-      // Remove the net of that day to get the previous day's balance
-      companies.forEach((com) => {
-        const txns = getTransactions(activeUserId, com.id).filter(
-          (t) => t.status === "approved" && t.txnDate === dateStr,
-        );
-        const inflow = txns
-          .filter((t) => t.type === "cash_in")
-          .reduce((acc, t) => acc + t.amount, 0);
-        const outflow = txns
-          .filter((t) => t.type === "cash_out")
-          .reduce((acc, t) => acc + t.amount, 0);
-        currentBalance -= inflow - outflow;
-      });
+      // Remove the net of that day to get the previous day's balance.
+      currentBalance -= dailyNet.get(dateStr) ?? 0;
     }
     return data;
-  }, [groupTotalTreasury, companies, activeUserId, triggerCount]);
+  }, [groupTotalTreasury, accessibleTransactions]);
 
   // Sync session logs upon profiling swaps
   const handleUserSwap = (userId: string) => {
