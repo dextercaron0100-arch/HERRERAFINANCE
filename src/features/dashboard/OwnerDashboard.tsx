@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { getTransactions, getPayables, getReceivables, getCompanies } from "@/data/mockDatabase";
+import { getTransactions, getPayables, getReceivables, getCompanies, useDBUpdate } from "@/data/mockDatabase";
 import { 
   TrendingUp, TrendingDown, PhilippinePeso, AlertTriangle, AlertCircle, Wallet, CheckSquare,
   CheckCircle2, Clock, Bot, ArrowRight, Activity, Percent, ArrowDownRight, ArrowUpRight 
@@ -10,20 +10,33 @@ import AIAccountingAssistant from "@/features/assistant/AIAccountingAssistant";
 
 export default function OwnerDashboard({ userId, companyId, isConsolidated, onNavigate }: any) {
   const [showAI, setShowAI] = useState(false);
-  const companies = getCompanies();
+  const dbTick = useDBUpdate();
+  const companies = useMemo(() => getCompanies(), [dbTick]);
   const currentCompany = companies.find(c => c.id === companyId);
 
-  const activeTxns = useMemo(() => {
-    return isConsolidated 
-      ? getTransactions(userId).filter(t => t.status === "approved")
-      : getTransactions(userId, companyId).filter(t => t.status === "approved");
-  }, [userId, companyId, isConsolidated]);
+  const allAccessibleTransactions = useMemo(
+    () => getTransactions(userId),
+    [userId, dbTick],
+  );
 
-  const pendingTxns = useMemo(() => {
-    return isConsolidated 
-      ? getTransactions(userId).filter(t => t.status === "pending")
-      : getTransactions(userId, companyId).filter(t => t.status === "pending");
-  }, [userId, companyId, isConsolidated]);
+  const scopedTransactions = useMemo(
+    () => isConsolidated
+      ? allAccessibleTransactions
+      : allAccessibleTransactions.filter(transaction => transaction.companyId === companyId),
+    [allAccessibleTransactions, companyId, isConsolidated],
+  );
+
+  const { activeTxns, pendingTxns } = useMemo(() => {
+    const active: typeof scopedTransactions = [];
+    const pending: typeof scopedTransactions = [];
+
+    scopedTransactions.forEach(transaction => {
+      if (transaction.status === "approved") active.push(transaction);
+      if (transaction.status === "pending") pending.push(transaction);
+    });
+
+    return { activeTxns: active, pendingTxns: pending };
+  }, [scopedTransactions]);
 
   const payables = useMemo(() => {
     const targetCompanies = isConsolidated ? companies.map((c) => c.id) : [companyId];
@@ -32,7 +45,7 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
        allP = allP.concat(getPayables(userId, cId).map(p => ({ ...p, companyId: cId })));
     });
     return allP;
-  }, [userId, companyId, isConsolidated, companies]);
+  }, [userId, companyId, isConsolidated, companies, dbTick]);
 
   const receivables = useMemo(() => {
     const targetCompanies = isConsolidated ? companies.map((c) => c.id) : [companyId];
@@ -41,7 +54,7 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
        allR = allR.concat(getReceivables(userId, cId).map(r => ({ ...r, companyId: cId })));
     });
     return allR;
-  }, [userId, companyId, isConsolidated, companies]);
+  }, [userId, companyId, isConsolidated, companies, dbTick]);
 
   const formatPeso = (num: number) => {
     return new Intl.NumberFormat("en-PH", {
@@ -140,14 +153,31 @@ export default function OwnerDashboard({ userId, companyId, isConsolidated, onNa
   const projectedMonthEndCash = currentCash + expectedCollections - upcomingPayables - expectedPayroll;
 
   // Company Ranking
-  const companyRankings = companies.map(c => {
-    const cTxns = getTransactions(userId, c.id).filter(t => t.status === "approved" && t.txnDate >= thirtyDaysAgoStr);
-    const cIn = cTxns.filter(t => t.type === "cash_in").reduce((s, t) => s + t.amount, 0);
-    const cOut = cTxns.filter(t => t.type === "cash_out").reduce((s, t) => s + t.amount, 0);
-    const cProfit = cIn - cOut;
-    const cMargin = cIn > 0 ? (cProfit / cIn) * 100 : 0;
-    return { name: c.name, rev: cIn, exp: cOut, profit: cProfit, margin: cMargin };
-  }).sort((a, b) => b.profit - a.profit);
+  const companyRankings = useMemo(() => {
+    const totalsByCompany = new Map<string, { cashIn: number; cashOut: number }>(
+      companies.map(company => [company.id, { cashIn: 0, cashOut: 0 }]),
+    );
+
+    allAccessibleTransactions.forEach(transaction => {
+      if (transaction.status !== "approved" || transaction.txnDate < thirtyDaysAgoStr) return;
+      const totals = totalsByCompany.get(transaction.companyId);
+      if (!totals) return;
+      if (transaction.type === "cash_in") totals.cashIn += transaction.amount;
+      if (transaction.type === "cash_out") totals.cashOut += transaction.amount;
+    });
+
+    return companies.map(company => {
+      const totals = totalsByCompany.get(company.id) ?? { cashIn: 0, cashOut: 0 };
+      const profit = totals.cashIn - totals.cashOut;
+      return {
+        name: company.name,
+        rev: totals.cashIn,
+        exp: totals.cashOut,
+        profit,
+        margin: totals.cashIn > 0 ? (profit / totals.cashIn) * 100 : 0,
+      };
+    }).sort((a, b) => b.profit - a.profit);
+  }, [allAccessibleTransactions, companies, thirtyDaysAgoStr]);
 
   // Spending Spikes (Mock logic based on current/prev)
   const prevPayroll = prev30Txns.filter(t => t.type === "cash_out" && t.categoryId.includes("payroll")).reduce((s, t) => s + t.amount, 0);

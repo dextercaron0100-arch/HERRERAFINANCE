@@ -126,16 +126,20 @@ export default function Dashboard({
     { id: 'custom', label: 'Custom Range' }
   ];
 
+  const allPostedTransactions = useMemo(
+    () => getTransactions(userId, isConsolidated ? null : companyId)
+      .filter(t => t.status === "approved" || t.status === "completed"),
+    [userId, companyId, isConsolidated, dbTick],
+  );
+
   const txns = useMemo(() => {
-    const allTxns = getTransactions(userId, isConsolidated ? null : companyId)
-      .filter(t => t.status === "approved" || t.status === "completed");
-    if (dateRange === "all_time") return allTxns;
+    if (dateRange === "all_time") return allPostedTransactions;
 
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     
-    return allTxns.filter(t => {
+    return allPostedTransactions.filter(t => {
       const txDate = new Date(t.txnDate);
       if (dateRange === "today") {
         return txDate.getFullYear() === currentYear && txDate.getMonth() === currentMonth && txDate.getDate() === now.getDate();
@@ -160,7 +164,7 @@ export default function Dashboard({
       }
       return true;
     });
-  }, [userId, companyId, isConsolidated, dateRange, lastRefreshed, customStartDate, customEndDate, dbTick]);
+  }, [allPostedTransactions, dateRange, lastRefreshed, customStartDate, customEndDate]);
 
   const allCategories = useMemo(() => getAllCategories(), [dbTick]);
   const categoryMap = useMemo(() => Object.fromEntries(allCategories.map(c => [c.id, c.name])), [allCategories]);
@@ -257,10 +261,7 @@ export default function Dashboard({
   const monthlyData = useMemo(() => {
     const monthMap: Record<string, { month: string; sales: number; expenses: number; profit: number; capital: number; totalFund: number }> = {};
     
-    const allHistoricalTxns = getTransactions(userId, isConsolidated ? null : companyId)
-      .filter(t => t.status === "approved" || t.status === "completed");
-
-    allHistoricalTxns.forEach(t => {
+    allPostedTransactions.forEach(t => {
       const month = t.txnDate.slice(0, 7); // YYYY-MM
       if (!monthMap[month]) {
         monthMap[month] = { month, sales: 0, expenses: 0, profit: 0, capital: 0, totalFund: 0 };
@@ -315,7 +316,7 @@ export default function Dashboard({
     });
 
     return sorted;
-  }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
+  }, [allPostedTransactions, categoryMap]);
 
   const financeHistory = useMemo<FinanceChartPoint[]>(() => {
     const daily = new Map<string, FinanceChartPoint>();
@@ -325,9 +326,7 @@ export default function Dashboard({
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
-    const historical = getTransactions(userId, isConsolidated ? null : companyId)
-      .filter(t => t.status === "approved" || t.status === "completed")
-      .filter(t => !t.transferRef);
+    const historical = allPostedTransactions.filter(t => !t.transferRef);
 
     historical.forEach(transaction => {
       const dateKey = transaction.txnDate.slice(0, 10);
@@ -379,7 +378,7 @@ export default function Dashboard({
       { timestamp: `${today}T00:00:00+08:00`, sales: 0, expenses: 0, netProfit: 0 },
       ...cumulativeToday,
     ].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  }, [userId, companyId, isConsolidated, categoryMap, dbTick]);
+  }, [allPostedTransactions, categoryMap]);
 
   const generateSparkline = (currentValue: number) => {
     // Generate dummy historical points for a nice looking sparkline

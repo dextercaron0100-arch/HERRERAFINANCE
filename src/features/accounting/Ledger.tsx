@@ -47,7 +47,8 @@ import {
   getCashAccounts,
   markTransactionCompleted,
   deleteTransaction,
-  canAdminCompany
+  canAdminCompany,
+  useDBUpdate
 } from '@/data/mockDatabase';
 import { compressImage } from '@/lib/imageUtils';
 import { uploadPrivateDocument } from '@/lib/privateDocuments';
@@ -89,6 +90,7 @@ interface LedgerProps {
 }
 
 export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToApprovals }: LedgerProps) {
+  const dbTick = useDBUpdate();
   // Queries & Filter State
   const [searchTerm, setSearchTerm] = useState(() => {
     const s = localStorage.getItem('ledger_search_term');
@@ -159,16 +161,38 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
 
   // LOAD DB
 
-  const companies = getCompanies();
+  const companies = useMemo(() => getCompanies(), [dbTick]);
   const currentCompany = companies.find(c => c.id === companyId);
-  const categories = getCategories(companyId);
-  const profiles = getProfiles();
-  const rawTxns = getTransactions(userId, companyId);
-  const vaultAttachments = getAttachments(companyId);
+  const categories = useMemo(() => getCategories(companyId), [companyId, dbTick]);
+  const profiles = useMemo(() => getProfiles(), [dbTick]);
+  const rawTxns = useMemo(() => getTransactions(userId, companyId), [userId, companyId, dbTick]);
+  const vaultAttachments = useMemo(() => getAttachments(companyId), [companyId, dbTick]);
 
   const allCashAccounts = useMemo(() => {
     return getCashAccounts(companyId);
-  }, [companies, companyId]);
+  }, [companyId, dbTick]);
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+  const cashAccountById = useMemo(
+    () => new Map(allCashAccounts.map((account) => [account.id, account])),
+    [allCashAccounts],
+  );
+  const profileById = useMemo(
+    () => new Map(profiles.map((profile) => [profile.id, profile])),
+    [profiles],
+  );
+  const attachmentsByTransactionId = useMemo(() => {
+    const index = new Map<string, typeof vaultAttachments>();
+    vaultAttachments.forEach((attachment) => {
+      if (attachment.entityType !== 'transaction' || !attachment.entityId) return;
+      const current = index.get(attachment.entityId) ?? [];
+      current.push(attachment);
+      index.set(attachment.entityId, current);
+    });
+    return index;
+  }, [vaultAttachments]);
 
   // Filter Categories on selected type for encode form
   const formCategories = useMemo(() => {
@@ -272,12 +296,12 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     
     // Separate capital from regular cash inputs
     const capitalTxns = allCashInTxns.filter(t => {
-      const cat = categories.find(c => c.id === t.categoryId);
+      const cat = categoryById.get(t.categoryId);
       return cat?.name.toLowerCase().includes('capital');
     });
     
     const regularCashInTxns = allCashInTxns.filter(t => {
-      const cat = categories.find(c => c.id === t.categoryId);
+      const cat = categoryById.get(t.categoryId);
       return !cat?.name.toLowerCase().includes('capital');
     });
 
@@ -302,7 +326,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     });
 
     capitalTxns.forEach(t => {
-      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      const acc = t.cashAccountId ? cashAccountById.get(t.cashAccountId) : undefined;
       if (acc && breakdown.beginning[acc.accountType] !== undefined) {
         breakdown.beginning[acc.accountType] += t.amount;
       } else {
@@ -311,7 +335,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     });
 
     regularCashInTxns.forEach(t => {
-      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      const acc = t.cashAccountId ? cashAccountById.get(t.cashAccountId) : undefined;
       if (acc && breakdown.cashIn[acc.accountType] !== undefined) {
         breakdown.cashIn[acc.accountType] += t.amount;
       } else {
@@ -320,7 +344,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     });
 
     cashOutTxns.forEach(t => {
-      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      const acc = t.cashAccountId ? cashAccountById.get(t.cashAccountId) : undefined;
       if (acc && breakdown.cashOut[acc.accountType] !== undefined) {
         breakdown.cashOut[acc.accountType] += t.amount;
       } else {
@@ -341,14 +365,14 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
       ending,
       breakdown
     };
-  }, [rawTxns, companyId, allCashAccounts, categories]);
+  }, [rawTxns, allCashAccounts, categoryById, cashAccountById]);
 
   // 2. FILTER TRANSACTIONS
   const filteredTransactions = useMemo(() => {
     return rawTxns.filter(t => {
       // Search
-      const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
-      const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+      const catName = categoryById.get(t.categoryId)?.name || 'Operations';
+      const acc = t.cashAccountId ? cashAccountById.get(t.cashAccountId) : undefined;
       const accName = acc ? `${acc.bankName} ${acc.accountName}` : '';
       const tagsStr = (t.tags || []).join(' ');
       const searchStr = `${t.purpose} ${t.responsiblePerson} ${t.id} ${catName} ${t.paymentMethod || ''} ${accName} ${tagsStr}`.toLowerCase();
@@ -376,7 +400,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
 
       return true;
     });
-  }, [rawTxns, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate, selectedPaymentMethod]);
+  }, [rawTxns, categoryById, cashAccountById, searchTerm, selectedType, selectedCategory, selectedStatus, startDate, endDate, selectedPaymentMethod]);
 
   // 3. CALCULATE FILTERED SUMMARY
   // Only approved/completed transactions count toward the balance. Pending and
@@ -421,7 +445,14 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
   }, [rawTxns]);
 
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedTransactions = useMemo(
+    () => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [filteredTransactions, currentPage],
+  );
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, Math.max(1, totalPages)));
+  }, [totalPages]);
 
   // 4. FILE UPLOAD SIMULATOR (BASE64)
   const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -621,8 +652,8 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
     const headers = ['Txn ID', 'Val Date', 'Flow Type', 'Account Category', 'Amount (PHP)', 'Purpose & Details', 'Accountable Officer', 'Encoded By', 'Status'];
     
     const rows = filteredTransactions.map(t => {
-      const catName = categories.find(c => c.id === t.categoryId)?.name || 'Operations';
-      const encoderEmail = profiles.find(p => p.id === t.encodedBy)?.email || 'finance@sys.com';
+      const catName = categoryById.get(t.categoryId)?.name || 'Operations';
+      const encoderEmail = profileById.get(t.encodedBy)?.email || 'finance@sys.com';
       const typeStr = t.type === 'cash_in' ? 'Inflow' : 'Outflow';
       
       const escape = (str: string) => {
@@ -1015,7 +1046,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
               <option value="all" className="bg-white">All Methods</option>
               <option value="unspecified" className="bg-white">Unspecified</option>
               {uniquePaymentMethods.map(method => {
-                const acc = allCashAccounts.find(a => a.id === method);
+                const acc = cashAccountById.get(method);
                 const label = acc ? `${acc.bankName} - ${acc.accountName}` : method.toUpperCase();
                 return (
                   <option key={method} value={method} className="bg-white">
@@ -1171,9 +1202,9 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
               {paginatedTransactions.length > 0 ? (
                 paginatedTransactions.map((t) => {
                   // Find category label
-                  const catName = t.transferRef ? (t.type === 'cash_in' ? 'Incoming Transfer' : 'Outgoing Transfer') : (categories.find(c => c.id === t.categoryId)?.name || 'Operations');
-                  const encoderEmail = profiles.find(p => p.id === t.encodedBy)?.email || 'finance@sys.com';
-                  const txnAttachments = vaultAttachments.filter(a => a.entityId === t.id && a.entityType === 'transaction');
+                  const catName = t.transferRef ? (t.type === 'cash_in' ? 'Incoming Transfer' : 'Outgoing Transfer') : (categoryById.get(t.categoryId)?.name || 'Operations');
+                  const encoderEmail = profileById.get(t.encodedBy)?.email || 'finance@sys.com';
+                  const txnAttachments = attachmentsByTransactionId.get(t.id) ?? [];
 
                   return (
                     <tr key={t.id} className="even:bg-slate-50 odd:bg-white hover:!bg-sky-50 transition-colors">
@@ -1221,7 +1252,7 @@ export default function Ledger({ userId, companyId, onAuditLogged, onNavigateToA
                               <span className="px-1.5 py-0.5 bg-sky-950/20 text-sky-400 border border-sky-900/30 rounded-lg font-mono text-[8px] font-semibold uppercase">
                                 {(() => {
                                   if (t.cashAccountId) {
-                                    const acc = allCashAccounts.find(a => a.id === t.cashAccountId);
+                                    const acc = t.cashAccountId ? cashAccountById.get(t.cashAccountId) : undefined;
                                     return acc ? `${acc.bankName} - ${acc.accountName}` : t.cashAccountId;
                                   }
                                   return t.paymentMethod;

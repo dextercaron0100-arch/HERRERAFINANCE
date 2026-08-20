@@ -50,23 +50,7 @@ import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 import AlertsMenu from "@/components/feedback/AlertsMenu";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import ProfilePictureDialog from "@/components/ProfilePictureDialog";
-import AccountingOfficerWorkbench from "@/features/accounting/AccountingOfficerWorkbench";
-import Ledger from "@/features/accounting/Ledger";
-import Approvals from "@/features/approvals/Approvals";
-import FinancialAssistant from "@/features/assistant/FinancialAssistant";
 import LoginPage from "@/features/auth/LoginPage";
-import MoneyFlowProfitCenter from "@/features/cash-management/MoneyFlowProfitCenter";
-import Dashboard from "@/features/dashboard/Dashboard";
-import OwnerDashboard from "@/features/dashboard/OwnerDashboard";
-import Budgets from "@/features/finance/Budgets";
-import DueDates from "@/features/finance/DueDates";
-import PayablesReceivables from "@/features/finance/PayablesReceivables";
-import Payroll from "@/features/finance/Payroll";
-import TaxComplianceDashboard from "@/features/finance/TaxComplianceDashboard";
-import AuditLog from "@/features/records/AuditLog";
-import SettingsPage from "@/features/settings/Settings";
-import MonthEndClose from "@/features/month-end-close/MonthEndClose";
-import DataAnalyst from "@/features/data-analyst/DataAnalyst";
 
 import {
   getCompanies,
@@ -82,6 +66,9 @@ import {
   getFundTransfers,
   writeAuditLog,
   saveProfile,
+  useDBUpdate,
+  useDatabaseSyncStatus,
+  retryPendingDatabaseWrites,
 } from "./data/mockDatabase";
 import { ChatConversation, Company, Profile } from "./types";
 import {
@@ -115,9 +102,68 @@ type ActivePage =
   | "owner_dashboard"
   | "settings";
 
-const ChatSystem = React.lazy(() => import("@/features/messaging/ChatSystem"));
+const pageLoaders = {
+  accounting_workbench: () => import("@/features/accounting/AccountingOfficerWorkbench"),
+  dashboard: () => import("@/features/dashboard/Dashboard"),
+  money_flow: () => import("@/features/cash-management/MoneyFlowProfitCenter"),
+  ledger: () => import("@/features/accounting/Ledger"),
+  month_end_close: () => import("@/features/month-end-close/MonthEndClose"),
+  approvals: () => import("@/features/approvals/Approvals"),
+  messages: () => import("@/features/messaging/ChatSystem"),
+  budgets: () => import("@/features/finance/Budgets"),
+  pay_rec: () => import("@/features/finance/PayablesReceivables"),
+  payroll: () => import("@/features/finance/Payroll"),
+  due_dates: () => import("@/features/finance/DueDates"),
+  data_analyst: () => import("@/features/data-analyst/DataAnalyst"),
+  tax_compliance: () => import("@/features/finance/TaxComplianceDashboard"),
+  audit_log: () => import("@/features/records/AuditLog"),
+  assistant: () => import("@/features/assistant/FinancialAssistant"),
+  owner_dashboard: () => import("@/features/dashboard/OwnerDashboard"),
+  settings: () => import("@/features/settings/Settings"),
+} satisfies Record<ActivePage, () => Promise<{ default: React.ComponentType<any> }>>;
+
+const AccountingOfficerWorkbench = React.lazy(pageLoaders.accounting_workbench);
+const Dashboard = React.lazy(pageLoaders.dashboard);
+const MoneyFlowProfitCenter = React.lazy(pageLoaders.money_flow);
+const Ledger = React.lazy(pageLoaders.ledger);
+const MonthEndClose = React.lazy(pageLoaders.month_end_close);
+const Approvals = React.lazy(pageLoaders.approvals);
+const ChatSystem = React.lazy(pageLoaders.messages);
+const Budgets = React.lazy(pageLoaders.budgets);
+const PayablesReceivables = React.lazy(pageLoaders.pay_rec);
+const Payroll = React.lazy(pageLoaders.payroll);
+const DueDates = React.lazy(pageLoaders.due_dates);
+const DataAnalyst = React.lazy(pageLoaders.data_analyst);
+const TaxComplianceDashboard = React.lazy(pageLoaders.tax_compliance);
+const AuditLog = React.lazy(pageLoaders.audit_log);
+const FinancialAssistant = React.lazy(pageLoaders.assistant);
+const OwnerDashboard = React.lazy(pageLoaders.owner_dashboard);
+const SettingsPage = React.lazy(pageLoaders.settings);
+
+function preloadPage(page: ActivePage) {
+  void pageLoaders[page]().catch(() => undefined);
+}
+
+function PageLoadingFallback() {
+  return (
+    <div
+      className="flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-3 text-slate-500">
+        <RefreshCw className="h-6 w-6 animate-spin text-[#00B67A]" />
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-widest">
+          Loading workspace
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
+  const dbTick = useDBUpdate();
+  const databaseSync = useDatabaseSyncStatus();
   // Active User profile and active company sessions
   const [activeUserId, setActiveUserId] = useState<string>(""); // Default to no user
   const [activeCompanyId, setActiveCompanyId] = useState<string>("all"); // Default ALL Consolidated
@@ -169,12 +215,27 @@ export default function App() {
   const [triggerCount, setTriggerCount] = useState(0);
 
   // Manual Sync Data
-  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const isSyncing = isManualSyncing || databaseSync.status === "syncing";
+  const effectiveSyncStatus = isSyncing ? "syncing" : databaseSync.status;
+  const lastSyncTime = databaseSync.lastSyncedAt
+    ? new Date(databaseSync.lastSyncedAt)
+    : null;
+  const syncStatusLabel = effectiveSyncStatus === "failed"
+    ? "Save failed"
+    : effectiveSyncStatus === "syncing"
+      ? "Saving"
+      : "Saved";
+  const syncStatusColor = effectiveSyncStatus === "failed"
+    ? "text-red-500"
+    : effectiveSyncStatus === "syncing"
+      ? "text-amber-500"
+      : "text-[#00B67A]";
 
   const handleManualSync = async () => {
-    setIsSyncing(true);
+    setIsManualSyncing(true);
     try {
+      await retryPendingDatabaseWrites();
       // Real sync: fetch cash accounts from SQL and refresh localStorage cache
       const DB_PREFIX = "finance_db_v3_";
       const CASH_ACCOUNTS_KEY = DB_PREFIX + "cash_accounts";
@@ -189,26 +250,28 @@ export default function App() {
       }
       // Notify all components to re-read from localStorage
       window.dispatchEvent(new Event("db-update"));
-      setLastSyncTime(new Date());
       toast.success("Database Synced", {
-        description: "Cash accounts refreshed from SQL. Local data updated.",
+        description: "Pending cloud writes confirmed and local data refreshed.",
       });
     } catch (e) {
       toast.error("Sync Failed", {
         description: "Could not connect to the group data layer.",
       });
     } finally {
-      setIsSyncing(false);
+      setIsManualSyncing(false);
     }
   };
 
   // LOAD DB METRICS
-  const companies = getCompanies();
-  const accessibleCompanies = isGroupAdmin(activeUserId)
-    ? companies
-    : companies.filter((c) => canAccessCompany(activeUserId, c.id));
+  const companies = useMemo(() => getCompanies(), [dbTick, triggerCount]);
+  const accessibleCompanies = useMemo(
+    () => isGroupAdmin(activeUserId)
+      ? companies
+      : companies.filter((company) => canAccessCompany(activeUserId, company.id)),
+    [activeUserId, companies, rolesState],
+  );
   const canViewConsolidated = isGroupAdmin(activeUserId) || accessibleCompanies.length > 1;
-  const profiles = getProfiles();
+  const profiles = useMemo(() => getProfiles(), [dbTick, triggerCount]);
   const currentCompany =
     activeCompanyId === "all"
       ? {
@@ -250,14 +313,22 @@ export default function App() {
       : rolesState.find(
           (r) => r.userId === activeUserId && r.companyId === activeCompanyId,
         );
-  const pendingApprovalCount = activeUserId
-    ? getTransactions(activeUserId, activeCompanyId).filter(
-        (transaction) => transaction.status === "pending",
-      ).length +
-      getFundTransfers(activeCompanyId).filter(
-        (transfer) => transfer.status === "Pending",
-      ).length
-    : 0;
+  const accessibleTransactions = useMemo(
+    () => activeUserId ? getTransactions(activeUserId) : [],
+    [activeUserId, dbTick, triggerCount],
+  );
+  const pendingApprovalCount = useMemo(() => {
+    if (!activeUserId) return 0;
+    const pendingTransactions = accessibleTransactions.reduce((count, transaction) => {
+      const inScope = activeCompanyId === "all" || transaction.companyId === activeCompanyId;
+      return count + (inScope && transaction.status === "pending" ? 1 : 0);
+    }, 0);
+    const pendingTransfers = getFundTransfers(activeCompanyId).reduce(
+      (count, transfer) => count + (transfer.status === "Pending" ? 1 : 0),
+      0,
+    );
+    return pendingTransactions + pendingTransfers;
+  }, [activeUserId, activeCompanyId, accessibleTransactions, dbTick, triggerCount]);
   const unreadMessageCount = chatConversations.filter((conversation) =>
     isConversationUnread(
       conversation,
@@ -374,28 +445,24 @@ export default function App() {
     return `${currentRole?.replace("_", " ")} (${currentCompany?.code})`;
   }, [activeUserId, activeCompanyId, currentRole, currentCompany]);
 
-  // Aggregate Total Treasury cash asset across all pre-seeded companies (group statistics)
+  // Aggregate group statistics from one cached transaction snapshot. Previously
+  // this rescanned the full transaction array once per company and once per day.
   const groupTotalTreasury = useMemo(() => {
-    // Collect from mock transactions
-    let sum = 0;
-    companies.forEach((com) => {
-      const txns = getTransactions(activeUserId, com.id).filter(
-        (t) => t.status === "approved",
-      );
-      const inflow = txns
-        .filter((t) => t.type === "cash_in")
-        .reduce((acc, t) => acc + t.amount, 0);
-      const outflow = txns
-        .filter((t) => t.type === "cash_out")
-        .reduce((acc, t) => acc + t.amount, 0);
-      sum += inflow - outflow;
-    });
-    return sum;
-  }, [companies, activeUserId, triggerCount]);
+    return accessibleTransactions.reduce((sum, transaction) => {
+      if (transaction.status !== "approved") return sum;
+      return sum + (transaction.type === "cash_in" ? transaction.amount : -transaction.amount);
+    }, 0);
+  }, [accessibleTransactions]);
 
   const groupTreasuryTrend = useMemo(() => {
     const today = new Date();
     const data: { date: string; balance: number }[] = [];
+    const dailyNet = new Map<string, number>();
+    accessibleTransactions.forEach((transaction) => {
+      if (transaction.status !== "approved") return;
+      const amount = transaction.type === "cash_in" ? transaction.amount : -transaction.amount;
+      dailyNet.set(transaction.txnDate, (dailyNet.get(transaction.txnDate) ?? 0) + amount);
+    });
     let currentBalance = groupTotalTreasury;
 
     // Calculate balances for the last 7 days backwards
@@ -406,22 +473,11 @@ export default function App() {
 
       data.unshift({ date: dateStr, balance: currentBalance });
 
-      // Remove the net of that day to get the previous day's balance
-      companies.forEach((com) => {
-        const txns = getTransactions(activeUserId, com.id).filter(
-          (t) => t.status === "approved" && t.txnDate === dateStr,
-        );
-        const inflow = txns
-          .filter((t) => t.type === "cash_in")
-          .reduce((acc, t) => acc + t.amount, 0);
-        const outflow = txns
-          .filter((t) => t.type === "cash_out")
-          .reduce((acc, t) => acc + t.amount, 0);
-        currentBalance -= inflow - outflow;
-      });
+      // Remove the net of that day to get the previous day's balance.
+      currentBalance -= dailyNet.get(dateStr) ?? 0;
     }
     return data;
-  }, [groupTotalTreasury, companies, activeUserId, triggerCount]);
+  }, [groupTotalTreasury, accessibleTransactions]);
 
   // Sync session logs upon profiling swaps
   const handleUserSwap = (userId: string) => {
@@ -580,44 +636,57 @@ export default function App() {
         {/* COMPREHENSIVE CONTROLS DECK */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
           {/* SYNC CONTROLS */}
-          <div className="hidden xl:flex items-center gap-3 bg-white border border-slate-200 px-3.5 py-1.5 rounded-xl shadow-inner shrink-0">
-            <div className="flex flex-col gap-1">
+          <div
+            className="flex items-center gap-2 xl:gap-3 bg-white border border-slate-200 px-2.5 xl:px-3.5 py-1.5 rounded-xl shadow-inner shrink-0"
+            title={databaseSync.lastError || `${syncStatusLabel}. Click to verify cloud sync.`}
+          >
+            <div className="hidden md:flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest leading-none">
-                  Last Sync
+                  Cloud Save
                 </span>
                 <div className="relative flex h-1.5 w-1.5">
-                  <motion.span
-                    key={lastSyncTime.getTime()}
-                    initial={{ scale: 0.5, opacity: 1 }}
-                    animate={{ scale: 3.5, opacity: 0 }}
-                    transition={{ duration: 1.2, ease: "easeOut" }}
-                    className="absolute inline-flex h-full w-full rounded-full bg-[#00B67A]"
+                  {effectiveSyncStatus === "syncing" && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                  )}
+                  <span
+                    className={`relative inline-flex h-1.5 w-1.5 rounded-full ${
+                      effectiveSyncStatus === "failed"
+                        ? "bg-red-500"
+                        : effectiveSyncStatus === "syncing"
+                          ? "bg-amber-500"
+                          : "bg-[#00B67A]"
+                    }`}
                   />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00B67A]"></span>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-slate-700 leading-none">
-                {lastSyncTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+              <span className={`text-[10px] font-mono font-bold leading-none ${syncStatusColor}`}>
+                {syncStatusLabel}
+                {databaseSync.pendingWrites > 0 ? ` (${databaseSync.pendingWrites})` : ""}
+                {lastSyncTime && effectiveSyncStatus === "saved"
+                  ? ` · ${lastSyncTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  : ""}
               </span>
             </div>
-            <div className="w-[1px] h-6 bg-slate-50"></div>
+            <div className="hidden md:block w-px h-6 bg-slate-100" />
             <button
               onClick={handleManualSync}
               disabled={isSyncing}
-              className="group flex items-center gap-1.5 focus:outline-hidden cursor-pointer shrink-0"
-              title="Force Data Sync"
+              className="group flex items-center gap-1.5 focus:outline-hidden disabled:cursor-wait cursor-pointer shrink-0"
+              title={effectiveSyncStatus === "failed" ? "Retry failed cloud saves" : "Verify cloud sync"}
+              aria-label={`${syncStatusLabel}. ${effectiveSyncStatus === "failed" ? "Retry cloud save" : "Verify cloud sync"}`}
             >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin text-[#00B67A]" : "text-slate-600 group-hover:text-slate-900 transition-colors"}`}
-              />
+              {effectiveSyncStatus === "failed" ? (
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+              ) : effectiveSyncStatus === "saved" ? (
+                <CheckCircle2 className="w-4 h-4 text-[#00B67A]" />
+              ) : (
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+              )}
               <span
-                className={`text-[10px] font-bold uppercase tracking-wider ${isSyncing ? "text-[#00B67A]" : "text-slate-600 group-hover:text-slate-900 transition-colors"}`}
+                className={`hidden xl:inline text-[10px] font-bold uppercase tracking-wider ${syncStatusColor}`}
               >
-                {isSyncing ? "Syncing..." : "Sync Now"}
+                {effectiveSyncStatus === "failed" ? "Retry" : syncStatusLabel}
               </span>
             </button>
           </div>
@@ -1014,6 +1083,8 @@ export default function App() {
                       return (
                         <button
                           key={item.id}
+                          onMouseEnter={() => preloadPage(item.id as ActivePage)}
+                          onFocus={() => preloadPage(item.id as ActivePage)}
                           onClick={() => {
                             setActivePage(item.id as any);
                             setMobileSidebarOpen(false);
@@ -1206,6 +1277,7 @@ export default function App() {
               className="space-y-6"
             >
               {/* PAGE COMPONENT BINDINGS */}
+              <React.Suspense fallback={<PageLoadingFallback />}>
 
               {activePage === "accounting_workbench" && (
                 <AccountingOfficerWorkbench
@@ -1287,16 +1359,10 @@ export default function App() {
               )}
 
               {activePage === "messages" && (
-                <React.Suspense
-                  fallback={
-                    <div className="h-[calc(100vh-11rem)] min-h-[620px] animate-pulse rounded-2xl border border-slate-200 bg-slate-100" />
-                  }
-                >
-                  <ChatSystem
-                    userId={activeUserId}
-                    companyId={activeCompanyId}
-                  />
-                </React.Suspense>
+                <ChatSystem
+                  userId={activeUserId}
+                  companyId={activeCompanyId}
+                />
               )}
 
               {activePage === "budgets" && (
@@ -1362,6 +1428,7 @@ export default function App() {
                   setNavOrder={setNavOrder}
                 />
               )}
+              </React.Suspense>
             </motion.div>
           </AnimatePresence>
         </main>
