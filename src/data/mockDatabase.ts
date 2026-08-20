@@ -233,6 +233,7 @@ import {
   collection,
   disableNetwork,
   doc,
+  enableNetwork,
   getDoc,
   getDocs,
   limit as firestoreLimit,
@@ -254,6 +255,149 @@ export function useDBUpdate() {
     return () => window.removeEventListener("db-update", h);
   }, []);
   return tick;
+}
+
+export type DatabaseSyncStatus = "saved" | "syncing" | "failed";
+
+export interface DatabaseSyncSnapshot {
+  status: DatabaseSyncStatus;
+  pendingWrites: number;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  retryAttempt: number;
+}
+
+const DB_SYNC_EVENT = "db-sync-status";
+const pendingSyncKeys = new Set<string>();
+const failedSyncKeys = new Set<string>();
+const syncVersions = new Map<string, number>();
+const syncRetryAttempts = new Map<string, number>();
+let databaseSyncSnapshot: DatabaseSyncSnapshot = {
+  status: "saved",
+  pendingWrites: 0,
+  lastSyncedAt: null,
+  lastError: null,
+  retryAttempt: 0,
+};
+
+const publishDatabaseSyncSnapshot = (updates: Partial<DatabaseSyncSnapshot>) => {
+  databaseSyncSnapshot = {
+    ...databaseSyncSnapshot,
+    ...updates,
+    pendingWrites: pendingSyncKeys.size,
+  };
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent<DatabaseSyncSnapshot>(DB_SYNC_EVENT, {
+      detail: databaseSyncSnapshot,
+    }));
+  }
+};
+
+const queueSyncKey = (key: string): number => {
+  const version = (syncVersions.get(key) ?? 0) + 1;
+  syncVersions.set(key, version);
+  pendingSyncKeys.add(key);
+  failedSyncKeys.delete(key);
+  publishDatabaseSyncSnapshot({
+    status: "syncing",
+    lastError: failedSyncKeys.size > 0 ? databaseSyncSnapshot.lastError : null,
+  });
+  return version;
+};
+
+const markSyncStarted = () => {
+  publishDatabaseSyncSnapshot({
+    status: "syncing",
+    lastError: failedSyncKeys.size > 0 ? databaseSyncSnapshot.lastError : null,
+  });
+};
+
+const markSyncSucceeded = (key: string, version: number) => {
+  if (syncVersions.get(key) !== version) return;
+  pendingSyncKeys.delete(key);
+  failedSyncKeys.delete(key);
+  syncRetryAttempts.delete(key);
+  const hasFailures = failedSyncKeys.size > 0;
+  publishDatabaseSyncSnapshot({
+    status: hasFailures
+      ? "failed"
+      : pendingSyncKeys.size > 0
+        ? "syncing"
+        : "saved",
+    lastSyncedAt: new Date().toISOString(),
+    lastError: hasFailures ? databaseSyncSnapshot.lastError : null,
+    retryAttempt: hasFailures ? databaseSyncSnapshot.retryAttempt : 0,
+  });
+};
+
+const getSyncErrorMessage = (error: unknown): string => {
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || "Cloud save failed");
+  }
+  return "Cloud save failed";
+};
+
+const markSyncFailed = (key: string, error: unknown): number => {
+  pendingSyncKeys.add(key);
+  failedSyncKeys.add(key);
+  const retryAttempt = (syncRetryAttempts.get(key) ?? 0) + 1;
+  syncRetryAttempts.set(key, retryAttempt);
+  publishDatabaseSyncSnapshot({
+    status: "failed",
+    lastError: getSyncErrorMessage(error),
+    retryAttempt,
+  });
+  return retryAttempt;
+};
+
+const getRetryDelay = (attempt: number) =>
+  Math.min(60_000, 2_000 * (2 ** Math.min(attempt - 1, 5)));
+
+const FIRESTORE_WRITE_TIMEOUT_MS = 15_000;
+
+const withFirestoreWriteTimeout = async <T>(operation: Promise<T>): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error("Cloud save timed out. Check the internet connection.")),
+      FIRESTORE_WRITE_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+export function getDatabaseSyncSnapshot(): DatabaseSyncSnapshot {
+  return databaseSyncSnapshot;
+}
+
+export function useDatabaseSyncStatus(): DatabaseSyncSnapshot {
+  const [snapshot, setSnapshot] = useState(getDatabaseSyncSnapshot);
+  useEffect(() => {
+    const handleStatus = (event: Event) => {
+      setSnapshot((event as CustomEvent<DatabaseSyncSnapshot>).detail);
+    };
+    const handleOnline = () => {
+      retryPendingDatabaseWrites().catch(() => undefined);
+    };
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (pendingSyncKeys.size === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener(DB_SYNC_EVENT, handleStatus);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener(DB_SYNC_EVENT, handleStatus);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+  return snapshot;
 }
 
 // Localstorage helper
@@ -305,7 +449,7 @@ const commitFirestoreOperations = async (
       if (operation.remove) batch.delete(recordRef);
       else batch.set(recordRef, sanitizeEntityRecord(operation.data!), { merge: true });
     });
-    await batch.commit();
+    await withFirestoreWriteTimeout(batch.commit());
     completed += chunk.length;
     onProgress?.(completed, operations.length);
   }
@@ -358,6 +502,19 @@ const requeueEntityChanges = (
   pendingEntityDeletes[key] = deleteQueue;
 };
 
+const scheduleEntityFlush = (
+  key: EntityCollectionKey,
+  version: number,
+  delay: number,
+) => {
+  const existingTimer = pendingEntityWriteTimers[key];
+  if (existingTimer) clearTimeout(existingTimer);
+  pendingEntityWriteTimers[key] = setTimeout(() => {
+    if (syncVersions.get(key) !== version) return;
+    flushPendingEntityWrites([key]).catch(() => undefined);
+  }, delay);
+};
+
 export const flushPendingEntityWrites = async (
   keys: EntityCollectionKey[] = [KEYS.TRANSACTIONS, KEYS.AUDIT_LOGS],
 ): Promise<void> => {
@@ -371,16 +528,29 @@ export const flushPendingEntityWrites = async (
     pendingEntityUpserts[key]?.clear();
     pendingEntityDeletes[key]?.clear();
     if (upserts.length === 0 && deleteIds.length === 0) continue;
+    const version = syncVersions.get(key) ?? queueSyncKey(key);
+    markSyncStarted();
 
     try {
+      if (localStorage.getItem("quota_exceeded") === "true") {
+        await enableNetwork(db);
+      }
       await commitEntityChanges(key, upserts, deleteIds);
       localStorage.removeItem("quota_exceeded");
+      markSyncSucceeded(key, version);
     } catch (error: any) {
       requeueEntityChanges(key, upserts, deleteIds);
       if (error?.code === "resource-exhausted") {
         localStorage.setItem("quota_exceeded", "true");
       }
+      const attempt = markSyncFailed(key, error);
+      scheduleEntityFlush(key, version, getRetryDelay(attempt));
       console.error(`Firestore ${ENTITY_COLLECTION_NAMES[key]} write failed:`, error);
+      if (IS_PRODUCTION && attempt === 1) {
+        toast.error("Save not confirmed", {
+          description: "The cloud save failed. Retrying automatically; keep this page open.",
+        });
+      }
       throw error;
     }
   }
@@ -388,16 +558,8 @@ export const flushPendingEntityWrites = async (
 
 const queueEntityChanges = (key: EntityCollectionKey, changes: EntityChangeSet) => {
   requeueEntityChanges(key, changes.upserts ?? [], changes.deleteIds ?? []);
-  const existingTimer = pendingEntityWriteTimers[key];
-  if (existingTimer) clearTimeout(existingTimer);
-  pendingEntityWriteTimers[key] = setTimeout(() => {
-    flushPendingEntityWrites([key]).catch(() => {
-      if (!IS_PRODUCTION) return;
-      toast.error("Save not confirmed", {
-        description: "The cloud save failed. Keep this page open and try again.",
-      });
-    });
-  }, FIRESTORE_WRITE_DEBOUNCE_MS);
+  const version = queueSyncKey(key);
+  scheduleEntityFlush(key, version, FIRESTORE_WRITE_DEBOUNCE_MS);
 };
 
 const mergeEntityRecords = <T extends EntityRecord>(legacy: T[], current: T[]): T[] => {
@@ -539,13 +701,33 @@ const mergeArraysByFreshness = (key: string, localArr: any[], remoteArr: any[]):
   return stripTombstonedIds(key, merged);
 };
 
-const scheduleFirestoreWrite = (key: string) => {
+const scheduleFirestoreWrite = (
+  key: string,
+  delay = FIRESTORE_WRITE_DEBOUNCE_MS,
+  existingVersion?: number,
+) => {
+  const version = existingVersion ?? queueSyncKey(key);
   if (pendingWriteTimers[key]) clearTimeout(pendingWriteTimers[key]);
-  pendingWriteTimers[key] = setTimeout(async () => {
+  pendingWriteTimers[key] = setTimeout(() => {
     delete pendingWriteTimers[key];
-    if (localStorage.getItem("quota_exceeded") === "true") return;
-    const latest = localStorage.getItem(key);
-    if (latest === null) return;
+    executeFirestoreWrite(key, version).catch(() => undefined);
+  }, delay);
+};
+
+async function executeFirestoreWrite(key: string, version: number): Promise<void> {
+  if (syncVersions.get(key) !== version) return;
+  const latest = localStorage.getItem(key);
+  if (latest === null) {
+    markSyncSucceeded(key, version);
+    return;
+  }
+
+  markSyncStarted();
+  try {
+    if (localStorage.getItem("quota_exceeded") === "true") {
+      await enableNetwork(db);
+    }
+
     const docRef = doc(db, "appData", key);
     const localVal = JSON.parse(latest);
     let cleanVal = localVal;
@@ -564,13 +746,55 @@ const scheduleFirestoreWrite = (key: string) => {
       }
     }
 
-    safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true }).catch(() => {
-      if (!IS_PRODUCTION) return;
+    await safeSetDoc(docRef, { data: sanitizeForFirestore(cleanVal) }, { merge: true });
+    markSyncSucceeded(key, version);
+  } catch (error) {
+    const attempt = markSyncFailed(key, error);
+    scheduleFirestoreWrite(key, getRetryDelay(attempt), version);
+    if (IS_PRODUCTION && attempt === 1) {
       window.dispatchEvent(new Event("db-update"));
-      toast.error("Save not confirmed", { description: "Firestore rejected the update. The local change was rolled back." });
-    });
-  }, FIRESTORE_WRITE_DEBOUNCE_MS);
-};
+      toast.error("Save not confirmed", {
+        description: "The cloud save failed. Retrying automatically; keep this page open.",
+      });
+    }
+    throw error;
+  }
+}
+
+export async function retryPendingDatabaseWrites(): Promise<void> {
+  const keys = Array.from(pendingSyncKeys);
+  if (keys.length === 0) return;
+
+  markSyncStarted();
+  try {
+    await enableNetwork(db);
+    localStorage.removeItem("quota_exceeded");
+  } catch (error) {
+    keys.forEach((key) => markSyncFailed(key, error));
+    throw error;
+  }
+
+  const entityKeys = keys.filter(isEntityCollectionKey);
+  const appDataKeys = keys.filter((key) => !isEntityCollectionKey(key));
+
+  entityKeys.forEach((key) => {
+    const timer = pendingEntityWriteTimers[key];
+    if (timer) clearTimeout(timer);
+    delete pendingEntityWriteTimers[key];
+  });
+  appDataKeys.forEach((key) => {
+    const timer = pendingWriteTimers[key];
+    if (timer) clearTimeout(timer);
+    delete pendingWriteTimers[key];
+  });
+
+  const results = await Promise.allSettled([
+    flushPendingEntityWrites(entityKeys),
+    ...appDataKeys.map((key) => executeFirestoreWrite(key, syncVersions.get(key)!)),
+  ]);
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed?.status === "rejected") throw failed.reason;
+}
 
 export async function hydrateDatabaseFromFirestore(): Promise<void> {
   if (!IS_PRODUCTION || !db) return;
@@ -670,7 +894,11 @@ export async function hydrateDatabaseFromFirestore(): Promise<void> {
     );
     cacheEntityRecords(KEYS.TRANSACTIONS, transactions);
     cacheEntityRecords(KEYS.AUDIT_LOGS, auditLogs);
-    localStorage.setItem(`${DB_PREFIX}production_hydrated_at`, new Date().toISOString());
+    const hydratedAt = new Date().toISOString();
+    localStorage.setItem(`${DB_PREFIX}production_hydrated_at`, hydratedAt);
+    if (pendingSyncKeys.size === 0) {
+      publishDatabaseSyncSnapshot({ status: "saved", lastSyncedAt: hydratedAt, lastError: null });
+    }
   } catch (error) {
     // A previously confirmed Firestore snapshot may be used as an offline cache.
     if (!localStorage.getItem(KEYS.COMPANIES)) throw error;
@@ -680,7 +908,7 @@ export async function hydrateDatabaseFromFirestore(): Promise<void> {
 
 const safeSetDoc = async (docRef: any, data: any, options: any) => {
   try {
-    await setDoc(docRef, data, options);
+    await withFirestoreWriteTimeout(setDoc(docRef, data, options));
     localStorage.removeItem("quota_exceeded");
   } catch (error: any) {
     if (error?.code === 'resource-exhausted') {
@@ -785,11 +1013,6 @@ const save = <T>(key: string, val: T, entityChanges?: EntityChangeSet): void => 
       if (entityChanges && !entityChanges.skipRemote) queueEntityChanges(key, entityChanges);
       return;
     }
-    if (localStorage.getItem("quota_exceeded") === "true") {
-      // Network is disabled while quota is exceeded; skip syncing until it recovers
-      // (safeSetDoc clears this flag automatically once a write succeeds again).
-      return;
-    }
     scheduleFirestoreWrite(key);
   }
 };
@@ -805,10 +1028,6 @@ const saveSilent = <T>(key: string, val: T, entityChanges?: EntityChangeSet): vo
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
     if (isEntityCollectionKey(key)) {
       if (entityChanges && !entityChanges.skipRemote) queueEntityChanges(key, entityChanges);
-      return;
-    }
-    if (localStorage.getItem("quota_exceeded") === "true") {
-      // Network is disabled while quota is exceeded; skip syncing until it recovers.
       return;
     }
     scheduleFirestoreWrite(key);
