@@ -305,6 +305,8 @@ export interface Transaction {
   transferRef?: string | null;
   sourceModule?: 'ap' | 'ar';
   sourceRecordId?: string;
+  importBatchId?: string;
+  importRowNumber?: number;
   tags?: string[] | null;
   createdAt: string;
   updatedAt: string;

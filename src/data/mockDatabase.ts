@@ -229,7 +229,19 @@ export const DEFAULT_CASH_OUT_CATEGORIES = [...SHARED_CATEGORIES];
 
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { collection, doc, getDoc, getDocs, setDoc, disableNetwork } from "firebase/firestore";
+import {
+  collection,
+  disableNetwork,
+  doc,
+  getDoc,
+  getDocs,
+  limit as firestoreLimit,
+  onSnapshot,
+  orderBy,
+  query,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { toast } from "sonner";
 
 let hasNotifiedQuota = false;
@@ -250,6 +262,221 @@ let dbInitialized = false;
 let isSeeding = false;
 let lastLocalWriteTime = 0;
 const IS_PRODUCTION = import.meta.env.PROD;
+
+type EntityCollectionKey = typeof KEYS.TRANSACTIONS | typeof KEYS.AUDIT_LOGS;
+type EntityRecord = { id: string; updatedAt?: string; createdAt?: string };
+type EntityChangeSet = {
+  upserts?: EntityRecord[];
+  deleteIds?: string[];
+  skipRemote?: boolean;
+};
+
+const ENTITY_COLLECTION_NAMES: Record<EntityCollectionKey, string> = {
+  [KEYS.TRANSACTIONS]: "transactions",
+  [KEYS.AUDIT_LOGS]: "audit_logs",
+};
+const ENTITY_MIGRATION_COLLECTION = "appData";
+const ENTITY_MIGRATION_DOCUMENT = "storage_migration_transactions-audit-logs-v1";
+const ENTITY_RECOVERY_KEY = `${DB_PREFIX}unsynced_entity_recovery`;
+const FIRESTORE_BATCH_OPERATION_LIMIT = 400;
+const LOCAL_AUDIT_LOG_LIMIT = 1000;
+const pendingEntityUpserts: Partial<Record<EntityCollectionKey, Map<string, EntityRecord>>> = {};
+const pendingEntityDeletes: Partial<Record<EntityCollectionKey, Set<string>>> = {};
+const pendingEntityWriteTimers: Partial<Record<EntityCollectionKey, ReturnType<typeof setTimeout>>> = {};
+
+const isEntityCollectionKey = (key: string): key is EntityCollectionKey =>
+  key === KEYS.TRANSACTIONS || key === KEYS.AUDIT_LOGS;
+
+const sanitizeEntityRecord = <T extends EntityRecord>(record: T): T =>
+  JSON.parse(JSON.stringify(record)) as T;
+
+const commitFirestoreOperations = async (
+  operations: Array<{ collectionName: string; id: string; data?: EntityRecord; remove?: boolean }>,
+  onProgress?: (completed: number, total: number) => void,
+): Promise<void> => {
+  if (!db || operations.length === 0) return;
+
+  let completed = 0;
+  for (let i = 0; i < operations.length; i += FIRESTORE_BATCH_OPERATION_LIMIT) {
+    const chunk = operations.slice(i, i + FIRESTORE_BATCH_OPERATION_LIMIT);
+    const batch = writeBatch(db);
+    chunk.forEach((operation) => {
+      const recordRef = doc(db, operation.collectionName, operation.id);
+      if (operation.remove) batch.delete(recordRef);
+      else batch.set(recordRef, sanitizeEntityRecord(operation.data!), { merge: true });
+    });
+    await batch.commit();
+    completed += chunk.length;
+    onProgress?.(completed, operations.length);
+  }
+};
+
+const commitEntityChanges = async (
+  key: EntityCollectionKey,
+  upserts: EntityRecord[] = [],
+  deleteIds: string[] = [],
+): Promise<void> => {
+  const collectionName = ENTITY_COLLECTION_NAMES[key];
+  await commitFirestoreOperations([
+    ...upserts.map((data) => ({ collectionName, id: data.id, data })),
+    ...deleteIds.map((id) => ({ collectionName, id, remove: true })),
+  ]);
+};
+
+const clearEntityCollections = async (keys: EntityCollectionKey[]): Promise<void> => {
+  if (!db) return;
+  const snapshots = await Promise.all(
+    keys.map((key) => getDocs(collection(db, ENTITY_COLLECTION_NAMES[key]))),
+  );
+  await commitFirestoreOperations(
+    snapshots.flatMap((snapshot, index) =>
+      snapshot.docs.map((entry) => ({
+        collectionName: ENTITY_COLLECTION_NAMES[keys[index]],
+        id: entry.id,
+        remove: true,
+      })),
+    ),
+  );
+};
+
+const requeueEntityChanges = (
+  key: EntityCollectionKey,
+  upserts: EntityRecord[],
+  deleteIds: string[],
+) => {
+  const upsertQueue = pendingEntityUpserts[key] ?? new Map<string, EntityRecord>();
+  const deleteQueue = pendingEntityDeletes[key] ?? new Set<string>();
+  upserts.forEach((record) => {
+    upsertQueue.set(record.id, record);
+    deleteQueue.delete(record.id);
+  });
+  deleteIds.forEach((id) => {
+    deleteQueue.add(id);
+    upsertQueue.delete(id);
+  });
+  pendingEntityUpserts[key] = upsertQueue;
+  pendingEntityDeletes[key] = deleteQueue;
+};
+
+export const flushPendingEntityWrites = async (
+  keys: EntityCollectionKey[] = [KEYS.TRANSACTIONS, KEYS.AUDIT_LOGS],
+): Promise<void> => {
+  for (const key of keys) {
+    const timer = pendingEntityWriteTimers[key];
+    if (timer) clearTimeout(timer);
+    delete pendingEntityWriteTimers[key];
+
+    const upserts = Array.from(pendingEntityUpserts[key]?.values() ?? []);
+    const deleteIds = Array.from(pendingEntityDeletes[key] ?? []);
+    pendingEntityUpserts[key]?.clear();
+    pendingEntityDeletes[key]?.clear();
+    if (upserts.length === 0 && deleteIds.length === 0) continue;
+
+    try {
+      await commitEntityChanges(key, upserts, deleteIds);
+      localStorage.removeItem("quota_exceeded");
+    } catch (error: any) {
+      requeueEntityChanges(key, upserts, deleteIds);
+      if (error?.code === "resource-exhausted") {
+        localStorage.setItem("quota_exceeded", "true");
+      }
+      console.error(`Firestore ${ENTITY_COLLECTION_NAMES[key]} write failed:`, error);
+      throw error;
+    }
+  }
+};
+
+const queueEntityChanges = (key: EntityCollectionKey, changes: EntityChangeSet) => {
+  requeueEntityChanges(key, changes.upserts ?? [], changes.deleteIds ?? []);
+  const existingTimer = pendingEntityWriteTimers[key];
+  if (existingTimer) clearTimeout(existingTimer);
+  pendingEntityWriteTimers[key] = setTimeout(() => {
+    flushPendingEntityWrites([key]).catch(() => {
+      if (!IS_PRODUCTION) return;
+      toast.error("Save not confirmed", {
+        description: "The cloud save failed. Keep this page open and try again.",
+      });
+    });
+  }, FIRESTORE_WRITE_DEBOUNCE_MS);
+};
+
+const mergeEntityRecords = <T extends EntityRecord>(legacy: T[], current: T[]): T[] => {
+  const merged = new Map<string, T>();
+  legacy.forEach((record) => merged.set(record.id, record));
+  current.forEach((record) => {
+    const existing = merged.get(record.id);
+    if (!existing) {
+      merged.set(record.id, record);
+      return;
+    }
+    const existingTime = Date.parse(existing.updatedAt || existing.createdAt || "") || 0;
+    const currentTime = Date.parse(record.updatedAt || record.createdAt || "") || 0;
+    if (currentTime >= existingTime) merged.set(record.id, record);
+  });
+  return Array.from(merged.values());
+};
+
+const cacheEntityRecords = (key: EntityCollectionKey, records: EntityRecord[]) => {
+  let ordered = [...records].sort((left, right) => {
+    const leftTime = Date.parse(left.createdAt || left.updatedAt || "") || 0;
+    const rightTime = Date.parse(right.createdAt || right.updatedAt || "") || 0;
+    return rightTime - leftTime;
+  });
+  if (key === KEYS.AUDIT_LOGS) ordered = ordered.slice(0, LOCAL_AUDIT_LOG_LIMIT);
+  localStorage.setItem(key, JSON.stringify(ordered));
+  if (!memoryDb) memoryDb = {};
+  memoryDb[key] = ordered;
+};
+
+const readLocalEntityCache = <T extends EntityRecord>(key: EntityCollectionKey): T[] => {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+};
+
+const preserveUnsyncedLocalRecords = (
+  localTransactions: Transaction[],
+  localAuditLogs: AuditLog[],
+  remoteTransactions: Transaction[],
+  remoteAuditLogs: AuditLog[],
+) => {
+  const transactionIds = new Set(remoteTransactions.map((record) => record.id));
+  const auditIds = new Set(remoteAuditLogs.map((record) => record.id));
+  const unsyncedTransactions = localTransactions.filter((record) => !transactionIds.has(record.id));
+  const unsyncedAuditLogs = localAuditLogs.filter((record) => !auditIds.has(record.id));
+  if (unsyncedTransactions.length === 0 && unsyncedAuditLogs.length === 0) return;
+
+  localStorage.setItem(
+    ENTITY_RECOVERY_KEY,
+    JSON.stringify({
+      capturedAt: new Date().toISOString(),
+      transactions: unsyncedTransactions,
+      auditLogs: unsyncedAuditLogs,
+    }),
+  );
+  console.warn("Unsynced local finance records were preserved for recovery.", {
+    transactions: unsyncedTransactions.length,
+    auditLogs: unsyncedAuditLogs.length,
+  });
+};
+
+export function getUnsyncedEntityRecoverySnapshot(): {
+  capturedAt: string;
+  transactions: Transaction[];
+  auditLogs: AuditLog[];
+} | null {
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(ENTITY_RECOVERY_KEY) || "null");
+    return snapshot && Array.isArray(snapshot.transactions) && Array.isArray(snapshot.auditLogs)
+      ? snapshot
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 // Coalesce rapid successive writes to the same key into a single Firestore write,
 // so bursts of edits (bulk entry, fast clicking) don't send one write per edit.
@@ -349,20 +576,100 @@ export async function hydrateDatabaseFromFirestore(): Promise<void> {
   if (!IS_PRODUCTION || !db) return;
 
   try {
-    const snapshot = await getDocs(collection(db, "appData"));
-    if (snapshot.empty) {
+    const localTransactionsBeforeHydration = readLocalEntityCache<Transaction>(KEYS.TRANSACTIONS);
+    const localAuditLogsBeforeHydration = readLocalEntityCache<AuditLog>(KEYS.AUDIT_LOGS);
+    const [legacySnapshot, transactionSnapshot, auditSnapshot, migrationSnapshot] = await Promise.all([
+      getDocs(collection(db, "appData")),
+      getDocs(collection(db, ENTITY_COLLECTION_NAMES[KEYS.TRANSACTIONS])),
+      getDocs(
+        query(
+          collection(db, ENTITY_COLLECTION_NAMES[KEYS.AUDIT_LOGS]),
+          orderBy("createdAt", "desc"),
+          firestoreLimit(LOCAL_AUDIT_LOG_LIMIT),
+        ),
+      ),
+      getDoc(doc(db, ENTITY_MIGRATION_COLLECTION, ENTITY_MIGRATION_DOCUMENT)),
+    ]);
+
+    if (legacySnapshot.empty && transactionSnapshot.empty && auditSnapshot.empty) {
       throw new Error("The production Firestore database is empty. Seed data was not created for safety.");
     }
 
     if (!memoryDb) memoryDb = {};
-    snapshot.forEach(remoteDoc => {
+    let legacyTransactions: Transaction[] = [];
+    let legacyAuditLogs: AuditLog[] = [];
+    legacySnapshot.forEach(remoteDoc => {
       const key = remoteDoc.id;
       if (key === "master" || !Object.values(KEYS).includes(key)) return;
       const remoteData = remoteDoc.data().data;
       if (remoteData === undefined) return;
+      if (key === KEYS.TRANSACTIONS) {
+        legacyTransactions = Array.isArray(remoteData) ? remoteData : [];
+        return;
+      }
+      if (key === KEYS.AUDIT_LOGS) {
+        legacyAuditLogs = Array.isArray(remoteData) ? remoteData : [];
+        return;
+      }
       localStorage.setItem(key, JSON.stringify(remoteData));
       memoryDb![key] = remoteData;
     });
+
+    const collectionTransactions = transactionSnapshot.docs.map((entry) => entry.data() as Transaction);
+    const collectionAuditLogs = auditSnapshot.docs.map((entry) => entry.data() as AuditLog);
+    const migrationComplete = migrationSnapshot.data()?.status === "complete";
+
+    let transactions = collectionTransactions;
+    let auditLogs = collectionAuditLogs;
+
+    if (!migrationComplete) {
+      transactions = mergeEntityRecords(legacyTransactions, collectionTransactions);
+      auditLogs = mergeEntityRecords(legacyAuditLogs, collectionAuditLogs);
+
+      await commitFirestoreOperations([
+        ...transactions.map((data) => ({
+          collectionName: ENTITY_COLLECTION_NAMES[KEYS.TRANSACTIONS],
+          id: data.id,
+          data,
+        })),
+        ...auditLogs.map((data) => ({
+          collectionName: ENTITY_COLLECTION_NAMES[KEYS.AUDIT_LOGS],
+          id: data.id,
+          data,
+        })),
+      ]);
+      await setDoc(
+        doc(db, ENTITY_MIGRATION_COLLECTION, ENTITY_MIGRATION_DOCUMENT),
+        {
+          status: "complete",
+          transactionCount: transactions.length,
+          auditLogCount: auditLogs.length,
+          completedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+    } else {
+      // A completed marker makes the per-record collections authoritative.
+      // If a collection is unexpectedly empty, retain the legacy snapshot as a
+      // recovery fallback instead of replacing the browser cache with nothing.
+      if (transactions.length === 0 && legacyTransactions.length > 0) {
+        console.error("Transaction collection is empty after migration; using the legacy recovery snapshot.");
+        transactions = legacyTransactions;
+      }
+      if (auditLogs.length === 0 && legacyAuditLogs.length > 0) {
+        console.error("Audit log collection is empty after migration; using the legacy recovery snapshot.");
+        auditLogs = legacyAuditLogs;
+      }
+    }
+
+    preserveUnsyncedLocalRecords(
+      localTransactionsBeforeHydration,
+      localAuditLogsBeforeHydration,
+      transactions,
+      auditLogs,
+    );
+    cacheEntityRecords(KEYS.TRANSACTIONS, transactions);
+    cacheEntityRecords(KEYS.AUDIT_LOGS, auditLogs);
     localStorage.setItem(`${DB_PREFIX}production_hydrated_at`, new Date().toISOString());
   } catch (error) {
     // A previously confirmed Firestore snapshot may be used as an offline cache.
@@ -460,7 +767,7 @@ const sanitizeForFirestore = (data: any) => {
   return cleaned;
 };
 
-const save = <T>(key: string, val: T): void => {
+const save = <T>(key: string, val: T, entityChanges?: EntityChangeSet): void => {
   if (!isSeeding) {
     lastLocalWriteTime = Date.now();
   }
@@ -474,6 +781,10 @@ const save = <T>(key: string, val: T): void => {
   }, 0);
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
+    if (isEntityCollectionKey(key)) {
+      if (entityChanges && !entityChanges.skipRemote) queueEntityChanges(key, entityChanges);
+      return;
+    }
     if (localStorage.getItem("quota_exceeded") === "true") {
       // Network is disabled while quota is exceeded; skip syncing until it recovers
       // (safeSetDoc clears this flag automatically once a write succeeds again).
@@ -483,7 +794,7 @@ const save = <T>(key: string, val: T): void => {
   }
 };
 
-const saveSilent = <T>(key: string, val: T): void => {
+const saveSilent = <T>(key: string, val: T, entityChanges?: EntityChangeSet): void => {
   if (!isSeeding) {
     lastLocalWriteTime = Date.now();
   }
@@ -492,6 +803,10 @@ const saveSilent = <T>(key: string, val: T): void => {
   memoryDb[key] = val;
 
   if (db && !isSeeding && key !== KEYS.CURRENT_USER_ID && key !== KEYS.SELECTED_COMPANY_ID) {
+    if (isEntityCollectionKey(key)) {
+      if (entityChanges && !entityChanges.skipRemote) queueEntityChanges(key, entityChanges);
+      return;
+    }
     if (localStorage.getItem("quota_exceeded") === "true") {
       // Network is disabled while quota is exceeded; skip syncing until it recovers.
       return;
@@ -987,7 +1302,7 @@ export function initDB() {
 
           snap.docChanges().forEach((change) => {
              const k = change.doc.id;
-             if (k === "master") return; // ignore legacy master document
+             if (k === "master" || isEntityCollectionKey(k)) return;
              if (Object.values(KEYS).includes(k)) {
                 if (change.type === "added" || change.type === "modified") {
                    const remoteData = change.doc.data().data;
@@ -1049,6 +1364,44 @@ export function initDB() {
           }
         }
       );
+
+      ([KEYS.TRANSACTIONS, KEYS.AUDIT_LOGS] as EntityCollectionKey[]).forEach((key) => {
+        const entityCollection = collection(db, ENTITY_COLLECTION_NAMES[key]);
+        const entitySource = key === KEYS.AUDIT_LOGS
+          ? query(entityCollection, orderBy("createdAt", "desc"), firestoreLimit(LOCAL_AUDIT_LOG_LIMIT))
+          : entityCollection;
+        onSnapshot(
+          entitySource,
+          (snapshot) => {
+            const current = load<EntityRecord[]>(key, []);
+            const byId = new Map(current.map((record) => [record.id, record]));
+            let changed = false;
+
+            snapshot.docChanges().forEach((change) => {
+              const id = change.doc.id;
+              if (change.type === "removed") {
+                if (byId.delete(id)) changed = true;
+                return;
+              }
+
+              const incoming = change.doc.data() as EntityRecord;
+              const existing = byId.get(id);
+              const incomingTime = Date.parse(incoming.updatedAt || incoming.createdAt || "") || 0;
+              const existingTime = Date.parse(existing?.updatedAt || existing?.createdAt || "") || 0;
+              if (!existing || incomingTime >= existingTime) {
+                byId.set(id, incoming);
+                changed = true;
+              }
+            });
+
+            if (changed) {
+              cacheEntityRecords(key, Array.from(byId.values()));
+              window.dispatchEvent(new Event("db-update"));
+            }
+          },
+          (error) => console.error(`Firestore ${ENTITY_COLLECTION_NAMES[key]} listener error:`, error),
+        );
+      });
     });
   }
 }
@@ -1232,6 +1585,24 @@ export function canManagePeriodClose(userId: string, companyId: string): boolean
   );
 }
 
+const createAuditLogRecord = (
+  actorId: string,
+  companyId: string | null,
+  action: string,
+  entity: string,
+  entityId: string | null,
+  details: Record<string, any>,
+): AuditLog => ({
+    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    companyId,
+    actorId,
+    action,
+    entity,
+    entityId,
+    details,
+    createdAt: new Date().toISOString(),
+  });
+
 // Log audit action
 export function writeAuditLog(
   actorId: string,
@@ -1242,18 +1613,10 @@ export function writeAuditLog(
   details: Record<string, any>,
 ): void {
   const currentLogs = load<AuditLog[]>(KEYS.AUDIT_LOGS, []);
-  const newLog: AuditLog = {
-    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    companyId,
-    actorId,
-    action,
-    entity,
-    entityId,
-    details,
-    createdAt: new Date().toISOString(),
-  };
+  const newLog = createAuditLogRecord(actorId, companyId, action, entity, entityId, details);
   currentLogs.unshift(newLog); // Put at top
-  save(KEYS.AUDIT_LOGS, currentLogs);
+  if (currentLogs.length > LOCAL_AUDIT_LOG_LIMIT) currentLogs.length = LOCAL_AUDIT_LOG_LIMIT;
+  save(KEYS.AUDIT_LOGS, currentLogs, { upserts: [newLog] });
 }
 
 export function getAuditLogs(
@@ -1611,6 +1974,7 @@ export async function emptyDataExceptCashAccounts(userId: string) {
       });
 
       await batch.commit();
+      await clearEntityCollections([KEYS.TRANSACTIONS, KEYS.AUDIT_LOGS]);
     } catch (e: any) {
       if (e?.code !== 'resource-exhausted') {
         console.error("Failed to write to Firestore:", e);
@@ -1649,6 +2013,7 @@ export async function emptyDashboardData(userId: string) {
         batch.set(docRef, { data: [] }, { merge: true });
       });
       await batch.commit();
+      await clearEntityCollections([KEYS.TRANSACTIONS, KEYS.AUDIT_LOGS]);
     } catch (e: any) {
       if (e?.code !== 'resource-exhausted') {
         console.error("Failed to write to Firestore:", e);
@@ -1746,60 +2111,65 @@ export function getTransactions(
   });
 }
 
-// Encode new Transaction
-export function insertTransaction(
-  userId: string,
-  data: Omit<
-    Transaction,
-    "id" | "status" | "encodedBy" | "createdAt" | "updatedAt"
-  >,
-): { error?: string; transaction?: Transaction } {
+type TransactionInput = Omit<
+  Transaction,
+  "id" | "status" | "encodedBy" | "createdAt" | "updatedAt"
+>;
+
+const validateTransactionInput = (userId: string, data: TransactionInput): string | undefined => {
   // Validate Security Write Privileges
   if (!canWriteFinance(userId, data.companyId)) {
-    return {
-      error:
-        "Security Enforcement: Insufficient privileges to encode financial transaction for this company.",
-    };
+    return "Security Enforcement: Insufficient privileges to encode financial transaction for this company.";
   }
 
   const periodLockError = getAccountingPeriodLockError(data.companyId, data.txnDate);
-  if (periodLockError) return { error: periodLockError };
+  if (periodLockError) return periodLockError;
 
   // Validate Constraints & Category Match
   const categories = getCategories(data.companyId);
   const matchedCat = categories.find((c) => c.id === data.categoryId);
   if (!matchedCat) {
-    return {
-      error:
-        "Database Constraint Error: Category does not exist or does not belong to target company.",
-    };
+    return "Database Constraint Error: Category does not exist or does not belong to target company.";
   }
   if (matchedCat.type !== data.type) {
-    return {
-      error:
-        "Database Constraint Error: Cashflow type does not match of selected category.",
-    };
+    return "Database Constraint Error: Cashflow type does not match of selected category.";
   }
   if (data.amount <= 0) {
-    return {
-      error:
-        "Value range validation error: Financial amounts must be strictly positive.",
-    };
+    return "Value range validation error: Financial amounts must be strictly positive.";
   }
+  return undefined;
+};
 
-  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
-  const newTxn: Transaction = {
+const buildPendingTransaction = (
+  userId: string,
+  data: TransactionInput,
+  id = `txn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+): Transaction => {
+  const timestamp = new Date().toISOString();
+  return {
     ...data,
-    id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    id,
     requestedCashAccountId: data.requestedCashAccountId ?? data.cashAccountId,
     status: "pending",
     encodedBy: userId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
+};
+
+// Encode new Transaction
+export function insertTransaction(
+  userId: string,
+  data: TransactionInput,
+): { error?: string; transaction?: Transaction } {
+  const validationError = validateTransactionInput(userId, data);
+  if (validationError) return { error: validationError };
+
+  const allTxns = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const newTxn = buildPendingTransaction(userId, data);
 
   allTxns.unshift(newTxn);
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [newTxn] });
 
   if (newTxn.status === "approved" && newTxn.cashAccountId) {
     saveCashLedgerEntry({
@@ -1828,6 +2198,82 @@ export function insertTransaction(
   );
 
   return { transaction: newTxn };
+}
+
+export async function insertTransactionsBatch(
+  userId: string,
+  rows: Array<{ data: TransactionInput; rowNumber: number }>,
+  batchId: string,
+  onProgress?: (completedRows: number, totalRows: number) => void,
+): Promise<{ transactions: Transaction[]; failed: Array<{ rowNumber: number; error: string }> }> {
+  const transactions: Transaction[] = [];
+  const auditLogs: AuditLog[] = [];
+  const failed: Array<{ rowNumber: number; error: string }> = [];
+
+  rows.forEach(({ data, rowNumber }) => {
+    const validationError = validateTransactionInput(userId, data);
+    if (validationError) {
+      failed.push({ rowNumber, error: validationError });
+      return;
+    }
+
+    const transaction = buildPendingTransaction(
+      userId,
+      { ...data, importBatchId: batchId, importRowNumber: rowNumber },
+      `txn-batch-${batchId}-${rowNumber}`,
+    );
+    const auditLog = createAuditLogRecord(
+      userId,
+      data.companyId,
+      "ENCODE_TRANSACTION",
+      "transaction",
+      transaction.id,
+      { amount: data.amount, purpose: data.purpose, importBatchId: batchId, importRowNumber: rowNumber },
+    );
+    auditLog.id = `log-batch-${batchId}-${rowNumber}`;
+    transactions.push(transaction);
+    auditLogs.push(auditLog);
+  });
+
+  if (transactions.length === 0) return { transactions, failed };
+
+  if (db && IS_PRODUCTION) {
+    await flushPendingEntityWrites();
+    const operations = transactions.flatMap((transaction, index) => [
+      {
+        collectionName: ENTITY_COLLECTION_NAMES[KEYS.TRANSACTIONS],
+        id: transaction.id,
+        data: transaction as EntityRecord,
+      },
+      {
+        collectionName: ENTITY_COLLECTION_NAMES[KEYS.AUDIT_LOGS],
+        id: auditLogs[index].id,
+        data: auditLogs[index] as EntityRecord,
+      },
+    ]);
+    await commitFirestoreOperations(operations, (completed, total) => {
+      onProgress?.(Math.min(transactions.length, Math.floor(completed / 2)), Math.floor(total / 2));
+    });
+    localStorage.removeItem("quota_exceeded");
+  }
+
+  const transactionIds = new Set(transactions.map((transaction) => transaction.id));
+  const auditIds = new Set(auditLogs.map((entry) => entry.id));
+  const currentTransactions = load<Transaction[]>(KEYS.TRANSACTIONS, []);
+  const currentAuditLogs = load<AuditLog[]>(KEYS.AUDIT_LOGS, []);
+  save(
+    KEYS.TRANSACTIONS,
+    [...transactions, ...currentTransactions.filter((transaction) => !transactionIds.has(transaction.id))],
+    { skipRemote: true },
+  );
+  save(
+    KEYS.AUDIT_LOGS,
+    [...auditLogs, ...currentAuditLogs.filter((entry) => !auditIds.has(entry.id))]
+      .slice(0, LOCAL_AUDIT_LOG_LIMIT),
+    { skipRemote: true },
+  );
+  onProgress?.(transactions.length, transactions.length);
+  return { transactions, failed };
 }
 
 // Create reversal correction
@@ -1891,7 +2337,7 @@ export function createReversalTransaction(
   };
 
   allTxns.unshift(newTxn);
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [newTxn] });
 
   writeAuditLog(
     userId,
@@ -1919,7 +2365,7 @@ export function markTransactionCompleted(userId: string, transactionId: string):
 
   allTxns[index].status = 'completed';
   allTxns[index].updatedAt = new Date().toISOString();
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [allTxns[index]] });
 
   writeAuditLog(userId, allTxns[index].companyId, "MARK_COMPLETED", "transaction", transactionId, {});
   return {};
@@ -1939,7 +2385,7 @@ export function deleteTransaction(userId: string, transactionId: string): { erro
 
   allTxns.splice(index, 1);
   recordDeletions(KEYS.TRANSACTIONS, [transactionId]);
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { deleteIds: [transactionId] });
 
   const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
   const removedLedgerIds = ledgerEntries.filter(e => e.referenceNo === transactionId).map(e => e.id);
@@ -2129,7 +2575,7 @@ export function reviewTransaction(
   txn.status = reviewAction === "approved" ? "approved" : "rejected";
   txn.updatedAt = new Date().toISOString();
   allTxns[index] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   // Keep the source AP/AR record aligned with the approval result. A payment
   // or collection is only final after the generated cash transaction is
@@ -3194,7 +3640,7 @@ export function updateTransactionMetadata(
   }
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   writeAuditLog(
     userId,
@@ -3226,7 +3672,7 @@ export function attachTransactionReceipt(
   txn.receiptPath = receiptPath;
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   writeAuditLog(userId, txn.companyId, "ATTACH_RECEIPT", "transaction", txnId, {
     hasReceipt: true,
@@ -3257,7 +3703,7 @@ export function addTransactionAnnotation(
   txn.annotations.push(newAnnotation);
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   return { transaction: txn };
 }
@@ -3277,7 +3723,7 @@ export function removeTransactionAnnotation(
   txn.annotations = txn.annotations.filter(a => a.id !== annotationId);
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   return { transaction: txn };
 }
@@ -3331,7 +3777,7 @@ export function addTransactionNote(
   txn.notes.push(newNote);
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   return { transaction: txn };
 }
@@ -3356,7 +3802,7 @@ export function removeTransactionNote(
   txn.notes = txn.notes.filter(n => n.id !== noteId);
   txn.updatedAt = new Date().toISOString();
   allTxns[idx] = txn;
-  save(KEYS.TRANSACTIONS, allTxns);
+  save(KEYS.TRANSACTIONS, allTxns, { upserts: [txn] });
 
   return { transaction: txn };
 }
@@ -3874,8 +4320,10 @@ export function executeFundTransferToLedger(
       : category.name.toLowerCase().includes('sales'),
   );
 
+  const newTransactions: Transaction[] = [];
+
   // OUTFLOW
-  if (!postedOut) allTxns.push({
+  if (!postedOut) newTransactions.push({
     id: `txn-${transfer.id}-out`,
     companyId: transfer.fromCompanyId,
     cashAccountId: transfer.fromAccountId,
@@ -3895,7 +4343,7 @@ export function executeFundTransferToLedger(
   });
 
   // INFLOW
-  if (!postedIn) allTxns.push({
+  if (!postedIn) newTransactions.push({
     id: `txn-${transfer.id}-in`,
     companyId: transfer.toCompanyId,
     cashAccountId: transfer.toAccountId,
@@ -3914,8 +4362,9 @@ export function executeFundTransferToLedger(
     updatedAt: now
   });
 
-  if (!postedOut || !postedIn) {
-    save(KEYS.TRANSACTIONS, allTxns);
+  if (newTransactions.length > 0) {
+    allTxns.push(...newTransactions);
+    save(KEYS.TRANSACTIONS, allTxns, { upserts: newTransactions });
   }
 
   const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);
@@ -3987,7 +4436,7 @@ export function deleteFundTransfer(userId: string, companyId: string, transferId
   const remainingTxns = allTxns.filter(t => t.transferRef !== transferId);
   if (remainingTxns.length !== allTxns.length) {
     recordDeletions(KEYS.TRANSACTIONS, removedTxnIds);
-    save(KEYS.TRANSACTIONS, remainingTxns);
+    save(KEYS.TRANSACTIONS, remainingTxns, { deleteIds: removedTxnIds });
   }
 
   const ledgerEntries = load<CashLedgerEntry[]>(KEYS.CASH_LEDGER_ENTRIES, []);

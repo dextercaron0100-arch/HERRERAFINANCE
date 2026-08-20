@@ -16,7 +16,6 @@ import {
   BatchRowResult,
   ColumnMapping,
   EXPECTED_HEADERS,
-  IMPORT_CHUNK_SIZE,
   applyRowOverride,
   autoDetectMapping,
   downloadBatchTemplate,
@@ -30,7 +29,7 @@ import {
   getCategories,
   getProfiles,
   getTransactions,
-  insertTransaction,
+  insertTransactionsBatch,
 } from '../data/mockDatabase';
 import { CashAccount, CashflowType, Company } from '../types';
 
@@ -75,6 +74,7 @@ export default function BatchUploadModal({
   const [summary, setSummary] = useState<{ success: number; failed: number; skipped: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchIdRef = useRef('');
 
   const selectableCompanies = companies.filter((c) => c.id !== 'all' && canWriteFinance(userId, c.id));
   const selectableCompanyIds = selectableCompanies.map((company) => company.id).join('|');
@@ -130,6 +130,7 @@ export default function BatchUploadModal({
     setImporting(false);
     setProgress({ done: 0, total: 0 });
     setSummary(null);
+    batchIdRef.current = '';
     onClose();
   };
 
@@ -175,6 +176,7 @@ export default function BatchUploadModal({
 
       setParsedHeaders(headers);
       setParsedRows(rows);
+      batchIdRef.current = crypto.randomUUID();
 
       if (isLargeBatch(rows.length)) {
         toast.warning(`This file has ${rows.length} rows. Consider splitting large batches for easier review.`);
@@ -266,14 +268,14 @@ export default function BatchUploadModal({
     const profiles = getProfiles();
     const responsiblePerson = profiles.find((p) => p.id === userId)?.email || 'Batch Upload';
 
-    let success = 0;
-    let failed = 0;
-
-    for (let i = 0; i < includedRows.length; i += IMPORT_CHUNK_SIZE) {
-      const chunk = includedRows.slice(i, i + IMPORT_CHUNK_SIZE);
-      chunk.forEach((row) => {
-        try {
-          const { error } = insertTransaction(userId, {
+    try {
+      const batchId = batchIdRef.current || crypto.randomUUID();
+      batchIdRef.current = batchId;
+      const { transactions, failed: failedRows } = await insertTransactionsBatch(
+        userId,
+        includedRows.map((row) => ({
+          rowNumber: row.rowIndex,
+          data: {
             companyId: targetCompanyId,
             txnDate: row.txnDate as string,
             type: row.type!,
@@ -287,31 +289,33 @@ export default function BatchUploadModal({
             responsiblePerson,
             reversalOf: null,
             receiptPath: null,
-          });
-          if (error) failed++;
-          else success++;
-        } catch {
-          failed++;
-        }
-      });
-      setProgress({ done: Math.min(i + IMPORT_CHUNK_SIZE, includedRows.length), total: includedRows.length });
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+          },
+        })),
+        batchId,
+        (done, total) => setProgress({ done, total }),
+      );
 
-    setImporting(false);
-    setSummary({ success, failed, skipped: results.length - includedRows.length });
-    window.dispatchEvent(new Event('db-update'));
-    if (success > 0) {
-      toast.success(`${success} transactions sent to the Approval Queue.`, {
-        description:
-          failed > 0
-            ? `${failed} failed and ${results.length - includedRows.length} were skipped.`
-            : `${results.length - includedRows.length} rows were skipped.`,
+      const success = transactions.length;
+      const failed = failedRows.length;
+      setSummary({ success, failed, skipped: results.length - includedRows.length });
+      window.dispatchEvent(new Event('db-update'));
+      if (success > 0) {
+        toast.success(`${success} transactions saved to the Approval Queue.`, {
+          description:
+            failed > 0
+              ? `${failed} failed and ${results.length - includedRows.length} were skipped.`
+              : `${results.length - includedRows.length} rows were skipped. Cloud save confirmed.`,
+        });
+        onImported(targetCompanyId);
+      } else {
+        toast.error('No transactions were imported. Review the failed rows and try again.');
+      }
+    } catch (error: any) {
+      toast.error('Batch import was not confirmed', {
+        description: error?.message || 'Firestore rejected the batch. No success was reported.',
       });
-      onImported(targetCompanyId);
-    } else {
-      toast.error('No transactions were imported. Review the failed rows and try again.');
+    } finally {
+      setImporting(false);
     }
   };
 
